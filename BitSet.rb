@@ -1,24 +1,19 @@
-class BitSet
+class BitSet < Array
 
-  attr_reader :size, :bits, :trueCount
+  attr_reader :trueCount
 
   def initialize(size=128)
+    super(size, false)
     @trueCount = 0
-    @size = size
-    @bits = Array.new(size, false)
   end
 
   def clone
     return Marshal.load(Marshal.dump(self))
   end
 
-  def ==(o)
-    return @size == o.size && @bits == o.bits
-  end
-
   def to_s
     indexes = []
-    @bits.each_with_index do |t,i|
+    self.each_with_index do |t,i|
       indexes << i if t
     end
 
@@ -27,19 +22,19 @@ class BitSet
 
   def clear(i)
     @trueCount -= 1
-    @bits[i] = false
+    self[i] = false
   end 
   # Sets the bit specified by the index to false .
 
-  def get(i)
-    @bits[i]
-  end 
-  alias :[] :get
+#  def get(i)
+#    self[i]
+#  end 
+  alias :get :[]
   # Returns the value of the bit with the specified index. 
 
   def set(i)
     @trueCount += 1
-    @bits[i] = true
+    self[i] = true
   end 
   # Sets the bit specified by the index to true .
 
