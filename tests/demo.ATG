@@ -1,0 +1,32 @@
+$0123456789
+COMPILER Demo
+  IMPORT MyMod;
+
+CHARACTERS
+  letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrtsuvwxyz".
+  digit = "0123456789".
+  EOL = CHR(13).
+
+TOKENS
+  ident = letter {letter | digit}.
+  number = digit {digit}.
+
+COMMENTS FROM "(*" TO "*)" NESTED
+IGNORE  EOL
+
+PRODUCTIONS
+  Demo = Statement {";" Statement}.
+(*------------------------------------------------------------------------------------*)
+  Statement                        (. VAR x: ARRAY 32 OF CHAR; y: INTEGER; .)
+  = Ident <x> ":=" Number <y>      (. MyMod.Assign(x, y) .)
+  .
+(*------------------------------------------------------------------------------------*)
+  Ident < VAR x: ARRAY OF CHAR>
+  = ident                          (. DemoS.GetName(DemoS.pos, DemoS.len, x).)
+  .
+(*------------------------------------------------------------------------------------*)
+  Number < VAR n: INTEGER>         (. VAR s: ARRAY 32 OF CHAR; .)
+  = number                         (. DemoS.GetName(DemoS.pos, DemoS.len, s);
+                                      MyMod.Convert(s, n) .)
+  .
+END Demo.

@@ -50,7 +50,7 @@ class Sym
   def initialize # symbol
     @typ = @struct = @line = @struct = 0
     @deletable = @attrPos = @semPos = @line = nil
-    @name = @retType = @retVar = ""
+    @name = @retType = @retVar = nil	# strings
   end
 
   def ==(o)
@@ -86,7 +86,7 @@ class GraphNode
   def initialize
     @typ = @next = @p1 = @p2 = @line = 0
     @pos = nil
-    @retVar = ""
+    @retVar = nil			# string
     @state = nil
   end
 

@@ -177,7 +177,7 @@ Coco                            (. gramLine = sp = eofSy = 0
 				       end
                                    end
 				.)
-  "END" ident                   (. if (!gramName == @token.val) then
+  "END" ident                   (. if (gramName != @token.val) then
 					 SemErr(17)
 				   end
                                    if (Scanner.err.count == 0) then

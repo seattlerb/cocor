@@ -18,7 +18,7 @@ coco:
 	rm -rf build[1-9]
 	mv build/build2 .
 	mv build2/build3 .
-	wc -l build*/output
+	diff build/listing build2/listing
 
 build:
 	mkdir build

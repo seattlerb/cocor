@@ -2,11 +2,11 @@ require 'Scanner'
 require "module-hack"
 
 class StateSet		# set of target states returned by GetTargetStates
-  attr_accessor :set, :endOf, :ctx, :correct
-  # BitSet set		# all target states of an action
-  # int endOf		# token that is recognized after this action
-  # boolean ctx	# true if target states are reached via context transition
-  # boolean correct	# true if no error occured in GetTargetStates
+
+  attr_accessor :set		# all target states of an action
+  attr_accessor :endOf		# token that is recognized after this action
+  attr_accessor :ctx		# true if target states are reached via context transition
+  attr_accessor :correct	# true if no error occured in GetTargetStates
 
   def initialize
     @set = nil
@@ -27,8 +27,12 @@ end
 class State				# state of finite automaton
   @@lastNr = 0
 
-  cls_attr_accessor :lastNr
-  attr_accessor :nr, :firstAction, :endOf, :ctx, :next
+  cls_attr_accessor :lastNr		# highest state number
+  attr_accessor :nr			# state number
+  attr_accessor :firstAction		# to first action of this state
+  attr_accessor :endOf			# nr. of recognized token if state is final
+  attr_accessor :ctx			# true if state is reached via contextTrans
+  attr_accessor :next
 
   def initialize
     @@lastNr += 1
@@ -334,7 +338,7 @@ class Comment				# info about comment syntax
   attr_accessor :stop
   attr_accessor :nested
   attr_accessor :next
-#  cls_attr_accessor :first
+#  cls_attr_accessor :first # HACK
 
   def initialize(from, to, nested)
     @start = self.class.Str(from)
