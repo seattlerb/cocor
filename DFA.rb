@@ -33,6 +33,10 @@ class State						# state of finite automaton
     @state = nil
   end
   
+  def to_s
+    return "#<State@#{"%x" % self.id}: lastNr=#{@@lastNr}, nr=#{@nr}, endOf=#{@endOf}, ctx=#{@ctx}, firstAction=#{@firstAction}, next=#{@next}>"
+  end
+
   def AddAction(act)
     lasta = nil
     a = @firstAction
