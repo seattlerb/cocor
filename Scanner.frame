@@ -6,16 +6,17 @@ end
 
 class Buffer
 
-  @@buf = ""			# FIX: make these instance variables and clean this crap up
+  # TODO: switch these to instance variables and clean this shit up
+  @@buf = ""
   @@bufLen = 0
   @@pos = 0
   
-  def Buffer.Fill(name)
+  def self.Fill(name)
     @@buf = File.new(name).readlines
     @@bufLen = @@buf.size
   end
   
-  def Buffer.Set(position)
+  def self.Set(position)
     if (position < 0) then
       position = 0
     elsif (position >= @@bufLen) then
@@ -24,12 +25,12 @@ class Buffer
     @@pos = position
   end
   
-  def Buffer.read
+  def self.read
     if (@@pos < @@bufLen) then
-      return buf[@@pos]
+      return @@buf[@@pos]
       @@pos += 1
     else
-      return 65535
+      return 65535				# FIX!!!
     end
   end
 end
@@ -42,16 +43,18 @@ class Scanner
   EOL = '\r'
 -->declarations
 
-  # HACK private static Token t			# current token
-  # HACK private static char ch			# current input character
-  # HACK private static int pos			# position of current character
-  # HACK private static int line		# line number of current character
-  # HACK private static int lineStart	# start position of current line
-  # HACK private static int oldEols		# >0: no. of EOL in a comment
-  # HACK private static BitSet ignore	# set of characters to be ignored by the scanner
+  # TODO: make fucking sure these become instance vars
+  private
+  @@t=Token.new			# current token
+  @@ch=nil			# current input character
+  @@pos=0			# position of current character
+  @@line=0			# line number of current character
+  @@lineStart=0			# start position of current line
+  @@oldEols=0			# >0: no. of EOL in a comment
+  @@ignore=BitSet.new(128)	# set of characters to be ignored by the scanner
 
   def Scanner.Init(file, e=ErrorStream.new)
-    ignore = BitSet.new(128)
+    @@ignore = BitSet.new(128)
 -->initialization
     @@err = e
     Buffer.Fill(file)
@@ -59,7 +62,7 @@ class Scanner
     @@line = 1
     @@lineStart = 0
     @@oldEols = 0
-    NextCh
+    self.NextCh
   end
 	
   def Scanner.NextCh

@@ -833,7 +833,7 @@ class DFA {
 		gen.print("\t\t");
 		max = Tab.ignored.size();
 		for (i=0; i<=max; i++)
-			if (Tab.ignored.get(i)) gen.print("ignore.set(" + i + "); ");
+			if (Tab.ignored.get(i)) gen.println("@@ignore.set(" + i + ")");
 		CopyFramePart("-->comment");
 		com = Comment.first; i = 0;
 		while (com != null) {

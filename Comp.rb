@@ -12,8 +12,13 @@
 #     $ {digit}
 #in the attributed grammar.
 
-require 'Scanner'
+require 'DFA'
 require 'ErrorStream'
+require 'Parser'
+require 'ParserGen'
+require 'Scanner'
+require 'Tab'
+require 'Trace'
 
 class Errors < ErrorStream
     
