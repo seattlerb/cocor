@@ -74,6 +74,7 @@ class ParserGen
 	  # stop[0..i-1] found; continue with last read character
 	  @@gen.print(stop[0..i])
 	elsif (ch==CR) then
+	  @@gen.println()
 	  ch = (@@fram.read(1))[0]
 	elsif (ch==LF) then
 	  @@gen.println()
