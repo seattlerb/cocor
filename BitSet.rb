@@ -22,8 +22,10 @@ class BitSet
   end 
   # Sets the bit specified by the index to true .
 
-  def and(set) 
-    raise "something"
+  def and(s) 
+    s.size.times do |i|
+      self.clear(i) unless s[i] && self[i]
+    end
   end
   # Performs a logical AND of this target bit set with the argument bit set. 
 
