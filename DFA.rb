@@ -1,25 +1,6 @@
 require 'Scanner'
 require "module-hack"
 
-############################################################
-# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK 
-############################################################
-
-class Fixnum
-  def n
-    $stderr.puts "WARNING: Fixnum#n called from " + caller[0]
-    self
-  end
-  def nil?
-    $stderr.puts "WARNING: Fixnum#nil? called from " + caller[0]
-    return self == 0
-  end
-end
-
-############################################################
-# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK 
-############################################################
-
 class StateSet		# set of target states returned by GetTargetStates
 
   attr_accessor :set		# all target states of an action

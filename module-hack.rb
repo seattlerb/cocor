@@ -1,3 +1,8 @@
+
+############################################################
+# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK 
+############################################################
+
 class Module
   private
   def cls_attr_accessor (*attrs)
@@ -19,3 +24,15 @@ class Module
     }
   end
 end 
+
+class Fixnum
+  def n
+    $stderr.puts "WARNING: Fixnum#n called from " + caller[0]
+    self
+  end
+  def nil?
+    $stderr.puts "WARNING: Fixnum#nil? called from " + caller[0]
+    return self == 0
+  end
+end
+
