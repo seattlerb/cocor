@@ -653,8 +653,6 @@ class Tab
   # TODO: get rid of these
   cls_attr_accessor :ignored, :semDeclPos, :gramSy, :ddt, :set
 
-  move_class_methods Node, :nTyp, :PrintGraph
-
   def initialize
     raise "Not implemented yet"
   end

@@ -98,9 +98,10 @@ class ParserGen
       ch = Buffer.read()
       nChars = pos.len - 1
       Indent(indent)
-      catch :loop do
-        while (nChars >= 0) do
-	  while (ch==CR) do
+      # catch :loop do
+      is_done = false
+        while (nChars >= 0 && !is_done) do
+	  while (ch==CR && !is_done) do
 	    @@gen.println()
 	    Indent(indent)
 	    ch = Buffer.read()
@@ -121,13 +122,16 @@ class ParserGen
 	    # heading TABs => not enough blanks
 	    pos.col = i - 1 if (i <= pos.col)
 
-	    throw :loop if (nChars < 0) # jumps to end of catch
+	    # throw :loop if (nChars < 0) # jumps to end of catch
+	    is_done = true if (nChars < 0) # jumps to end of catch
 	  end # inner while
-	  @@gen.print(ch.chr)
-	  ch = Buffer.read()
-	  nChars -= 1
+	  unless is_done then
+	    @@gen.print(ch.chr)
+	    ch = Buffer.read()
+	    nChars -= 1
+	  end
 	end # outer while
-      end # catch
+#      end # catch
       @@gen.println if (indent > 0)
     end
   end

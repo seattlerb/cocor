@@ -63,7 +63,7 @@ class Buffer
       c = @@buf[@@pos]
       @@pos += 1
     else
-      c = 65535				# FIX!!!
+      c = Scanner::MAXCHR
     end
     return c
   end

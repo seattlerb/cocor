@@ -27,6 +27,12 @@ rollback:
 	mv Scanner.rb.prev Scanner.rb
 	mv ErrorStream.rb.prev ErrorStream.rb
 
+profile:
+	ruby -w -rprofile Comp.rb build/Coco.ATG
+
+occur:
+	$(MAKE) 2>&1 | occur
+
 clean:
 	rm -rf build build2 *.prev *~
 
