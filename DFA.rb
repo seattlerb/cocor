@@ -9,9 +9,10 @@ class StateSet		# set of target states returned by GetTargetStates
   attr_accessor :correct	# true if no error occured in GetTargetStates
 
   def initialize
-    @set = nil
-    @endOf = 0
-    @ctx = @correct = false
+    @set = BitSet.new
+    @endOf = Sym::NoSym
+    @ctx = false
+    @correct = true
   end
 
   def ==(o)
@@ -216,10 +217,6 @@ class Action			# action of finite automaton
   def GetTargetStates # compute the set of target states
     stateNr=0
     states = StateSet.new
-    states.set = BitSet.new		# FIX: violation of encapsulation
-    states.endOf = Sym::NoSym
-    states.ctx = false
-    states.correct = true
 
     t=@target
 

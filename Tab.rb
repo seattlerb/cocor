@@ -292,7 +292,6 @@ class Node
 
   def self.EraseNodes
     @@nodes = Array.new(0, :Node)		# grammar graph
-    # @@nodes.pop
   end
 
   def self.DelGraph(p)
@@ -368,7 +367,6 @@ class Graph
     g.l = Node.new(Node::Alt, g.l)
     g.l.nxt = g.r
     g.r = g.l
-    return g
   end
 
   def self.Alternative(g1, g2)
@@ -383,25 +381,22 @@ class Graph
       p = p.nxt
     end
     p.nxt = g2.r
-    return g1
   end
 
   def self.Sequence(g1, g2)
-    q = nil
     p = g1.r.nxt
-    g1.r.nxt = g2.l # head node
-    until (p.nil?) do # substructure
+    g1.r.nxt = g2.l		# link head node
+    until (p.nil?) do		# link substructure
       q = p.nxt
       p.nxt = g2.l
       p.up = true
       p = q
     end
     g1.r = g2.r
-    return g1
   end
 
   def self.Iteration(g)
-    g.l = Node.new(Node::Iter, g.l, 0)
+    g.l = Node.new(Node::Iter, g.l)
     p = g.r
     g.r = g.l
     until (p.nil?) do
@@ -410,17 +405,16 @@ class Graph
       p.up = true
       p = q
     end
-    return g
   end
 
   def self.Option(g)
-    g.l = Node.new(Node::Opt, g.l, 0)
+    g.l = Node.new(Node::Opt, g.l)
     g.l.nxt = g.r
     g.r = g.l
-    return g
   end
 
-  def self.CompleteGraph(p)
+  def self.Finish(g)
+    p = g.r
     until (p.nil?) do
       q = p.nxt
       p.nxt = nil
@@ -428,20 +422,41 @@ class Graph
     end
   end
 
+  def self.SetContextTrans(p) # set transition code to contextTrans
+    # TODO: DFA.hasContextMoves = true
+    until (p.nil?) do
+      # TODO: make a case statement or refactor better
+      if (p.typ==Node::Chr || p.typ==Node::Clas) then
+	p.code = Node::ContextTrans
+      elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
+	self.SetContextTrans(p.sub)
+      elsif (p.typ==Node::Alt) then
+	self.SetContextTrans(p.sub)
+	self.SetContextTrans(p.down)
+      end
+      break if p.up
+      p = p.nxt
+    end
+  end
+
+  # TODO: def self.DeleteNodes (see Node.EraseNodes)
+
   # ---------------------------------------------------------------------
   #   topdown graph management
   # ---------------------------------------------------------------------
 
   def self.StrToGraph(s)
+    # TODO: s = DFA.Unescape(s[1..-2])
+
+    temp = Node.new(Node::Eps, nil)
+
     g = Graph.new
-    temp = Node.new(Node::Eps, nil, 0)
     g.r = temp
 
-    raise "g.r is messed up" if g.r.nil?
     raise "s is messed up" if s.length <= 2
 
     s[1..-2].each_byte do | c |
-      p = Node.new(Node::Chr, c, 0)
+      p = Node.new(Node::Chr, c)
       g.r.nxt = p
       g.r = p
     end
@@ -597,8 +612,6 @@ class Tab
 
     @@set[0] = BitSet.new()
     @@set[0].set(Tab::EofSy.n)
-
-    Node.EraseNodes # TODO: remove me... stupid bastards
   end
 
   class << self

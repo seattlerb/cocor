@@ -21,22 +21,6 @@ class Parser
 		Scanner.err.SemErr(n, @t.line, @t.col)
 	end
 	
-	private; def Parser.SetCtx(p) # set transition code to contextTrans
-		until (p.nil?)
-			# TODO: make a case statement or refactor better
-			if (p.typ==Node::Chr || p.typ==Node::Clas) then
-				p.code = Node::ContextTrans
-			elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
-				SetCtx(p.sub)
-			elsif (p.typ==Node::Alt) then
-				SetCtx(p.sub)
-				SetCtx(p.down)
-			end
-			break if p.up
-			p = p.nxt
-		end
-	end
-	
 	private; def Parser.SetDDT(s)
 		for i in 1..(s.length-1)
 		  ch = s[i]
@@ -173,12 +157,12 @@ class Parser
 			Get()
 			g = self.TokenExpr()
 			Expect(32)
-			g = Graph.Option(g) 
+			Graph.Option(g) 
 		elsif (@t.kind==33) then
 			Get()
 			g = self.TokenExpr()
 			Expect(34)
-			g = Graph.Iteration(g) 
+			Graph.Iteration(g) 
 		else Error(40)
 end
 		return g
@@ -189,14 +173,14 @@ end
 		g = self.TokenFactor()
 		while (StartOf(2))
 			g2 = self.TokenFactor()
-			g = Graph.Sequence(g, g2) 
+			Graph.Sequence(g, g2) 
 		end
 		if (@t.kind==36) then
 			Get()
 			Expect(22)
 			g2 = self.TokenExpr()
-			SetCtx(g2.l)
-				   g = Graph.Sequence(g, g2)
+			Graph.SetContextTrans(g2.l)
+				   Graph.Sequence(g, g2)
 				 
 			Expect(23)
 		end
@@ -310,13 +294,13 @@ end
 			Get()
 			g = self.Expression()
 			Expect(32)
-			g = Graph.Option(g) 
+			Graph.Option(g) 
 		when 33 then
 
 			Get()
 			g = self.Expression()
 			Expect(34)
-			g = Graph.Iteration(g) 
+			Graph.Iteration(g) 
 		when 37 then
 
 			pos = self.SemText()
@@ -352,7 +336,7 @@ end
 			g = self.Factor()
 			while (StartOf(5))
 				g2 = self.Factor()
-				g = Graph.Sequence(g, g2) 
+				Graph.Sequence(g, g2) 
 			end
 		elsif (StartOf(6)) then
 			g = Graph.new()
@@ -446,10 +430,10 @@ end
 		while (WeakSeparator(29,2,7) )
 			g2 = self.TokenTerm()
 			if (first) then
-				     g = Graph.FirstAlt(g)
+				     Graph.FirstAlt(g)
 				     first = false
 				   end
-                                   g = Graph.Alternative(g, g2)
+                                   Graph.Alternative(g, g2)
 				 
 		end
 		return g
@@ -476,7 +460,7 @@ end
 			if (kind != @@ident) then
 				     SemErr(13)
 				   end
-                                   Graph.CompleteGraph(g.r)
+                                   Graph.Finish(g)
                                    DFA.ConvertToStates(g.l, sp)
 				 
 		elsif (StartOf(9)) then
@@ -523,10 +507,10 @@ end
 		while (WeakSeparator(29,10,11) )
 			g2 = self.Term()
 			if (first) then
-				     g = Graph.FirstAlt(g)
+				     Graph.FirstAlt(g)
 				     first = false
 				   end
-                                   g = Graph.Alternative(g, g2)
+                                   Graph.Alternative(g, g2)
 				 
 		end
 		return g
@@ -699,7 +683,7 @@ end
 			ExpectWeak(8, 17)
 			g = self.Expression()
 			sym.graph = g.l
-                                   Graph.CompleteGraph(g.r)
+                                   Graph.Finish(g)
 				
 			ExpectWeak(9, 18)
 		end
