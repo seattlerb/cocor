@@ -37,11 +37,11 @@ class Parser
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		while (p > 0)
 			n = GraphNode.Node(p)
-			if (n.typ==Tab::Chr || n.typ==Tab::Clas) then
+			if (n.typ==GraphNode::Chr || n.typ==GraphNode::Clas) then
 				n.p2 = Tab::ContextTrans
-			elsif (n.typ==Tab::Opt || n.typ==Tab::Iter) then
+			elsif (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
 				SetCtx(n.p1)
-			elsif (n.typ==Tab::Alt) then
+			elsif (n.typ==GraphNode::Alt) then
 				SetCtx(n.p1)
 				SetCtx(n.p2)
 			end
@@ -153,10 +153,7 @@ class Parser
 		end
 		Expect(31)
 		if (@token.pos > beg) then
-                                     n.pos = Position.new()
-                                     n.pos.beg = beg
-				     n.pos.col = col
-                                     n.pos.len = @token.pos - beg
+                                     n.pos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 
 	end
@@ -171,10 +168,7 @@ class Parser
 		end
 		Expect(29)
 		if (@token.pos > beg) then
-                                     n.pos = Position.new()
-                                     n.pos.beg = beg
-				     n.pos.col = col
-                                     n.pos.len = @token.pos - beg
+                                     n.pos = Position.new(beg, @token.pos - beg, col)
                                    end
 				
 	end
@@ -192,7 +186,7 @@ class Parser
                                        SemErr(15)
                                        c = CharClass.NewClass(s.name, BitSet.new())
                                      end
-                                     g.l = GraphNode.NewNode(Tab::Clas, c, 0)
+                                     g.l = GraphNode.NewNode(GraphNode::Clas, c, 0)
                                      g.r = g.l
                                    else # string
 				     g = Graph.StrToGraph(s.name)
@@ -304,9 +298,9 @@ end
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
-                                           sp = Sym.NewSym(Tab::Nt, s.name, 0) # forward nt
+                                           sp = Sym.NewSym(GraphNode::Nt, s.name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Sym.NewSym(Tab::T, s.name, @token.line)
+                                           sp = Sym.NewSym(GraphNode::T, s.name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
@@ -315,12 +309,12 @@ end
                                    end
                                    sym = Sym.Sym(sp)
 				   typ = sym.typ
-                                   if (typ!=Tab::T && typ!=Tab::Nt) then
+                                   if (typ!=GraphNode::T && typ!=GraphNode::Nt) then
 				     SemErr(4)
 				   end
                                    if (weak) then
-                                       if (sym.typ==Tab::T) then
-				         typ = Tab::Wt
+                                       if (sym.typ==GraphNode::T) then
+				         typ = GraphNode::Wt
 				       else
 				         SemErr(23)
 				       end
@@ -368,7 +362,7 @@ end
 		when 38 then
 
 			pos = self.SemText()
-			g.l = GraphNode.NewNode(Tab::Sem, 0, 0)
+			g.l = GraphNode.NewNode(GraphNode::Sem, 0, 0)
                                    g.r = g.l
                                    n = GraphNode.Node(g.l)
 				   n.pos = pos
@@ -378,13 +372,13 @@ end
 			Get()
 			set = Sets.FullSet(Tab::MaxTerminals)
                                    set.clear(Tab::EofSy)
-                                   g.l = GraphNode.NewNode(Tab::Any, Tab.NewSet(set), 0)
+                                   g.l = GraphNode.NewNode(GraphNode::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 
 		when 36 then
 
 			Get()
-			g.l = GraphNode.NewNode(Tab::Sync, 0, 0)
+			g.l = GraphNode.NewNode(GraphNode::Sync, 0, 0)
                                    g.r = g.l
 				 
 		else
@@ -404,7 +398,7 @@ end
 			end
 		elsif (StartOf(8)) then
 			g = Graph.new()
-                                   g.l = GraphNode.NewNode(Tab::Eps, 0, 0)
+                                   g.l = GraphNode.NewNode(GraphNode::Eps, 0, 0)
                                    g.r = g.l
 				 
 		else Error(48)
@@ -413,16 +407,13 @@ end
 	end
 
 	private; def self.Symbol()
-		s = SymInfo.new() 
 		if (@t.kind==1) then
 			Get()
-			s.kind = @@ident
-				   s.name = @token.val
+			s = SymInfo.new(@token.val, @@ident)
 				 
 		elsif (@t.kind==2) then
 			Get()
-			s.kind = @@string
-				   s.name = FixString(@token.val)
+			s = SymInfo.new(FixString(@token.val), @@string)
 				 
 		else Error(49)
 end
@@ -538,7 +529,7 @@ end
 end
 		if (@t.kind==38) then
 			pos = self.SemText()
-			if (typ==Tab::T) then
+			if (typ==GraphNode::T) then
 				     SemErr(14)
 				   end
                                    Sym.Sym(sp).semPos = pos
@@ -584,9 +575,8 @@ end
 
 	private; def self.SemText()
 		Expect(38)
-		pos = Position.new()
-                                   pos.beg = @t.pos
-				   pos.col = @t.col
+		beg = @t.pos
+				   col = @t.col
 				 
 		while (StartOf(14))
 			if (StartOf(15)) then
@@ -600,7 +590,8 @@ end
 			end
 		end
 		Expect(39)
-		pos.len = @token.pos - pos.beg 
+		pos = Position.new(beg, @token.pos - beg, col)
+  				 
 		return pos
 	end
 
@@ -646,10 +637,7 @@ end
 			end
 			Expect(29)
 			if (@token.pos > beg) then
-                                     sym.attrPos = Position.new
-                                     sym.attrPos.beg = beg
-				     sym.attrPos.col = col
-                                     sym.attrPos.len = @token.pos - beg
+                                     sym.attrPos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 
 		elsif (@t.kind==30) then
@@ -690,10 +678,7 @@ end
 			end
 			Expect(31)
 			if (@token.pos > beg) then
-                                       sym.attrPos = Position.new()
-                                       sym.attrPos.beg = beg
-				       sym.attrPos.col = col
-                                       sym.attrPos.len = @token.pos - beg
+                                     sym.attrPos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 
 		else Error(53)
@@ -712,12 +697,12 @@ end
 		elsif (@t.kind==11) then
 			Get()
 			while (@t.kind==1 || @t.kind==2)
-				self.TokenDecl(Tab::T)
+				self.TokenDecl(GraphNode::T)
 			end
 		elsif (@t.kind==12) then
 			Get()
 			while (@t.kind==1 || @t.kind==2)
-				self.TokenDecl(Tab::Pr)
+				self.TokenDecl(GraphNode::Pr)
 			end
 		elsif (@t.kind==13) then
 			Get()
@@ -749,21 +734,19 @@ end
 				
 		Expect(5)
 		gramLine = @token.line
-                                   eofSy = Sym.NewSym(Tab::T, "EOF", 0)
+                                   eofSy = Sym.NewSym(GraphNode::T, "EOF", 0)
                                    @@genScanner = true
                                    ok = true
                                    Tab.ignored = BitSet.new()
 				
 		Expect(1)
 		gramName = @token.val
-                                   Tab.semDeclPos = Position.new()
-                                   Tab.semDeclPos.beg = @t.pos
+                                   beg = @t.pos
 				
 		while (StartOf(17))
 			Get()
 		end
-		Tab.semDeclPos.len = @t.pos - Tab.semDeclPos.beg
-                                   Tab.semDeclPos.col = 0
+		Tab.semDeclPos = Position.new(beg, @t.pos-beg, 0)
 				
 		while (StartOf(18))
 			self.Declaration()
@@ -781,11 +764,11 @@ end
 			sp = Sym.FindSym(@token.val)
                                    undefined = sp == Tab::NoSym
                                    if (undefined) then
-                                       sp = Sym.NewSym(Tab::Nt, @token.val, @token.line)
+                                       sp = Sym.NewSym(GraphNode::Nt, @token.val, @token.line)
                                        sym = Sym.Sym(sp)
                                    else 
                                        sym = Sym.Sym(sp)
-                                       if (sym.typ==Tab::Nt) then
+                                       if (sym.typ==GraphNode::Nt) then
                                            if (sym.struct > 0) then
 						SemErr(7)
 					   end

@@ -94,9 +94,9 @@ class State				# state of finite automaton
     s=nil
     a=@firstAction
     while (a!=nil) do
-      if (a.typ==Tab::Chr && ch==a.sym) then
+      if (a.typ==GraphNode::Chr && ch==a.sym) then
 	return a
-      elsif (a.typ==Tab::Clas) then
+      elsif (a.typ==GraphNode::Clas) then
 	s = CharClass.Class(a.sym)
 	return a if s.get(ch)
       end
@@ -180,7 +180,7 @@ class Action			# action of finite automaton
   def Symbols()
     s = nil
 
-    if (@typ==Tab::Clas) then
+    if (@typ==GraphNode::Clas) then
       s = CharClass.Class(@sym).clone()
     else
       s = BitSet.new()
@@ -194,7 +194,7 @@ class Action			# action of finite automaton
     i = 0
 
     if (Sets.Size(s)==1) then
-      @typ = Tab::Chr
+      @typ = GraphNode::Chr
       @sym = Sets.First(s)
     else
 
@@ -208,7 +208,7 @@ class Action			# action of finite automaton
       if (i < 0) then # class with dummy name
 	i = CharClass.NewClass("#", s)
       end
-      @typ = Tab::Clas
+      @typ = GraphNode::Clas
       @sym = i
     end
   end
@@ -334,11 +334,12 @@ end
 class Comment				# info about comment syntax
   @@first = nil
 
+  cls_attr_accessor :first
+
   attr_accessor :start
   attr_accessor :stop
   attr_accessor :nested
   attr_accessor :next
-#  cls_attr_accessor :first # HACK
 
   def initialize(from, to, nested)
     @start = self.class.Str(from)
@@ -346,14 +347,6 @@ class Comment				# info about comment syntax
     @nested = nested
     @next = @@first
     @@first = self
-  end
-
-  def self.first # HACK HACK HACK
-    raise "no"
-  end
-
-  def self.firstX # HACK HACK HACK
-    @@first
   end
 
   def ==(o)
@@ -369,9 +362,9 @@ class Comment				# info about comment syntax
     while (p != 0) do
       n = GraphNode.Node(p)
 
-      if (n.typ==Tab::Chr) then
+      if (n.typ==GraphNode::Chr) then
 	s << n.p1.chr
-      elsif (n.typ==Tab::Clas) then
+      elsif (n.typ==GraphNode::Clas) then
 	set = CharClass.Class(n.p1)
 	if (Sets.Size(set) != 1) then
 	  DFA.SemErr(26)
@@ -423,7 +416,6 @@ class DFA
     State.lastNr = -1
     @@firstState = NewState()
     Melted.first = nil
-    # HACK Comment.first = nil
     @@dirtyDFA = false
   end
 
@@ -622,12 +614,12 @@ class DFA
     n = GraphNode.Node(p)
 
     case (n.typ)
-    when Tab::Clas, Tab::Chr then
+    when GraphNode::Clas, GraphNode::Chr then
       NewTransition(from, TheState(n.next.abs), n.typ, n.p1, n.p2)
-    when Tab::Alt then
+    when GraphNode::Alt then
       Step(from, n.p1, stepped)
       Step(from, n.p2, stepped)
-    when Tab::Iter, Tab::Opt then
+    when GraphNode::Iter, GraphNode::Opt then
       nxt = n.next.abs
       if (!stepped.get(nxt)) then
 	Step(from, nxt, stepped)
@@ -658,15 +650,15 @@ class DFA
     end
 
     case (n.typ)
-    when Tab::Clas, Tab::Chr then
+    when GraphNode::Clas, GraphNode::Chr then
       NumberNodes(n.next.abs, nil)
-    when Tab::Opt then
+    when GraphNode::Opt then
       NumberNodes(n.next.abs, nil)
       NumberNodes(n.p1, state)
-    when Tab::Iter then
+    when GraphNode::Iter then
       NumberNodes(n.next.abs, state)
       NumberNodes(n.p1, state)
-    when Tab::Alt then
+    when GraphNode::Alt then
       NumberNodes(n.p1, state)
       NumberNodes(n.p2, state)
     end
@@ -682,15 +674,15 @@ class DFA
     end
 
     case (n.typ)
-    when Tab::Clas, Tab::Chr then
+    when GraphNode::Clas, GraphNode::Chr then
       FindTrans(n.next.abs, true, mark)
-    when Tab::Opt then
+    when GraphNode::Opt then
       FindTrans(n.next.abs, true, mark)
       FindTrans(n.p1, false, mark)
-    when Tab::Iter then
+    when GraphNode::Iter then
       FindTrans(n.next.abs, false, mark)
       FindTrans(n.p1, false, mark)
-    when Tab::Alt then
+    when GraphNode::Alt then
       FindTrans(n.p1, false, mark)
       FindTrans(n.p2, false, mark)
     end
@@ -722,7 +714,7 @@ class DFA
       a = state.TheAction(s[i])
       break if (a == nil)
 
-      if (a.typ == Tab::Clas) then
+      if (a.typ == GraphNode::Clas) then
 	weakMatch = true			# TODO: check and see if this should break
       end
       state = a.target.state
@@ -737,7 +729,7 @@ class DFA
 
     while (i<len) do # make new DFA for s[i..len-1]
       to = NewState()
-      NewTransition(state, to, Tab::Chr, s[i], Tab::NormTrans)
+      NewTransition(state, to, GraphNode::Chr, s[i], Tab::NormTrans)
       state = to
       i += 1
     end
@@ -788,8 +780,8 @@ class DFA
     result = false
     seta = setb = nil
 
-    if (a.typ==Tab::Chr) then
-      if (b.typ==Tab::Chr) then
+    if (a.typ==GraphNode::Chr) then
+      if (b.typ==GraphNode::Chr) then
 	result = a.sym==b.sym
       else
 	setb = CharClass.Class(b.sym)
@@ -797,7 +789,7 @@ class DFA
       end
     else
       seta = CharClass.Class(a.sym)
-      if (b.typ==Tab::Chr) then
+      if (b.typ==GraphNode::Chr) then
 	result = seta.get(b.sym)
       else
 	setb = CharClass.Class(b.sym)
@@ -932,7 +924,7 @@ class DFA
 	else
 	  Trace.print("          ")
 	end
-	if (action.typ==Tab::Clas) then
+	if (action.typ==GraphNode::Clas) then
 	  Trace.print(CharClass.ClassName(action.sym))
 	else
 	  Trace.print(Ch(action.sym))
@@ -1110,7 +1102,7 @@ class DFA
 	@@gen.print("\t\t\t\t\telsif (")
       end
 
-      if (action.typ==Tab::Chr)
+      if (action.typ==GraphNode::Chr)
 	@@gen.print(ChCond(action.sym)) # FIX: action.sym might be a char?
       else
 	PutRange(CharClass.Class(action.sym))
@@ -1128,7 +1120,6 @@ class DFA
       action = action.next
     end # while
 
-    # NO @@gen.println("\t\t\t\t\t\tbreak") if (action.next==nil)
     @@gen.println("\t\t\t\t\telse") unless state.firstAction.nil?
 
     if (endOf==Tab::NoSym) then
@@ -1145,11 +1136,10 @@ class DFA
 	@@gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length()")
 	@@gen.println("\t\t\t\t\t\twhile (apx > 0) do")
 	@@gen.println("\t\t\t\t\t\t\ti -= 1")
-	@@gen.println("\t\t\t\t\t\t\t@@ch = buf[i]") # FIX HACK
+	@@gen.println("\t\t\t\t\t\t\t@@ch = buf[i]")
 	@@gen.println("\t\t\t\t\t\t\tif (@@ch==EOL) then line -= 1; end")
 	@@gen.println("\t\t\t\t\t\t\tapx -= 1")
 	@@gen.println("\t\t\t\t\t\tend")
-	# HACK @@gen.println("\t\t\t\t\t\tbuf.setLength(i)")
 	@@gen.println("\t\t\t\t\t\tNextCh()")
 	@@gen.print(  "\t\t\t\t\t\t")
       end
@@ -1172,7 +1162,7 @@ class DFA
     action = @@firstState.firstAction
     until (action.nil?) do
       targetState = action.target.state.nr
-      if (action.typ==Tab::Chr) then
+      if (action.typ==GraphNode::Chr) then
 	startTab[action.sym] = targetState
       else
 	s = CharClass.Class(action.sym)
@@ -1209,7 +1199,7 @@ class DFA
     FillStartTab(startTab)
     @@gen.println("# This file is generated. DO NOT MODIFY!")
     @@gen.println()
-    @@gen.println("# HACK: package #{root.name};")
+    @@gen.println("# TODO namespace/module starts here: package #{root.name};")
     CopyFramePart("-->declarations")
     @@gen.println("\tprivate; @@noSym = #{Sym.maxT}; # FIX: make this a constant")
     @@gen.println("\tprivate; @@start = [")
@@ -1229,7 +1219,7 @@ class DFA
     end
 
     CopyFramePart("-->comment")
-    com = Comment.firstX # HACK
+    com = Comment.first
 
     i = 0
     until (com.nil?) do
@@ -1242,9 +1232,9 @@ class DFA
     GenLiterals()
     CopyFramePart("-->scan1")
 
-    unless (Comment.firstX.nil?) then # HACK
+    unless (Comment.first.nil?) then
       @@gen.print("\t\tif (")
-      com = Comment.firstX # HACK 
+      com = Comment.first
       i = 0
       until (com.nil?) do
 	@@gen.print(ChCond(com.start[0]))

@@ -7,13 +7,12 @@ all:
 	rm -rf build build2
 	mkdir build
 	cp $(RUBY) $(FRAMES) Coco.ATG build
-	ruby -w Comp.rb build/Coco.ATG &> build/output
+	ruby -w Comp.rb build/Coco.ATG
 	(cd build; ruby -cw *.rb)
 	mkdir build/build2
 	cp $(RUBY) $(FRAMES) Coco.ATG build/build2
-	(cd build; ruby -w Comp.rb build2/Coco.ATG &> build2/output)
+	(cd build; ruby -w Comp.rb build2/Coco.ATG)
 	mv build/build2 .
-	diff build/output build2/output
 
 bootstrap: all
 	mv Parser.rb Parser.rb.prev

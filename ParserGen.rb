@@ -204,7 +204,7 @@ class ParserGen
     while (p > 0) do
       n = GraphNode.Node(p);
       case (n.typ)
-      when Tab::Nt then
+      when GraphNode::Nt then
 	Indent(indent);
 	sym = Sym.Sym(n.p1);
 	if (n.retVar != nil && n.retVar != "") then
@@ -213,33 +213,33 @@ class ParserGen
 	@@gen.print("self.#{sym.name}(");
 	CopySourcePart(n.pos, 0);
 	@@gen.println(")");
-      when Tab::T then
+      when GraphNode::T then
 	Indent(indent);
 	if (checked.get(n.p1)) then
 	  @@gen.println("Get()");
 	else
 	  @@gen.println("Expect(" + n.p1.to_s + ")");
 	end
-      when Tab::Wt then
+      when GraphNode::Wt then
 	Indent(indent);
 	s1 = Tab.Expected(n.next.abs, @@curSy);
 	s1.or(Tab.Set(0));
 	@@gen.println("ExpectWeak(" + n.p1.to_s + ", " + NewCondSet(s1).to_s + ")");
-      when Tab::Any then
+      when GraphNode::Any then
 	Indent(indent);
 	@@gen.println("Get()");
-      when Tab::Eps then
+      when GraphNode::Eps then
 	# nothing
-      when Tab::Sem then
+      when GraphNode::Sem then
 	CopySourcePart(n.pos, indent);
-      when Tab::Sync then
+      when GraphNode::Sync then
 	Indent(indent);
 	GenErrorMsg(SyncErr, @@curSy);
 	s1 = Tab.Set(n.p1).clone();
 	@@gen.print("while (!(");
 	GenCond(s1);
 	@@gen.println(")); Error(" + @@errorNr.to_s + "); Get(); end");
-      when Tab::Alt then
+      when GraphNode::Alt then
 	s1 = Tab.First(p);
 	equal = s1 == checked;
 	alts = Alternatives(p);
@@ -290,11 +290,11 @@ class ParserGen
 	    @@gen.println("end");
 	  end
 	end
-      when Tab::Iter then
+      when GraphNode::Iter then
 	Indent(indent);
 	n2 = GraphNode.Node(n.p1);
 	@@gen.print("while (");
-	if (n2.typ==Tab::Wt) 
+	if (n2.typ==GraphNode::Wt) 
 	  s1 = Tab.Expected(n2.next.abs, @@curSy);
 	  s2 = Tab.Expected(n.next.abs, @@curSy);
 	  @@gen.print("WeakSeparator(" + n2.p1.to_s + "," + NewCondSet(s1).to_s + "," + NewCondSet(s2).to_s + ") ");
@@ -313,7 +313,7 @@ class ParserGen
 	GenCode(p2, indent + 1, s1);
 	Indent(indent);
 	@@gen.println("end");
-      when Tab::Opt then
+      when GraphNode::Opt then
 	s1 = Tab.First(n.p1);
 	if (checked != s1) then
 	  Indent(indent);
@@ -328,7 +328,7 @@ class ParserGen
 	end
       end
 
-      if (n.typ!=Tab::Eps && n.typ!=Tab::Sem && n.typ!=Tab::Sync) then
+      if (n.typ!=GraphNode::Eps && n.typ!=GraphNode::Sem && n.typ!=GraphNode::Sync) then
 	checked = BitSet.new;
       end
 

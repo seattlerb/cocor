@@ -12,7 +12,7 @@
 #     $ {digit}
 #in the attributed grammar.
 
-$COCO_VERSION = "1.0.0"
+$COCO_VERSION = "1.0.1"
 
 require 'DFA'
 require 'ErrorStream'

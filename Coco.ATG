@@ -27,11 +27,11 @@ COMPILER Coco
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		while (p > 0)
 			n = GraphNode.Node(p)
-			if (n.typ==Tab::Chr || n.typ==Tab::Clas) then
+			if (n.typ==GraphNode::Chr || n.typ==GraphNode::Clas) then
 				n.p2 = Tab::ContextTrans
-			elsif (n.typ==Tab::Opt || n.typ==Tab::Iter) then
+			elsif (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
 				SetCtx(n.p1)
-			elsif (n.typ==Tab::Alt) then
+			elsif (n.typ==GraphNode::Alt) then
 				SetCtx(n.p1)
 				SetCtx(n.p2)
 			end
@@ -108,17 +108,15 @@ Coco                            (. gramLine = sp = eofSy = 0
 				.)
 =
   "COMPILER"                    (. gramLine = @token.line
-                                   eofSy = Sym.NewSym(Tab::T, "EOF", 0)
+                                   eofSy = Sym.NewSym(GraphNode::T, "EOF", 0)
                                    @@genScanner = true
                                    ok = true
                                    Tab.ignored = BitSet.new()
 				.) 
   ident                         (. gramName = @token.val
-                                   Tab.semDeclPos = Position.new()
-                                   Tab.semDeclPos.beg = @t.pos
+                                   beg = @t.pos
 				.)
-  {ANY}                         (. Tab.semDeclPos.len = @t.pos - Tab.semDeclPos.beg
-                                   Tab.semDeclPos.col = 0
+  {ANY}                         (. Tab.semDeclPos = Position.new(beg, @t.pos-beg, 0)
 				.)
   { Declaration }
                                 SYNC 
@@ -131,11 +129,11 @@ Coco                            (. gramLine = sp = eofSy = 0
   { ident                       (. sp = Sym.FindSym(@token.val)
                                    undefined = sp == Tab::NoSym
                                    if (undefined) then
-                                       sp = Sym.NewSym(Tab::Nt, @token.val, @token.line)
+                                       sp = Sym.NewSym(GraphNode::Nt, @token.val, @token.line)
                                        sym = Sym.Sym(sp)
                                    else 
                                        sym = Sym.Sym(sp)
-                                       if (sym.typ==Tab::Nt) then
+                                       if (sym.typ==GraphNode::Nt) then
                                            if (sym.struct > 0) then
 						SemErr(7)
 					   end
@@ -229,8 +227,8 @@ Declaration                     (. g1 = g2 = nil
 				.)
 =
   "CHARACTERS" { SetDecl }
-| "TOKENS"     { TokenDecl <Tab::T> }
-| "PRAGMAS"    { TokenDecl <Tab::Pr> }
+| "TOKENS"     { TokenDecl <GraphNode::T> }
+| "PRAGMAS"    { TokenDecl <GraphNode::Pr> }
 | "COMMENTS"
   "FROM" TokenExpr <^g1>
   "TO" TokenExpr <^g2>
@@ -315,7 +313,7 @@ TokenDecl <int typ>             (. s = pos = g = nil
 				   end
 				.)
   )
-  [ SemText <^pos>              (. if (typ==Tab::T) then
+  [ SemText <^pos>              (. if (typ==GraphNode::T) then
 				     SemErr(14)
 				   end
                                    Sym.Sym(sp).semPos = pos
@@ -347,10 +345,7 @@ AttrDecl <Sym sym>		(. beg = col = dim = 0
 				 .)
   { ANY }
   ">"                           (. if (@token.pos > beg) then
-                                     sym.attrPos = Position.new
-                                     sym.attrPos.beg = beg
-				     sym.attrPos.col = col
-                                     sym.attrPos.len = @token.pos - beg
+                                     sym.attrPos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 .)
 | "<."
@@ -374,10 +369,7 @@ AttrDecl <Sym sym>		(. beg = col = dim = 0
 				 .)
   { ANY }
   ".>"                          (. if (@token.pos > beg) then
-                                       sym.attrPos = Position.new()
-                                       sym.attrPos.beg = beg
-				       sym.attrPos.col = col
-                                       sym.attrPos.len = @token.pos - beg
+                                     sym.attrPos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 .).
 /*------------------------------------------------------------------------------------*/
@@ -401,7 +393,7 @@ Term<^Graph g>                  (. g2 = nil .)
     { Factor <^g2>              (. g = Graph.Sequence(g, g2) .)
     }
   |                             (. g = Graph.new()
-                                   g.l = GraphNode.NewNode(Tab::Eps, 0, 0)
+                                   g.l = GraphNode.NewNode(GraphNode::Eps, 0, 0)
                                    g.r = g.l
 				 .)
   ).
@@ -420,9 +412,9 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
-                                           sp = Sym.NewSym(Tab::Nt, s.name, 0) # forward nt
+                                           sp = Sym.NewSym(GraphNode::Nt, s.name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Sym.NewSym(Tab::T, s.name, @token.line)
+                                           sp = Sym.NewSym(GraphNode::T, s.name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
@@ -431,12 +423,12 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
                                    end
                                    sym = Sym.Sym(sp)
 				   typ = sym.typ
-                                   if (typ!=Tab::T && typ!=Tab::Nt) then
+                                   if (typ!=GraphNode::T && typ!=GraphNode::Nt) then
 				     SemErr(4)
 				   end
                                    if (weak) then
-                                       if (sym.typ==Tab::T) then
-				         typ = Tab::Wt
+                                       if (sym.typ==GraphNode::T) then
+				         typ = GraphNode::Wt
 				       else
 				         SemErr(23)
 				       end
@@ -465,17 +457,17 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 | "(" Expression <^g> ")"
 | "[" Expression <^g> "]"       (. g = Graph.Option(g) .)
 | "{" Expression <^g> "}"       (. g = Graph.Iteration(g) .)
-| SemText <^pos>                (. g.l = GraphNode.NewNode(Tab::Sem, 0, 0)
+| SemText <^pos>                (. g.l = GraphNode.NewNode(GraphNode::Sem, 0, 0)
                                    g.r = g.l
                                    n = GraphNode.Node(g.l)
 				   n.pos = pos
 				 .)
 | "ANY"                         (. set = Sets.FullSet(Tab::MaxTerminals)
                                    set.clear(Tab::EofSy)
-                                   g.l = GraphNode.NewNode(Tab::Any, Tab.NewSet(set), 0)
+                                   g.l = GraphNode.NewNode(GraphNode::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 .)
-| "SYNC"                        (. g.l = GraphNode.NewNode(Tab::Sync, 0, 0)
+| "SYNC"                        (. g.l = GraphNode.NewNode(GraphNode::Sync, 0, 0)
                                    g.r = g.l
 				 .)
 ).
@@ -517,7 +509,7 @@ TokenFactor <^Graph g>          (. name = s = nil
                                        SemErr(15)
                                        c = CharClass.NewClass(s.name, BitSet.new())
                                      end
-                                     g.l = GraphNode.NewNode(Tab::Clas, c, 0)
+                                     g.l = GraphNode.NewNode(GraphNode::Clas, c, 0)
                                      g.r = g.l
                                    else # string
 				     g = Graph.StrToGraph(s.name)
@@ -528,13 +520,11 @@ TokenFactor <^Graph g>          (. name = s = nil
 | "{" TokenExpr <^g> "}"        (. g = Graph.Iteration(g) .)
 ).
 /*------------------------------------------------------------------------------------*/
-Symbol <^SymInfo s> = 
-                                (. s = SymInfo.new() .)
-  ( ident                       (. s.kind = @@ident
-				   s.name = @token.val
+Symbol <^SymInfo s>
+=
+  ( ident                       (. s = SymInfo.new(@token.val, @@ident)
 				 .)
-  | string                      (. s.kind = @@string
-				   s.name = FixString(@token.val)
+  | string                      (. s = SymInfo.new(FixString(@token.val), @@string)
 				 .)
   ).
 /*------------------------------------------------------------------------------------*/
@@ -566,10 +556,7 @@ AttrRest <GraphNode n>          (. beg = col = 0 .)
 				 .)
   { ANY }
   ">"                           (. if (@token.pos > beg) then
-                                     n.pos = Position.new()
-                                     n.pos.beg = beg
-				     n.pos.col = col
-                                     n.pos.len = @token.pos - beg
+                                     n.pos = Position.new(beg, @token.pos - beg, col)
                                    end
 				.).
 /*------------------------------------------------------------------------------------*/
@@ -580,22 +567,19 @@ AttrRest1 <GraphNode n>         (. beg = col = 0 .)
 				 .)
   { ANY }
   ".>"                          (. if (@token.pos > beg) then
-                                     n.pos = Position.new()
-                                     n.pos.beg = beg
-				     n.pos.col = col
-                                     n.pos.len = @token.pos - beg
+                                     n.pos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 .).
 /*------------------------------------------------------------------------------------*/
-SemText <^Position pos> = 
-  "(."                          (. pos = Position.new()
-                                   pos.beg = @t.pos
-				   pos.col = @t.col
+SemText <^Position pos> =
+  "(."                          (. beg = @t.pos
+				   col = @t.col
 				 .)
   { ANY
   | badString                   (. SemErr(18) .)
   | "(."                        (. SemErr(19) .)
   }
-  ".)"                          (. pos.len = @token.pos - pos.beg .).
+  ".)"                          (. pos = Position.new(beg, @token.pos - beg, col)
+  				 .).
 
 END Coco.
