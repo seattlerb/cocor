@@ -39,7 +39,7 @@ class Parser
 	
 	private; def Parser.ExpectWeak(n, follow)
 		if (@t.kind == n)
-		  Get
+		  Get()
 		else
 		  Error(n);
 		  while (!StartOf(follow))

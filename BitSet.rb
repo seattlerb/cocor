@@ -1,9 +1,15 @@
 
 class BitSet
 
+  attr_reader :size, :bits
+
   def initialize(size=128)
     @size = size
     @bits = Array.new(size, false)
+  end
+
+  def ==(o)
+    return @size == o.size && @bits == o.bits
   end
 
   def clear(i)

@@ -1,11 +1,5 @@
 
-class Module
-  def cls_attr_accessor(*names)
-    for name in names do
-      eval "def self.#{name}; @@#{name}; end; def self.#{name}=(x); @@#{name}=x; end"
-    end
-  end
-end
+require "module-hack"
 
 class Position	 			# position of source code stretch (e.g. semantic action)
   attr_accessor :beg			# start relative to the beginning of the file
@@ -33,7 +27,9 @@ class Sym
   attr_accessor :line			# source text line number of item in this node
 
   def initialize # symbol
-    # do nothing... so far... maybe init everything to nil?
+    @typ = @struct = @line = 0
+    @deletable = @attrPos = @semPos = @line = nil
+    @name = @retType = @retVar = ""
   end
 
 end
@@ -100,9 +96,9 @@ end
 
 class Tab
 
-	# --- constants ---
+  # --- constants ---
   MaxSymbols   =  512	# max. no. of t, nt, and pragmas
-  MaxTerminals =  256	# max. no. of terminals			TODO: never used
+  MaxTerminals =  256	# max. no. of terminals    # TODO: never used
   MaxNodes     = 1500	# max. no. of graph nodes
   MaxSetNr     =  128	# max. no. of symbol sets
   MaxClasses   =   50	# max. no. of character classes
@@ -164,7 +160,14 @@ class Tab
              "Any ", "Eps ", "Sync", "Sem ", "Alt ", "Iter", "Opt " ]
 
   # I'm only adding these as they get used and fubar something
-  cls_attr_accessor :ignored, :semDeclPos
+  public
+  cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy
+  cls_attr_accessor :ddt
+
+  # HACK TODO WHATEVER: figure out why cls_attr_accessor isn't working
+  def self.ddt
+    @@ddt
+  end
 
   private
   def self.Assert(cond, n)
@@ -387,6 +390,7 @@ class Tab
   def self.NewClass(name, s)
     c = nil
     @@maxC += 1
+    $stderr.puts(caller.join("\n"))
     Assert(@@maxC < MaxClasses, 7)
     if (name == "#") then
       name = "#" + (?A + @@dummyName).chr
@@ -550,8 +554,6 @@ class Tab
     raise "Um. no"
   end
 
-  cls_attr_accessor :ddt
-
 end
 
 __END__
@@ -687,7 +689,7 @@ class Tab {
 							    visited.set(p);
 							    if (n.typ==sync) {
 								s = Expected(n.next.abs, curSy);
-								s.set(eofSy);
+								s.set(EofSy);
 								set[0].or(s);
 								n.p1 = NewSet(s);
 							      } else if (n.typ==alt) {
@@ -960,8 +962,8 @@ i++) {
 		GraphNode n;
 		boolean ok = true;
 		visited = BitSet.new();
-		visited.set(gramSy);
-		MarkReachedNts(Sym(gramSy).struct);
+		visited.set(@@gramSy);
+		MarkReachedNts(Sym(@@gramSy).struct);
 		for (int i=@@firstNt;
 i<=@@lastNt;
 i++) {

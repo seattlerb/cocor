@@ -87,7 +87,7 @@ if $0 == __FILE__ then
   file = File.basename(f)
   dir = File.dirname(f)
     
-  Scanner.Init(file, Errors.new)
+  Scanner.Init(f, Errors.new)
   Tab.Init
   DFA.Init(dir)
   ParserGen.Init(file, dir)

@@ -202,11 +202,13 @@ private static boolean Comment0() {
 				case 6:
 					if ((ch<=12 || ch>=14 && ch<='!' || ch>='#')) {break;}
 					else if ((ch==13)) {state = 4; break;}
+					else if ((ch==10)) {state = 4; break;}
 					else if (ch=='"') {state = 2; break;}
 					else {t.kind = noSym; break loop;}
 				case 7:
 					if ((ch<=12 || ch>=14 && ch<='&' || ch>='(')) {break;}
 					else if ((ch==13)) {state = 4; break;}
+					else if ((ch==10)) {state = 4; break;}
 					else if (ch==39) {state = 2; break;}
 					else {t.kind = noSym; break loop;}
 				case 8:

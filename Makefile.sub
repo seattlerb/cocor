@@ -1,8 +1,11 @@
 
+RUBY=BitSet.rb Comp.rb DFA.rb ParserGen.rb Sets.rb Tab.rb Trace.rb module-hack.rb
+FRAMES=Parser.frame Scanner.frame
+
 .FORCE: all
 all:
 	rm -rf build
 	mkdir build
-	cp *.rb *.frame *.ATG build
-	(cd build; ruby Comp.rb Coco.ATG)
-	(cd build; ruby -cw *.rb)
+	cp $(FRAMES) *.ATG build
+	ruby Comp.rb build/Coco.ATG
+#	(cd build; ruby -cw *.rb)

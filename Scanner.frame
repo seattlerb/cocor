@@ -1,4 +1,5 @@
 require 'BitSet'
+require 'module-hack'
 
 class Token
   attr_accessor :kind, :pos, :col, :line, :val
@@ -10,6 +11,11 @@ class Buffer
   @@buf = ""
   @@bufLen = 0
   @@pos = 0
+
+  # cls_attr_accessor :pos
+  def self.pos
+    @@pos
+  end
   
   def self.Fill(name)
     @@buf = File.new(name).readlines.join('')
@@ -41,7 +47,9 @@ class Scanner
   @@err = nil					# error messages
 
   EOF = -1
-  EOL = '\n'[0]
+  CR = '\r'[0]
+  NL = '\n'[0]					# FIX: this sucks
+  EOL = NL
   MAXASCII = 127				# FIX: this is dumb
   MAXCHR = 65535				# FIX: not ruby compatible
   SPACE = ' '[0]
@@ -83,7 +91,7 @@ class Scanner
     else
       @@ch = Buffer.read
       @@pos += 1
-      if (@@ch==EOL) then
+      if (@@ch==NL || @@ch==CR) then
 	@@line += 1
 	@@lineStart = @@pos + 1
       end
@@ -130,7 +138,7 @@ class Scanner
 -->scan2
       end
     end
-    puts "buf = '#{buf}' state = #{state}"
+#    puts "buf = '#{buf}' state = #{state} line=#{@@t.line} col=#{@@t.col} "
     @@t.val = buf.to_s
 
     raise "kind not set for Token" unless @@t.kind and @@t.kind != "FIX"

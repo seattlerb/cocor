@@ -135,8 +135,18 @@ class ParserGen {
 	
     private static void PutCaseLabels(BitSet s) {
 	int max = s.size();
-	for (int i=0; i<=max; i++)
-	    if (s.get(i)) gen.print("when " + i + " then ");
+	boolean first = true;
+	gen.print("when ");
+	for (int i=0; i <= max; i++)
+	    if (s.get(i)) {
+		if (!first) {
+		    gen.print(", ");
+		} else {
+		    first = false;
+		}
+		gen.print(i);
+	    }
+	gen.println(" then ");
     }
 	
     private static void GenCode (int p, int indent, BitSet checked) {

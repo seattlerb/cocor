@@ -1,4 +1,5 @@
 require 'Scanner'
+require "module-hack"
 
 class StateSet					# set of target states returned by GetTargetStates
   attr_accessor :set, :endOf, :ctx, :correct
@@ -14,6 +15,8 @@ end
 
 class State						# state of finite automaton
   @@lastNr = 0
+
+  cls_attr_accessor :lastNr
   attr_accessor :nr, :firstAction, :endOf, :ctx, :next
   
   # static int lastNr					# highest state number
@@ -271,7 +274,7 @@ class Melted			# info about melted states
     m = @@first
 
     while (m != nil) do 
-      if (s.equals(m.set)) then
+      if (s == m.set) then
 	return m
       end
       m = m.next
@@ -343,16 +346,20 @@ class DFA
   LF  = '\n'
   
   @@firstState=nil
-  @@lastState=nil			# last allocated state
-  @@lastSimState=nil		# last non melted state
+  @@lastState=nil	# last allocated state
+  @@lastSimState=nil	# last non melted state
   @@fram=nil		# scanner frame input
-  @@gen=nil			# generated scanner file
-  @@srcDir=nil			# directory of attribute grammar file
-  @@curSy=nil				# current token to be recognized (in FindTrans)
-  @@curGraph=nil			# start of graph for current token (in FindTrans)
-  @@dirtyDFA=nil		# DFA may become nondeterministic in MatchedDFA
+  @@gen=nil		# generated scanner file
+  @@srcDir=nil		# directory of attribute grammar file
+  @@curSy=nil		# current token to be recognized (in FindTrans)
+  @@curGraph=nil	# start of graph for current token (in FindTrans)
+  @@dirtyDFA=nil	# DFA may become nondeterministic in MatchedDFA
 
-  def self.Init(dir)		# HACK - stubbed, implemented below
+  def self.lastSimState
+    @@lastSimState
+  end
+
+  def self.Init(dir)	# HACK - stubbed, implemented below
   end
     
   def self.SemErr(n)
@@ -648,7 +655,7 @@ class DFA
     weakMatch = false
 
     # s has quotes
-    state = firstState
+    state = @@firstState
 
     1.upto(len-1) do |i| # try to match s against existing DFA
       a = state.TheAction(s[i])
@@ -661,14 +668,14 @@ class DFA
     end
 
     if (weakMatch && i < len) then
-      state = firstState
+      state = @@firstState
       i = 1
       dirtyDFA = true
     end
 
     while (i<len) do # make new DFA for s[i..len-1]
       to = NewState()
-      NewTransition(state, to, Tab::Chr, s.charAt(i), Tab::NormTrans)
+      NewTransition(state, to, Tab::Chr, s[i], Tab::NormTrans)
       state = to
       i += 1
     end
@@ -803,21 +810,21 @@ class DFA
   def self.MakeDeterministic()
     state = nil
     changed = correct = true
-    lastSimState = @@lastState.nr
+    @@lastSimState = @@lastState.nr
 
     FindCtxStates()
 
     state = @@firstState
     while (state!=nil) do
       while changed do
-	$stderr.puts "md: state=#{state}"
+	# HACK $stderr.puts "md: state=#{state}"
 	changed = MakeUnique(state)
       end
       state=state.next
     end
     correct = true
 
-    state=firstState    
+    state=@@firstState 
     while (state!=nil) do
       correct = MeltStates(state) && correct
       state=state.next
@@ -892,26 +899,26 @@ __END__
 
 private static void GenComBody(Comment com) {
   gen.println(    "\t\tloop do");
-  gen.println(    "\t\t\tif (" + ChCond(com.stop.charAt(0)) + ") then");
+  gen.println(    "\t\t\tif (" + ChCond(com.stop[0]) + ") then");
   if (com.stop.length()==1) {
       gen.println("\t\t\t\tlevel -= 1;");
       gen.println("\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
       gen.println("\t\t\t\tNextCh();");
     } else {
       gen.println("\t\t\t\tNextCh();");
-      gen.println("\t\t\t\tif (" + ChCond(com.stop.charAt(1)) + ") then");
+      gen.println("\t\t\t\tif (" + ChCond(com.stop[1]) + ") then");
       gen.println("\t\t\t\t\tlevel -= 1;");
       gen.println("\t\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
       gen.println("\t\t\t\t\tNextCh();");
       gen.println("\t\t\t\tend");
     }
     if (com.nested) {
-	gen.println("\t\t\telsif (" + ChCond(com.start.charAt(0)) + ") then");
+	gen.println("\t\t\telsif (" + ChCond(com.start[0]) + ") then");
 	if (com.start.length()==1)
 	  gen.println("\t\t\t\tlevel += 1; NextCh();");
 	else {
 	    gen.println("\t\t\t\tNextCh();");
-	    gen.println("\t\t\t\tif (" + ChCond(com.start.charAt(1)) + ") then");
+	    gen.println("\t\t\t\tif (" + ChCond(com.start[1]) + ") then");
 	    gen.println("\t\t\t\t\tlevel += 1; NextCh();");
 	    gen.println("\t\t\t\tend");
 	  }
@@ -930,7 +937,7 @@ private static void GenComBody(Comment com) {
 	    GenComBody(com);
 	  } else {
 	    gen.println("\tNextCh();");
-	    gen.println("\tif (" + ChCond(com.start.charAt(1)) + ") then");
+	    gen.println("\tif (" + ChCond(com.start[1]) + ") then");
 	    gen.println("\t\tNextCh();");
 	    GenComBody(com);
 	    gen.println("\telse");
@@ -944,7 +951,7 @@ private static void GenComBody(Comment com) {
 	
 	private static void CopyFramePart(String stop) {
 	  int startCh, ch; int high, i, j;
-	  startCh = stop.charAt(0); high = stop.length() - 1;
+	  startCh = stop[0]; high = stop.length() - 1;
 	  try {
 	    ch = fram.read();
 	    while (ch!=EOF)
@@ -953,7 +960,7 @@ private static void GenComBody(Comment com) {
 		  do {
 		      if (i==high) return; # stop[0..i] found
 			ch = fram.read(); i++;
-		      } while (ch==stop.charAt(i));
+		      } while (ch==stop[i]);
 		      # stop[0..i-1] found; continue with last read character
 		      gen.print(stop.substring(0, i));
 		    } else if (ch==CR) {gen.println(); ch = fram.read();
@@ -986,7 +993,7 @@ private static void GenComBody(Comment com) {
 			    # print switch statement
 			    i = 0;
 			    while (i < k) {
-				ch = key[i].charAt(1); # key[i, 0] is quote
+				ch = key[i][1]; # key[i, 0] is quote
 				gen.println("\t\t\twhen " + Ch(ch));
 				j = i;
 				do {
@@ -994,7 +1001,7 @@ private static void GenComBody(Comment com) {
 				    else gen.print("\t\t\t\telsif ");
 				      gen.println("(t.val.equals(" + key[i] + ")) then; t.kind = " + knr[i] + ";");
 				      i++;
-				    } while (i<k && key[i].charAt(1)==ch);
+				    } while (i<k && key[i][1]==ch);
 				    gen.println("\t\t\t\tend");
 				  }
 				}
@@ -1048,7 +1055,7 @@ private static void GenComBody(Comment com) {
 							      gen.println();
 							      gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length();");
 							      gen.println("\t\t\t\t\t\twhile (apx > 0) {");
-							      gen.println("\t\t\t\t\t\t\tch = buf.charAt(--i);");
+							      gen.println("\t\t\t\t\t\t\tch = buf[--i];");
 							      gen.println("\t\t\t\t\t\t\tif (ch==EOL) line--;");
 							      gen.println("\t\t\t\t\t\t\tapx--;");
 							      gen.println("\t\t\t\t\t\t}");
@@ -1126,7 +1133,7 @@ private static void GenComBody(Comment com) {
 										      gen.print("\t\tif (");
 										      com = Comment.first; i = 0;
 										      while (com != nil) {
-											  gen.print(ChCond(com.start.charAt(0)));
+											  gen.print(ChCond(com.start[0]));
 											  gen.print(" && Comment" + i + "() ");
 											  if (com.next != nil) gen.print(" || ");
 											    com = com.next; i++;

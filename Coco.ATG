@@ -42,7 +42,7 @@ COMPILER Coco
 	private; def Parser.SetDDT(s)
 		for i in 1..(s.length-1)
 		  ch = s[i].chr
-		  if (ch =~ /\d/) then
+		  if (/[0-9]/.match(ch)) then
 		    Tab.ddt[ch[0]] = true
 		  end
 		end
@@ -75,13 +75,12 @@ COMPILER Coco
 CHARACTERS
   letter   = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
   digit    = "0123456789".
-  eol      = CHR(13).
-  lf       = CHR(10).
+  eol      = CHR(13) + CHR(10).
   tab      = CHR(9).
   noQuote1 = ANY - '"' - eol.
   noQuote2 = ANY - "'" - eol.
 
-IGNORE eol + lf + tab
+IGNORE eol + tab
 
 
 TOKENS
@@ -130,7 +129,7 @@ Coco                            (. gramLine = sp = eofSy = 0
                                    Tab.nNodes = 0
 				.)
   { ident                       (. sp = Tab.FindSym(@token.val)
-                                   undefined = sp == Tab::noSym
+                                   undefined = sp == Tab::NoSym
                                    if (undefined) then
                                        sp = Tab.NewSym(Tab::Nt, @token.val, @token.line)
                                        sym = Tab.Sym(sp)
@@ -175,7 +174,7 @@ Coco                            (. gramLine = sp = eofSy = 0
 				       end
                                    end
 				.)
-  "END" ident                   (. if (!gramName.equals(@token.val)) then
+  "END" ident                   (. if (!gramName == @token.val) then
 					 SemErr(17)
 				   end
                                    if (Scanner.err.count == 0) then
@@ -328,13 +327,18 @@ AttrDecl <Sym sym>		(. beg = col = dim = 0
 =
   "<"
   [ "^"
-    ident                       (. buf = StringBuffer.new(@token.val); dim = 0;.)
-    { "[" "]"					(. dim += 1; .)
+    ident                       (. buf = @token.val.clone
+    				   dim = 0
+				 .)
+    { "[" "]"			(. dim += 1 .)
     }
-    ident                       (. sym.retVar = @token.val; .)
-    { "[" "]"			(. dim += 1; .)
-    }				(. while (dim > 0); buf.append("[]"); dim -= 1; end
-    				   sym.retType = buf.toString();
+    ident                       (. sym.retVar = @token.val .)
+    { "[" "]"			(. dim += 1 .)
+    }				(. while (dim > 0) do
+				     buf.append("[]")
+				     dim -= 1
+				   end
+    				   sym.retType = buf.to_s
 				 .)
     [","]
   ]                             (. beg = @t.pos; col = @t.col; .)
@@ -362,57 +366,68 @@ AttrDecl <Sym sym>		(. beg = col = dim = 0
                                        sym.attrPos.len = @token.pos - beg;
                                    end .).
 /*------------------------------------------------------------------------------------*/
-Expression <^Graph g>           (. Graph g2; boolean first; .)
+Expression <^Graph g>           (. g2 = nil; first = false; .)
 =
   Term <^g>                     (. first = true; .)
   { WEAK "|"
-    Term <^g2>                  (. if (first) then; g = Tab.FirstAlt(g); first = false; end
-                                   g = Tab.Alternative(g, g2); .)
+    Term <^g2>                  (. if (first) then;
+				     g = Tab.FirstAlt(g)
+				     first = false
+				   end
+                                   g = Tab.Alternative(g, g2)
+				 .)
   }.
 /*------------------------------------------------------------------------------------*/
-Term<^Graph g>                  (. Graph g2; .)
-=                               (. g = nil; .)
+Term<^Graph g>                  (. g2 = nil .)
+=                               (. g = nil .)
   ( Factor <^g>
-    { Factor <^g2>              (. g = Tab.Sequence(g, g2); .)
+    { Factor <^g2>              (. g = Tab.Sequence(g, g2) .)
     }
-  |                             (. g = Graph.new();
-                                   g.l = Tab.NewNode(Tab::Eps, 0, 0);
-                                   g.r = g.l; .)
+  |                             (. g = Graph.new()
+                                   g.l = Tab.NewNode(Tab::Eps, 0, 0)
+                                   g.r = g.l
+				 .)
   ).
 /*------------------------------------------------------------------------------------*/
-Factor <^Graph g>               (. GraphNode n;
-                                   SymInfo s;
-                                   Sym sym;
-                                   Position pos;
-                                   BitSet set;
-                                   int sp, typ;
-                                   boolean undefined, weak = false; .)
+Factor <^Graph g>               (. n = s = sym = pos = set = nil
+				   sp = typ = 0
+				   undefined = weak = false
+				 .)
 =
-                                (. g = Graph.new(); weak = false; .)
-( [ "WEAK"                      (. weak = true; .)
+                                (. g = Graph.new()
+				   weak = false
+				 .)
+( [ "WEAK"                      (. weak = true .)
   ]
-  Symbol <^s>                   (. sp = Tab.FindSym(s.name); undefined = sp==Tab::NoSym;
+  Symbol <^s>                   (. sp = Tab.FindSym(s.name)
+				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
-                                           sp = Tab.NewSym(Tab::Nt, s.name, 0); # forward nt
+                                           sp = Tab.NewSym(Tab::Nt, s.name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Tab.NewSym(Tab::T, s.name, @token.line);
-                                           MatchLiteral(sp);
+                                           sp = Tab.NewSym(Tab::T, s.name, @token.line)
+                                           MatchLiteral(sp)
                                        else # undefined string in production
-                                           SemErr(6); sp = 0;
+                                           SemErr(6) 
+					   sp = 0
                                        end
                                    end
-                                   sym = Tab.Sym(sp); typ = sym.typ;
-                                   if (typ!=Tab::T && typ!=Tab::Nt) then; SemErr(4); end
+                                   sym = Tab.Sym(sp)
+				   typ = sym.typ
+                                   if (typ!=Tab::T && typ!=Tab::Nt) then
+				     SemErr(4)
+				   end
                                    if (weak) then
                                        if (sym.typ==Tab::T) then
 				         typ = Tab::Wt
 				       else
-				         SemErr(23);
+				         SemErr(23)
 				       end
 				   end
-                                   g.l = Tab.NewNode(typ, sp, @token.line); g.r = g.l;
-                                   n = Tab.Node(g.l); .)
+                                   g.l = Tab.NewNode(typ, sp, @token.line)
+				   g.r = g.l
+                                   n = Tab.Node(g.l)
+				 .)
   [ Attribs <n>                 (. if (s.kind!=@@ident) then; SemErr(3); end .)
   ]                             (. if (undefined) then
                                        sym.attrPos = n.pos; sym.retVar = n.retVar; # dummies
@@ -426,12 +441,14 @@ Factor <^Graph g>               (. GraphNode n;
 | SemText <^pos>                (. g.l = Tab.NewNode(Tab::Sem, 0, 0);
                                    g.r = g.l;
                                    n = Tab.Node(g.l); n.pos = pos; .)
-| "ANY"                         (. set = Sets.FullSet(Tab.MaxTerminals);
+| "ANY"                         (. set = Sets.FullSet(Tab::MaxTerminals);
                                    set.clear(Tab::EofSy);
                                    g.l = Tab.NewNode(Tab::Any, Tab.NewSet(set), 0);
-                                   g.r = g.l; .)
-| "SYNC"                        (. g.l = Tab.NewNode(Tab::Sync, 0, 0);
-                                   g.r = g.l; .)
+                                   g.r = g.l;
+				 .)
+| "SYNC"                        (. g.l = Tab.NewNode(Tab::Sync, 0, 0)
+                                   g.r = g.l
+				 .)
 ).
 /*------------------------------------------------------------------------------------*/
 TokenExpr <^Graph g>            (. g2 = nil
@@ -492,53 +509,64 @@ Symbol <^SymInfo s> =
 				 .)
   ).
 /*------------------------------------------------------------------------------------*/
-Attribs <GraphNode n>           (. int beg, col; .)
+Attribs <GraphNode n>           (. beg = col = 0 .)
 = 
   "<"
-  ( "^"                         (. beg = @t.pos; .)
-  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, @t.pos); .)
+  ( "^"                         (. beg = @t.pos .)
+  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, @t.pos)
+				 .)
 	( "," AttrRest<n>
 	| ">"
 	)
   |	AttrRest<n>
   )
 | "<."                          /*alternative format to allow ">" in attributes*/
-  ( "^"                         (. beg = @t.pos; .)
-  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, @t.pos); .)
+  ( "^"                         (. beg = @t.pos .)
+  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, @t.pos)
+				 .)
 	( "," AttrRest1<n>
 	| ".>"
 	)
   |	AttrRest1<n>
   ).
 /*------------------------------------------------------------------------------------*/
-AttrRest <GraphNode n>          (. int beg, col; .)
+AttrRest <GraphNode n>          (. beg = col = 0 .)
 =
-                                (. beg = @t.pos; col = @t.col; .)
+                                (. beg = @t.pos
+				   col = @t.col
+				 .)
   { ANY }
   ">"                           (. if (@token.pos > beg) then
-                                       n.pos = Position.new();
-                                       n.pos.beg = beg; n.pos.col = col;
-                                       n.pos.len = @token.pos - beg;
+                                       n.pos = Position.new()
+                                       n.pos.beg = beg
+				       n.pos.col = col
+                                       n.pos.len = @token.pos - beg
                                    end
 				.).
 /*------------------------------------------------------------------------------------*/
-AttrRest1 <GraphNode n>         (. int beg, col; .)
+AttrRest1 <GraphNode n>         (. beg = col = 0 .)
 =
-                                (. beg = @t.pos; col = @t.col; .)
+                                (. beg = @t.pos
+				   col = @t.col
+				 .)
   { ANY }
   ".>"                          (. if (@token.pos > beg) then
-                                       n.pos = Position.new();
-                                       n.pos.beg = beg; n.pos.col = col;
-                                       n.pos.len = @token.pos - beg;
-                                   end .).
+                                       n.pos = Position.new()
+                                       n.pos.beg = beg
+				       n.pos.col = col
+                                       n.pos.len = @token.pos - beg
+                                   end
+				 .).
 /*------------------------------------------------------------------------------------*/
 SemText <^Position pos> = 
-  "(."                          (. pos = Position.new();
-                                   pos.beg = @t.pos; pos.col = @t.col; .)
+  "(."                          (. pos = Position.new()
+                                   pos.beg = @t.pos
+				   pos.col = @t.col
+				 .)
   { ANY
-  | badString                   (. SemErr(18); .)
-  | "(."                        (. SemErr(19); .)
+  | badString                   (. SemErr(18) .)
+  | "(."                        (. SemErr(19) .)
   }
-  ".)"                          (. pos.len = @token.pos - pos.beg; .).
+  ".)"                          (. pos.len = @token.pos - pos.beg .).
 
 END Coco.

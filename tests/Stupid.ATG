@@ -1,20 +1,223 @@
 COMPILER Stupid
 
 CHARACTERS
-  letter = "abcdefg".
-  eol    = CHR(13).
-  lf     = CHR(10).
-  tab    = CHR(9).
-
-TOKENS
-  ident  = letter.
+  letter   = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+  digit    = "0123456789".
+  eol      = CHR(13).
+  lf       = CHR(10).
+  tab      = CHR(9).
+  noQuote1 = ANY - '"' - eol.
+  noQuote2 = ANY - "'" - eol.
 
 IGNORE eol + lf + tab
 
-COMMENTS FROM "(*" TO "*)" NESTED
+TOKENS
+  ident     = letter {letter | digit}.
+  string    = '"' {noQuote1} '"' | "'" {noQuote2} "'".
+  number    = digit {digit}.
+  badString = '"' {noQuote1} eol | "'" {noQuote2} eol.
+
+COMMENTS FROM "/*" TO "*/" NESTED
 
 PRODUCTIONS
 
-Stupid = ( "a" {"b"} "c" | "d" ["e"] "f" | ) "g" (. puts "yeah!" .).
+Stupid
+(. sym=nil .)
+=
+  "COMPILER"
+  ident
+  {ANY}
+  { Declaration }
+  "PRODUCTIONS"
+  { ident
+    [ AttrDecl <sym> ]
+    [ SemText ]
+    WEAK "="
+    Expression <^g>
+    WEAK "."
+  }
+  "END" ident
+  "."				(. puts "YEAH!" .)
+  .
+/*---------------------------------------------------------------------------*/
+Declaration
+=
+  "CHARACTERS" { SetDecl }
+| "TOKENS"     { TokenDecl <Tab::T> }
+| "PRAGMAS"    { TokenDecl <Tab::Pr> }
+| "COMMENTS"
+  "FROM" TokenExpr <^g1>
+  "TO" TokenExpr <^g2>
+  ( "NESTED"
+  |
+  )
+| "IGNORE" Set <^Tab.ignored>
+.
+
+/*---------------------------------------------------------------------------*/
+SetDecl
+=
+  ident
+  "=" Set <^s>
+  ".".
+/*---------------------------------------------------------------------------*/
+Set <^BitSet s>
+=
+  SimSet <^s>
+  { "+" SimSet <^s2>
+  | "-" SimSet <^s2>
+  }.
+/*---------------------------------------------------------------------------*/
+SimSet <^BitSet s>
+=
+ (. s = nil .)
+( ident
+| string
+| "CHR" "(" number ")"
+| "ANY"
+)
+.
+/*---------------------------------------------------------------------------*/
+TokenDecl <int typ>
+=
+  Symbol <^s>
+  SYNC
+  ( "=" TokenExpr <^g> "."
+  |
+  )
+  [ SemText
+  ].
+/*---------------------------------------------------------------------------*/
+AttrDecl <Sym sym>
+=
+  "<"
+  [ "^"
+    ident
+    { "[" "]"
+    }
+    ident
+    { "[" "]"
+    }
+    [","]
+  ]
+  { ANY }
+  ">"
+| "<."
+  [ "^"
+    ident
+    { "[" "]"
+    }
+    ident
+    { "[" "]"
+    }
+    [","]
+  ]
+  { ANY }
+  ".>".
+/*---------------------------------------------------------------------------*/
+Expression <^Graph g>
+=
+  Term <^g>
+  { WEAK "|"
+    Term <^g2>
+  }.
+/*---------------------------------------------------------------------------*/
+Term<^Graph g>
+=
+  ( Factor <^g>
+    { Factor <^g2>
+    }
+  |
+  ).
+/*---------------------------------------------------------------------------*/
+Factor <^Graph g>
+=
+(. n=nil .)
+( [ "WEAK"
+  ]
+  Symbol <^s>
+  [ Attribs <n>
+  ]
+| "(" Expression <^g> ")"
+| "[" Expression <^g> "]"
+| "{" Expression <^g> "}"
+| SemText
+| "ANY"
+| "SYNC"
+).
+/*---------------------------------------------------------------------------*/
+TokenExpr <^Graph g>
+=
+  TokenTerm <^g>
+  { WEAK "|"
+    TokenTerm <^g2>
+  }.
+/*---------------------------------------------------------------------------*/
+TokenTerm <^Graph g>
+=
+  TokenFactor <^g>
+  { TokenFactor <^g2>
+  }
+  [ "CONTEXT"
+    "(" TokenExpr <^g2>
+    ")"
+  ].
+/*---------------------------------------------------------------------------*/
+TokenFactor <^Graph g>
+=
+
+( Symbol <^s>
+| "(" TokenExpr <^g> ")"
+| "[" TokenExpr <^g> "]"
+| "{" TokenExpr <^g> "}"
+).
+/*---------------------------------------------------------------------------*/
+Symbol <^SymInfo s> =
+ (. s = nil .)
+  ( ident
+  | string
+  ).
+/*---------------------------------------------------------------------------*/
+Attribs <GraphNode n>
+=
+  "<"
+  ( "^"
+  	{ ANY }
+	( "," AttrRest<n>
+	| ">"
+	)
+  |	AttrRest<n>
+  )
+| "<."                          /*alternative format to allow ">" in attributes*/
+  ( "^"
+  	{ ANY }
+	( "," AttrRest1<n>
+	| ".>"
+	)
+  |	AttrRest1<n>
+  ).
+/*---------------------------------------------------------------------------*/
+AttrRest <GraphNode n>
+=
+
+  { ANY }
+  ">"
+.
+/*---------------------------------------------------------------------------*/
+AttrRest1 <GraphNode n>
+=
+
+  { ANY }
+  ".>".
+/*---------------------------------------------------------------------------*/
+SemText =
+ (. pos = nil .)
+  "(."
+  { ANY
+  | badString
+  | "(."
+  }
+  ".)"
+  .
 
 END Stupid.
