@@ -201,11 +201,11 @@ Coco                            (. gramLine = sp = eofSy = 0
 					 Tab.XRef()
 				       end
                                        if (ok) then
-                                           puts("parser")
+                                           print("parser")
 					   $stdout.flush()
                                            ParserGen.WriteParser()
                                            if (@@genScanner) then
-                                               puts(" + scanner")
+                                               print(" + scanner")
                                                $stdout.flush()
                                                ok = DFA.WriteScanner()
                                                if (Tab.ddt[0]) then
