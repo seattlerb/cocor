@@ -91,7 +91,7 @@ TOKENS
 
 
 PRAGMAS
-  ddtSym   = "$" {digit}.		(. SetDDT(@t.val) .)
+  ddtSym   = "$" {digit}.	(. SetDDT(@t.val) .)
 
 
 COMMENTS FROM "/*" TO "*/" NESTED
@@ -124,6 +124,7 @@ Coco                            (. gramLine = sp = eofSy = 0
                                 SYNC 
   "PRODUCTIONS"                 (. Tab.ignored.set(32)	#' ' is always ignored
                                    if (@@genScanner) then
+				        Tab.PrintGraph
 					ok = DFA.MakeDeterministic()
 				   end
                                    Tab.nNodes = 0
@@ -299,14 +300,16 @@ TokenDecl <int typ>             (. s = pos = g = nil
 				     SemErr(7)
 				     sp = 0
                                    else
-                                       sp = Tab.NewSym(typ, s.name, @token.line)
-                                       Tab.Sym(sp).struct = Tab::ClassToken
+                                     sp = Tab.NewSym(typ, s.name, @token.line)
+                                     Tab.Sym(sp).struct = Tab::ClassToken
                                    end
+				   puts "## symbol = #{s.name}"
 				 .)
   SYNC
   ( "=" TokenExpr <^g> "."      (. if (s.kind != @@ident) then
 				     SemErr(13)
 				   end
+				   p g
                                    Tab.CompleteGraph(g.r)
                                    DFA.ConvertToStates(g.l, sp)
 				 .)

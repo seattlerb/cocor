@@ -151,6 +151,10 @@ class Graph
   def ==(o)
     raise "Not implemented yet"
   end
+
+  def to_s
+    "<Graph@#{self.id}: #{@l}, #{@r}>"
+  end
   
 end
 
@@ -358,6 +362,11 @@ class Tab
     n.p1 = p1
     n.line = line
     @@gn[@@nNodes] = n
+
+#    puts "Adding a GraphNode, ##{@@nNodes}: type #{@@nTyp[typ]}, p1=#{p1}, line=#{line}"
+#    puts "Caller = #{caller.join("\n")}"
+#    self.PrintGraph
+
     return @@nNodes
   end
 
@@ -366,11 +375,15 @@ class Tab
   end
 
   def self.CompleteGraph(p)
+    puts "CompleteGraph(#{p.inspect})"
+#    self.PrintGraph
     while (p != 0) do
       q = @@gn[p].next
+      puts "q = #{q}"
       @@gn[p].next = 0
       p = q
     end
+#    self.PrintGraph
   end
 
   def self.Alternative(g1, g2)
@@ -430,10 +443,12 @@ class Tab
   end
 
   def self.StrToGraph(s)
+    puts "StrToGraph(#{s.inspect})"
     len = s.length() - 1
     g = Graph.new
     i = 1
     while (i<len) do
+      puts "g.r = #{g.r}, gn[g.r] = #{@@gn[g.r]}"
       @@gn[g.r].next = NewNode(Chr, s[i], 0)
       g.r = @@gn[g.r].next
       i += 1
@@ -444,10 +459,12 @@ class Tab
   end
 
   def self.DelGraph(p)
+    puts "self.DelGraph(#{p.inspect})"
     n = nil
-    return true if p == 0
-    # end of graph found
+    return true if p == 0 # end of graph found
+    puts "p != 0"
     n = Node(p)
+    puts "n.next = #{n.next}"
     return DelNode(n) && DelGraph(n.next.abs)
   end
 
@@ -460,21 +477,30 @@ class Tab
 
   def self.DelNode(n)
     if (n.typ==Nt) then
+      puts "dn1 (Nt)"
       return @@sy[n.p1].deletable
     elsif (n.typ==Alt) then
+      puts "dn2 (Alt)"
       return DelAlt(n.p1) || n.p2!=0 && DelAlt(n.p2)
     else
+      puts "dn3 (other)"
       return n.typ==Eps || n.typ==Iter || n.typ==Opt || n.typ==Sem || n.typ==Sync
     end
   end
 
   def self.PrintGraph
-     n = nil
+    n = nil
     Trace.println("Graph:")
-    Trace.println("  nr typ  next   p1   p2 line")
-    (1..@@nNodes).each do |i|
+    s = "  nr typ   next p1   p2   line"
+    Trace.println(s)
+    puts(s)
+    i = 0
+    while (i <= @@nNodes) do
       n = Node(i)
-      Trace.println(Int(i,4) + " " + nTyp[n.typ] + Int(n.next,5) +Int(n.p1,5) + Int(n.p2,5) + Int(n.line,5))
+      s = sprintf("%4d %s %5d %s %s %5d", i, @@nTyp[n.typ], n.next, @@nTyp[n.p1], @@nTyp[n.p2], n.line)
+      Trace.println(s)
+      puts(s)
+      i += 1
     end
     Trace.println()
   end
@@ -644,6 +670,7 @@ class Tab
     @@dummyName = 0
     @@maxC = -1
     @@nNodes = -1
+    dummy = NewNode(0, 0, 0) # fills slot zero
   end
 
   def self.t # HACK

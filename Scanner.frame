@@ -18,6 +18,10 @@ class Token
       @val == o.val
   end
 
+  def to_s
+    "<Token@#{self.id}: \"#{@val}\" k=#{@kind}, p=#{@pos}, c=#{@col}, l=#{@line}>"
+  end
+
 end
 
 class Buffer
@@ -62,8 +66,8 @@ class Scanner
   @@err = nil					# error messages
 
   EOF = -1
-  CR = '\r'[0]
-  NL = '\n'[0]					# FIX: this sucks
+  CR = "\r"[0]
+  NL = "\n"[0]					# FIX: this sucks
   EOL = NL
   MAXASCII = 127				# FIX: this is dumb
   MAXCHR = 65535				# FIX: not ruby compatible
@@ -157,6 +161,8 @@ class Scanner
     @@t.val = buf.to_s
 
     raise "kind not set for Token" unless @@t.kind and @@t.kind != "FIX"
+
+    puts @@t
 
     return @@t
   end

@@ -10,12 +10,10 @@ class Trace
   end
 
   def self.print(s)
-    puts "Tracer.print"
     @@out.print(s)
   end
   
   def self.println(s="")
-    puts "Tracer.println"
     @@out.puts(s)
   end
   

@@ -1,9 +1,10 @@
 
 class BitSet
 
-  attr_reader :size, :bits
+  attr_reader :size, :bits, :trueCount
 
   def initialize(size=128)
+    @trueCount = 0
     @size = size
     @bits = Array.new(size, false)
   end
@@ -13,6 +14,7 @@ class BitSet
   end
 
   def clear(i)
+    @trueCount -= 1
     @bits[i] = false
   end 
   # Sets the bit specified by the index to false .
@@ -24,6 +26,7 @@ class BitSet
   # Returns the value of the bit with the specified index. 
 
   def set(i)
+    @trueCount += 1
     @bits[i] = true
   end 
   # Sets the bit specified by the index to true .

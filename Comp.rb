@@ -87,11 +87,11 @@ if $0 == __FILE__ then
   file = File.basename(f)
   dir = File.dirname(f)
     
+  Trace.Init(dir)
   Scanner.Init(f, Errors.new)
   Tab.Init
   DFA.Init(dir)
   ParserGen.Init(file, dir)
-  Trace.Init(dir)
   Parser.Parse
   puts("#{Scanner.err.count} error(s) detected")
   Trace.out.flush()

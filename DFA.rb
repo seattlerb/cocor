@@ -139,8 +139,9 @@ class Action			# action of finite automaton
       @typ == o.typ &&
       @sym == o.sym &&
       @tc == o.tc &&
-# HACK - cycle      @target == o.target &&
-      @next == o.next
+      @next == o.next &&
+      @target.eql?(o.target)
+# HACK - cycle      @target == o.target
   end
 
   def AddTarget(t)
@@ -192,6 +193,7 @@ class Action			# action of finite automaton
   def ShiftWith(s)
     i = 0
 
+# HACK    puts "ShiftWith(#{s})"
     if (Sets.Size(s)==1) then
       @typ = Tab::Chr
       @sym = Sets.First(s)
@@ -676,6 +678,7 @@ class DFA
   end
 
   def self.ConvertToStates(p, sp)
+# HACK    puts "ConvertToStates(#{p.inspect}, #{sp.inspect})"
     @@curGraph = p
     @@curSy = sp
 
@@ -728,6 +731,9 @@ class DFA
   end
 
   def self.SplitActions(state, a, b)
+
+# HACK    puts "SplitActions(#{state}, #{a}, #{b})"
+
     c = setc = nil
     seta = a.Symbols()
     setb = b.Symbols()
@@ -790,6 +796,7 @@ class DFA
       b = a.next
       while (b != nil) do
 	if (Overlap(a, b)) then
+	  puts "still overlap"
 	  SplitActions(state, a, b)
 	  changed = true
 	end
@@ -847,6 +854,9 @@ class DFA
   end
 	    
   def self.MakeDeterministic()
+
+    puts "MakeDeterministic"
+
     state = nil
     changed = correct = true
     @@lastSimState = @@lastState.nr
@@ -854,14 +864,16 @@ class DFA
     FindCtxStates()
 
     state = @@firstState
-    while (state!=nil) do
+    until (state.nil?) do
       while changed do
-	# HACK $stderr.puts "md: state=#{state}"
+	$stderr.puts "md: state=#{state}"
 	changed = MakeUnique(state)
       end
+      puts "state.id = #{state.id}, state.next.id = #{state.next.id}"
       state=state.next
     end
     correct = true
+    puts "MakeDeterministic: Phase 2"
 
     state=@@firstState 
     while (state!=nil) do
