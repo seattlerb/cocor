@@ -162,7 +162,7 @@ class ParserGen {
 		Indent(indent);
 		sym = Tab.Sym(n.p1);
 		if (n.retVar!=null) gen.print(n.retVar + " = ");
-		gen.print(sym.name + "(");
+		gen.print("self." + sym.name + "(");
 		CopySourcePart(n.pos, 0);
 		gen.println(")");
 		break;
@@ -314,6 +314,7 @@ class ParserGen {
 	    // HACK CopySourcePart(sym.attrPos, 0); // HACK: need to only copy the varname
 
 	    gen.println(")");
+
 	    // if (sym.retVar!=null) gen.println("\t\t" + sym.retType + " " + sym.retVar);
 	    // HACK gen.println("\t\t$stderr.puts(\"+ " + sym.name + "\")");
 	    CopySourcePart(sym.semPos, 2);

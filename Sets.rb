@@ -20,16 +20,19 @@ class Sets
   end
   
   def Sets.Includes(s1, s2)
-    max = s2.size
-    for i in 0..(max-1)
-      return false if (s2[i] != s1[i])
+    r = true
+    for i in 0...s2.size
+      if (s2[i] != s1[i]) then
+	r = false
+	break
+      end
     end
-    return true
+    return r
   end
   
   def Sets.FullSet(max)
     s = BitSet.new
-    for i in 0..(max-1)
+    for i in 0..max
       s.set(i)
     end
     return s
@@ -37,6 +40,7 @@ class Sets
 	
   def Sets.Size(s)
     return s.trueCount
+
 #    size = 0
 #    max = s.size
 #    for i in 0..(max-1)
@@ -46,11 +50,14 @@ class Sets
   end
 	
   def Sets.First(s)
-    max = s.size
-    for i in 0..(max-1)
-      return i if (s[i])
+    r = -1
+    for i in 0...s.size
+      if (s[i]) then
+	r = i
+	break
+      end
     end
-    return -1
+    return r
   end
 	
   def Sets.Differ(s, s1)

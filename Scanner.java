@@ -16,7 +16,7 @@ class Buffer {
 	static int pos;
 	
 	static void Fill(String name) {
-		InputStream s;
+	    InputStream s;
 		int n;
 		try {
 			s = new FileInputStream(name);
@@ -36,10 +36,12 @@ class Buffer {
 	}
 	
 	static int read() {
+	    int c;
 		if (pos < bufLen)
-			return (int) buf[pos++];
+			c= (int) buf[pos++];
 		else
-			return 65535;
+			c= 65535;
+	    return c;
 	}
 }
 
@@ -49,6 +51,7 @@ class Scanner {
 
 	private static final char EOF = '\0';
 	private static final char EOL = '\r';
+        private static final char NL = '\n';
 	private static final int noSym = 40;
 	private static final int[] start = {
  27,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -90,6 +93,7 @@ class Scanner {
 		} else {
 			ch = (char) Buffer.read(); pos++;
 			if (ch==EOL) {line++; lineStart = pos + 1;}
+			if (ch==NL) {line++; lineStart = pos + 1;}
 		}
 		if (ch > '\u007f') {
 			if (ch == '\uffff') ch = EOF;
@@ -122,7 +126,8 @@ private static boolean Comment0() {
 			else NextCh();
 		}
 	} else {
-		if (ch==EOL) {line--; lineStart = lineStart0;}
+	    if (ch==EOL) {line--; lineStart = lineStart0;}
+	    if (ch==NL)  {line--; lineStart = lineStart0;}
 		pos = pos - 2; Buffer.Set(pos+1); NextCh();
 	}
 	return false;

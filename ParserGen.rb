@@ -72,7 +72,7 @@ class ParserGen
 	    i += 1
 	  end while (ch==stop[i])
 	  # stop[0..i-1] found; continue with last read character
-	  @@gen.print(stop[0..i])
+	  @@gen.print(stop[0...i])
 	elsif (ch==CR) then
 	  @@gen.println()
 	  ch = (@@fram.read(1))[0]
@@ -207,10 +207,10 @@ class ParserGen
       when Tab::Nt then
 	Indent(indent);
 	sym = Tab.Sym(n.p1);
-	if (n.retVar!=nil) then
+	if (n.retVar != nil && n.retVar != "") then
 	  @@gen.print(n.retVar + " = ");
 	end
-	@@gen.print(sym.name + "(");
+	@@gen.print("self.#{sym.name}(");
 	CopySourcePart(n.pos, 0);
 	@@gen.println(")");
       when Tab::T then
@@ -367,18 +367,13 @@ class ParserGen
 	end
       end
 
-      # HACK: need to only copy the varname
-      # HACK CopySourcePart(sym.attrPos, 0)
+      # WARN: need to only copy the varname in ruby
+      # CopySourcePart(sym.attrPos, 0)
 
       @@gen.println(")")
-      # if (sym.retVar!=nil)
-      #   @@gen.println("\t\t" + sym.retType + " " + sym.retVar)
-      # HACK @@gen.println("\t\t$std@@err.puts(\"+ " + sym.name + "\")")
 
       CopySourcePart(sym.semPos, 2)
       GenCode(sym.struct, 2, BitSet.new)
-
-      # HACK @@gen.println("\t\t$std@@err.puts(\"- " + sym.name + "\")")
 
       @@gen.println("\t\treturn " + sym.retVar) if (sym.retVar!=nil)
       @@gen.println("\tend")
@@ -443,9 +438,8 @@ class ParserGen
       GenErrorMsg(TErr, i);
     end
 
-    @@gen.println("# This file is @@generated. DO NOT MODIFY!");
+    @@gen.println("# This file is generated. DO NOT MODIFY!");
     @@gen.println();
-    # @@gen.println("class " + root.name); # HACK
     CopyFramePart("-->constants");
     @@gen.println("\tprivate; MaxT = " + Tab.maxT.to_s); # TODO: const case them
     @@gen.println("\tprivate; MaxP = " + Tab.maxP.to_s);
@@ -467,9 +461,8 @@ class ParserGen
     rescue
       Scanner.err.Exception("-- cannot generate error stream file");
     end
-    @@gen.println("# This file is @@generated. DO NOT MODIFY!");
+    @@gen.println("# This file is generated. DO NOT MODIFY!");
     @@gen.println();
-    # @@gen.println("class " + root.name); # HACK
     CopyFramePart("-->errors");
     @@gen.print(@@err)
     CopyFramePart("$$$");
@@ -477,10 +470,10 @@ class ParserGen
   end
 
   def self.WriteStatistics
-    Trace.println((Tab.maxT+1) + " terminals");
-    Trace.println("#{Tab.maxSymbols - Tab.firstNt + Tab.maxT + 1} symbols")
-    Trace.println(Tab.nNodes + " nodes");
-    Trace.println(@@maxSS + " sets");
+    Trace.println("#{Tab.maxT+1} terminals");
+    Trace.println("#{Tab::MaxSymbols - Tab.firstNt + Tab.maxT + 1} symbols")
+    Trace.println("#{Tab.nNodes} nodes");
+    Trace.println("#{@@maxSS} sets");
   end
 
 end

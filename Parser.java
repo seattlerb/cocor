@@ -696,6 +696,7 @@ class Parser {
 		            if (Tab.ddt[0]) DFA.PrintStates();
 		        }
 		        System.out.println(" generated");
+			System.out.flush();
 		        if (Tab.ddt[8]) ParserGen.WriteStatistics();
 		    }
 		} else ok = false;

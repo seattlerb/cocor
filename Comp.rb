@@ -77,7 +77,7 @@ class Errors < ErrorStream
 end
 
 if $0 == __FILE__ then
-  puts("Coco/R V1.1");
+  puts("Coco/R(uby) v 1.0");
   if (ARGV.length == 0) then
     $stderr.puts("-- no file name specified")
     exit(1)
@@ -86,7 +86,7 @@ if $0 == __FILE__ then
   f = ARGV.shift
   file = File.basename(f)
   dir = File.dirname(f)
-    
+
   Trace.Init(dir)
   Scanner.Init(f, Errors.new)
   Tab.Init

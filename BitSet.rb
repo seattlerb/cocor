@@ -1,4 +1,3 @@
-
 class BitSet
 
   attr_reader :size, :bits, :trueCount
@@ -9,8 +8,21 @@ class BitSet
     @bits = Array.new(size, false)
   end
 
+  def clone
+    return Marshal.load(Marshal.dump(self))
+  end
+
   def ==(o)
     return @size == o.size && @bits == o.bits
+  end
+
+  def to_s
+    indexes = []
+    @bits.each_with_index do |t,i|
+      indexes << i if t
+    end
+
+    "{#{indexes.join(", ")}}"
   end
 
   def clear(i)
@@ -40,7 +52,7 @@ class BitSet
 
   def or(s)
     s.size.times do |i|
-      self.set(i) if s[i] && !self[i]
+      self.set(i) if s[i]
     end
   end 
   # Performs a logical OR of this bit set with the bit set   argument. 

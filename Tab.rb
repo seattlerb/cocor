@@ -16,7 +16,6 @@ class Position	 			# position of source code stretch (e.g. semantic action)
       @len == o.len &&
       @col == o.col
   end
-  
 end
 
 class SymInfo
@@ -50,6 +49,7 @@ class Sym
 
   def initialize # symbol
     @typ = @struct = @line = 0
+    @struct = -1
     @deletable = @attrPos = @semPos = @line = nil
     @name = @retType = @retVar = ""
   end
@@ -161,8 +161,8 @@ class Graph
 end
 
 class XNode				# node of cross reference list
-    attr_accessor :line
-    attr_accessor :next
+  attr_accessor :line
+  attr_accessor :next
 
   def initialize
     @line = 0
@@ -170,7 +170,7 @@ class XNode				# node of cross reference list
   end
 
   def ==(o)
-    raise "Not implemented yet"
+    !o.nil? && @line == o.line && @next == o.next
   end
   
 end
@@ -195,7 +195,7 @@ class Tab
 
   # --- constants ---
   MaxSymbols   =  512	# max. no. of t, nt, and pragmas
-  MaxTerminals =  256	# max. no. of terminals    # TODO: never used
+  MaxTerminals =  256	# max. no. of terminals
   MaxNodes     = 1500	# max. no. of graph nodes
   MaxSetNr     =  128	# max. no. of symbol sets
   MaxClasses   =   50	# max. no. of character classes
@@ -214,9 +214,9 @@ class Tab
   Iter = 12
   Opt  = 13
 
-  ClassToken    = 0		# token kinds
-  LitToken      = 1
-  ClassLitToken = 2
+  ClassToken    = 1		# token kinds
+  LitToken      = 2
+  ClassLitToken = 3
 
   NormTrans    = 0		# transition codes
   ContextTrans = 1
@@ -225,26 +225,25 @@ class Tab
   NoSym = -1
 
   # --- variables ---
-  @@maxSet = 0					# index of last set
-  @@maxT = 0						# terminals stored from 0 to maxT
-  @@maxP = 0						# pragmas stored from maxT+1 to maxP
-  @@firstNt = 0					# index of first nt: available after CompSymbolSets
-  @@lastNt = 0					# index of last nt: available after CompSymbolSets
-  @@maxC = 0						# index of last character class
+  @@maxSet = nil				# index of last set
+  @@maxT = nil					# terminals stored from 0 to maxT
+  @@maxP = nil					# pragmas stored from maxT+1 to maxP
+  @@firstNt = nil				# index of first nt: available after CompSymbolSets
+  @@lastNt = nil				# index of last nt: available after CompSymbolSets
+  @@maxC = nil					# index of last character class
 ## TODO: convert usage to @@
   @@semDeclPos = nil				# position of global semantic declarations
   @@importPos = nil				# position of imported identifiers
   @@ignored = nil				# characters ignored by the scanner
   @@ddt = Array.new(10, false)			# debug and test switches
-  @@nNodes = 0				# index of last graph node
+  @@nNodes = nil				# index of last graph node
   @@gramSy = 0					# root nonterminal filled by ATG
 
   @@sy = Array.new(MaxSymbols, :Sym)		# symbol table
   @@gn = Array.new(MaxNodes, :GraphNode)	# grammar graph
   @@first = nil # FirstSet[]			# first[i] = start symbols of sy[i+@@firstNt]
   @@follow = nil #  FollowSet[] 		# follow[i] = followers of sy[i+@@firstNt]
-  @@chClass = nil # new CharClass[MaxClasses]	# character classes
-  @@chClass = Array.new(MaxClasses) # HACK
+  @@chClass = Array.new(MaxClasses)#CharClass[] # character classes
 
   @@set = Array.new(128) # new BitSet[128]	# set[0] = union of all synchr. sets
 
@@ -253,8 +252,8 @@ class Tab
   @@visited = nil # BitSet
   @@termNt = nil # BitSet			# mark lists for graph traversals
   @@curSy = 0					# current symbol in computation of sets
-  @@nTyp = [ "    ", "T   ", "Pr  ", "Nt  ", "Clas", "Chr ", "Wt  ",
-             "Any ", "Eps ", "Sync", "Sem ", "Alt ", "Iter", "Opt " ]
+  @@nTyp = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
+             "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
 
   # HACK HACK HACK... this is weird that I need to copy this code in.
   def self.cls_attr_accessor(*names)
@@ -265,19 +264,7 @@ class Tab
 
   # I'm only adding these as they get used and fubar something
   cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy, :firstNt, :lastNt
-  cls_attr_accessor :ddt, :maxT, :maxP
-
-#   def self.ddt # HACK : I have no idea why cls_attr_accessor isn't working 
-#     @@ddt
-#   end
-
-#   def self.maxT # HACK : I have no idea why cls_attr_accessor isn't working 
-#     @@maxT
-#   end
-
-#   def self.maxP # HACK : I have no idea why cls_attr_accessor isn't working 
-#     @@maxP
-#   end
+  cls_attr_accessor :ddt, :maxT, :maxP, :maxC, :set, :chClass
 
   def initialize
     raise "Not implemented yet"
@@ -347,6 +334,8 @@ class Tab
 
     self.Assert(@@maxT+1 < @@firstNt, 6)
 
+#    puts "NewSym(#{typ}, #{name}, #{line})"
+
     s = Sym.new()
     s.typ = typ
     s.name = name
@@ -393,10 +382,6 @@ class Tab
     n.line = line
     @@gn[@@nNodes] = n
 
-#    HACK puts "Adding a GraphNode, ##{@@nNodes}: type #{@@nTyp[typ]}, p1=#{p1}, line=#{line}"
-#    puts "Caller = #{caller.join("\n")}"
-#    self.PrintGraph
-
     return @@nNodes
   end
 
@@ -405,13 +390,11 @@ class Tab
   end
 
   def self.CompleteGraph(p)
-#    HACK self.PrintGraph
     while (p != 0) do
       q = @@gn[p].next
       @@gn[p].next = 0
       p = q
     end
-#    HACK self.PrintGraph
   end
 
   def self.Alternative(g1, g2)
@@ -510,14 +493,14 @@ class Tab
 
   def self.PrintGraph
     n = nil
+
+
     Trace.println("Graph:")
-    Trace.println("  nr typ   next p1   p2   line")
-    i = 0
-    while (i <= @@nNodes) do
+    Trace.println("  nr typ  next   p1   p2 line")
+    for i in 1..nNodes do
       n = Node(i)
-      s = sprintf("%4d %s %5d %s %s %5d", i, @@nTyp[n.typ], n.next, @@nTyp[n.p1], @@nTyp[n.p2], n.line)
+      s = sprintf("%4d %s%5d%5d%5d%5d", i, @@nTyp[n.typ], n.next, n.p1, n.p2, n.line)
       Trace.println(s)
-      i += 1
     end
     Trace.println()
   end
@@ -554,9 +537,11 @@ class Tab
   # TODO: these aren't necessary in ruby
   def self.ClassWithSet(s)
     i = @@maxC
+
     while (i>=0 && s != @@set[@@chClass[i].set]) do
       i -= 1
     end
+
     return i
   end
 
@@ -645,7 +630,7 @@ class Tab
     fs = First0(p, BitSet.new(@@nNodes+1))
     if (@@ddt[3]) then
       Trace.println()
-      Trace.println("First: gp = " + p)
+      Trace.println("First: gp = #{p}")
       PrintSet(fs, 0)
     end
     return fs
@@ -729,7 +714,7 @@ class Tab
 
     @@curSy = 0
     while (@@curSy<=@@lastNt-@@firstNt) do # add indirect successors to follow.ts
-      visited = BitSet.new()
+      @@visited = BitSet.new()
       Complete(@@curSy)
       @@curSy += 1
     end
@@ -842,7 +827,7 @@ class Tab
   def self.CompDeletableSymbols
     i = 0
     changed = true
-    while (changed) do
+    begin
       changed = false
 
       i = @@firstNt
@@ -853,12 +838,12 @@ class Tab
 	end
 	i += 1
       end
-    end
+    end while (changed)
 
-    i = @@firstNt
-    while (i<=@@lastNt) do
+    for i in @@firstNt..@@lastNt do
       if (@@sy[i].deletable) then
 	puts("  " + @@sy[i].name + " deletable") # FIX
+	$stdout.flush
       end
       i += 1
     end
@@ -910,7 +895,7 @@ class Tab
 	Trace.println("List of sets (ANY, SYNC): ")
 	i = 0
 	while (i<=@@maxSet) do
-	  Trace.print("     set[" + i + "] = ")
+	  Trace.print("     set[#{i}] = ")
 	  PrintSet(@@set[i], 16)
 	  i += 1
 	end
@@ -1017,6 +1002,7 @@ class Tab
     when 3
       puts " an ANY node that matches no symbol"
     end
+    STDOUT.flush
   end
 
   def self.Overlap(s1, s2, cond)
@@ -1163,6 +1149,134 @@ class Tab
     return ok
   end
 
+# ---------------------------------------------------------------------
+#   Utility functions
+# ---------------------------------------------------------------------
+
+  def self.PrintSymbolTable
+
+    Trace.println("Symbol Table:")
+    Trace.println(" nr name       typ  hasAt struct del   line")
+    Trace.println()
+    i = 0
+    while (i < MaxSymbols) do
+      Trace.print(sprintf("%3d %-10s %s", i, @@sy[i].name, @@nTyp[@@sy[i].typ]))
+      if (@@sy[i].attrPos==nil) then
+	Trace.print(" false ")
+      else
+	Trace.print(" true  ")
+      end
+
+      Trace.print(sprintf("%5d", @@sy[i].struct))
+      if (@@sy[i].deletable) then
+	Trace.print(" true  ")
+      else
+	Trace.print(" false ")
+      end
+
+      Trace.println(sprintf("%5d", @@sy[i].line))
+
+      if (i==@@maxT) then
+	i = @@firstNt
+      else
+	i += 1
+      end
+    end
+    Trace.println()
+  end
+
+  def self.XRef
+
+    sym = n = p = q = x = nil
+    list = Array.new(@@lastNt + 1) # XNode[] list = new XNode[@@lastNt+1]
+    i = col = 0
+    
+    return if (@@maxT <= 0) 
+
+    MovePragmas()
+
+    # search lines where symbol has been referenced
+    i = @@nNodes
+    while (i>=1) do
+      n = Node(i);
+      if (n.typ==T || n.typ==Wt || n.typ==Nt) then
+	p = XNode.new();
+	p.line = n.line;
+	p.next = list[n.p1];
+	list[n.p1] = p;
+      end
+      i -= 1
+    end
+
+    # search lines where symbol has been defined and insert in order
+    i = 1;
+    while (i <= @@lastNt) do
+      sym = Sym(i);
+      p = list[i];
+      q = nil;
+      while (p != nil && sym.line > p.line) do
+	q = p;
+	p = p.next;
+      end
+      x = XNode.new();
+      x.line = -sym.line;
+      x.next = p;
+      if (q==nil) then
+	list[i] = x;
+      else 
+	q.next = x;
+      end
+      if (i==@@maxP) then
+	i = @@firstNt;
+      else 
+	i += 1
+      end
+    end
+
+    # print cross reference list
+    Trace.println();
+    Trace.println("Cross reference list:");
+    Trace.println();
+    Trace.println("Terminals:");
+    Trace.println("  0 EOF");
+    i = 1;
+
+    while (i <= @@lastNt) do
+      Trace.print(sprintf("%3d %s  ", i, @@sy[i].name))
+      p = list[i];
+      col = 25;
+      while (p != nil) do
+	if (col + 5 > 80) then
+	  Trace.println();
+	  Trace.print(" " * 24);
+	  col = 25
+	end
+	if (p.line==0)
+	  Trace.print("undef  ");
+	else
+	  Trace.print("#{p.line}  ");
+	end
+	col = col + 5;
+	p = p.next;
+      end
+      Trace.println();
+      if (i==@@maxT) then
+	Trace.println();
+	Trace.println("Pragmas:");
+      end
+      if (i==@@maxP) then
+	Trace.println();
+	Trace.println("Nonterminals:");
+	i = @@firstNt;
+      else
+	i += 1
+      end
+    end
+    Trace.println();
+    Trace.println();
+
+  end
+
   ############################################################
   # START OF HACKS
 
@@ -1171,124 +1285,3 @@ class Tab
   end
 
 end
-
-__END__
-
-class Tab {
-
-# ---------------------------------------------------------------------
-#   Utility functions
-# ---------------------------------------------------------------------
-
-static String Str(String s, int len) {
-char[] a = new char[64];
-int i = s.length();
-s.getChars(0, i, a, 0);
-for (; i<len; i++) a[i] = ' ';
-return String.new(a, 0, len);
-}
-
-static String Int(int n, int len) {
-char[] a = new char[16];
-String s = String.valueOf(n);
-int i = 0, j = 0, d = len - s.length();
-while (i < d) {a[i] = ' ';
-i++;}
-while (i < len) {a[i] = s.charAt(j);
-i++;
-j++;}
-return String.new(a, 0, len);
-}
-
-static void PrintSymbolTable() {
-int i;
-Trace.println("Symbol Table:");
-Trace.println(" nr name       typ  hasAt struct del   line");
-Trace.println();
-i = 0;
-while (i < MaxSymbols) {
-Trace.print(Int(i, 3) + " " + Str(sy[i].name, 10) + " " + nTyp[sy[i].typ]);
-if (sy[i].attrPos==null) Trace.print(" false ");
-else Trace.print(" true  ");
-Trace.print(Int(sy[i].struct, 5));
-if (sy[i].deletable) Trace.print(" true  ");
-else Trace.print(" false ");
-Trace.println(Int(sy[i].line, 5));
-if (i==@@maxT) i = @@firstNt;
-else i++;
-}
-Trace.println();
-}
-
-static void XRef() {
-Sym sym;
-GraphNode n;
-XNode[] list = new XNode[@@lastNt+1];
-XNode p, q, x;
-int i, col;
-if (@@maxT <= 0) return;
-MovePragmas();
-# search lines where symbol has been referenced
-for (i=@@nNodes; i>=1; i--) {
-n = Node(i);
-if (n.typ==t || n.typ==wt || n.typ==nt) {
-p = XNode.new();
-p.line = n.line;
-p.next = list[n.p1];
-list[n.p1] = p;
-}
-}
-# search lines where symbol has been defined and insert in order
-i = 1;
-while (i <= @@lastNt) {
-sym = Sym(i);
-p = list[i];
-q = null;
-while (p != null && sym.line > p.line) {q = p;
-p = p.next;}
-x = XNode.new();
-x.line = -sym.line;
-x.next = p;
-if (q==null) list[i] = x;
-else q.next = x;
-if (i==@@maxP) i = @@firstNt;
-else i++;
-}
-# print cross reference list
-Trace.println();
-Trace.println("Cross reference list:");
-Trace.println();
-Trace.println("Terminals:");
-Trace.println("  0 EOF");
-i = 1;
-while (i <= @@lastNt) {
-Trace.print(Int(i, 3) + " " + sy[i].name + "  ");
-p = list[i];
-col = 25;
-while (p != null) {
-if (col + 5 > 80) {
-Trace.println();
-for (col=0; col<25; col++) Trace.print(" ");
-}
-if (p.line==0) Trace.print("undef  ");
-else Trace.print(p.line + "  ");
-col = col + 5;
-p = p.next;
-}
-Trace.println();
-if (i==@@maxT) {Trace.println();
-Trace.println("Pragmas:");}
-if (i==@@maxP) {Trace.println();
-Trace.println("Nonterminals:");
-i = @@firstNt;}
-else i++;
-}
-Trace.println();
-Trace.println();
-}
-
-static void Init() {
-# ...
-}
-
-}

@@ -1,18 +1,18 @@
-/*$01267*/
+$0123456789
 /* Coco/R
    This grammar produces LL1 warnings for Attribs and AttrDecl, which can be ignored.
 */
 COMPILER Coco
 
-	@@ident = 0
-	@@string = 1
-	@@genScanner = nil
+	private; @@ident = 0
+	private; @@string = 1
+	private; @@genScanner = nil
 
-	def Parser.SemErr(n)
+	private; def Parser.SemErr(n)
 		Scanner.err.SemErr(n, @t.line, @t.col)
 	end
 	
-	def Parser.MatchLiteral(sp) # store string either as token or as literal
+	private; def Parser.MatchLiteral(sp) # store string either as token or as literal
 		sym = Tab.Sym(sp)
 		matchedSp = DFA.MatchedDFA(sym.name, sp)
 		if (matchedSp==Tab::NoSym)
@@ -24,7 +24,7 @@ COMPILER Coco
 		end
 	end
 	
-	def Parser.SetCtx(p) # set transition code to contextTrans
+	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		while (p > 0)
 			n = Tab.Node(p)
 			if (n.typ==Tab::Chr || n.typ==Tab::Clas) then
@@ -39,16 +39,16 @@ COMPILER Coco
 		end
 	end
 	
-	def Parser.SetDDT(s)
+	private; def Parser.SetDDT(s)
 		for i in 1..(s.length-1)
-		  ch = s[i].chr
-		  if (/[0-9]/.match(ch)) then
-		    Tab.ddt[ch[0]] = true
+		  ch = s[i]
+		  if (ch >= ?0 && ch <= ?9) then
+		    Tab.ddt[ch - ?0] = true
 		  end
 		end
 	end
 	
-	def Parser.FixString(s)
+	private; def Parser.FixString(s)
 		a=s # TODO: remove a
 		len = a.length
 		if (len == 2) then
@@ -124,7 +124,6 @@ Coco                            (. gramLine = sp = eofSy = 0
                                 SYNC 
   "PRODUCTIONS"                 (. Tab.ignored.set(32)	#' ' is always ignored
                                    if (@@genScanner) then
-				        Tab.PrintGraph
 					ok = DFA.MakeDeterministic()
 				   end
                                    Tab.nNodes = 0
@@ -182,7 +181,7 @@ Coco                            (. gramLine = sp = eofSy = 0
 					 SemErr(17)
 				   end
                                    if (Scanner.err.count == 0) then
-                                       puts("checking")
+                                       puts("checking"); STDOUT.flush
                                        Tab.CompSymbolSets()
                                        if (ok) then
 					 ok = Tab.NtsComplete()
@@ -201,18 +200,16 @@ Coco                            (. gramLine = sp = eofSy = 0
 					 Tab.XRef()
 				       end
                                        if (ok) then
-                                           print("parser")
-					   $stdout.flush()
+                                           print("parser"); STDOUT.flush()
                                            ParserGen.WriteParser()
                                            if (@@genScanner) then
-                                               print(" + scanner")
-                                               $stdout.flush()
+                                               print(" + scanner"); STDOUT.flush()
                                                ok = DFA.WriteScanner()
                                                if (Tab.ddt[0]) then
 					         DFA.PrintStates()
 					       end
                                            end
-                                           puts(" generated")
+                                           puts(" generated"); STDOUT.flush
                                            if (Tab.ddt[8]) then
 					     ParserGen.WriteStatistics()
 					   end

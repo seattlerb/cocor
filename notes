@@ -1,0 +1,10 @@
+Tab\.(t|pr|nt|clas|chr|wt|any|eps|sync|sem|alt|iter|opt)
+
+@t vs @@t in Parser.rb ???
+
+
+DFA.addAction
+
+missing 127 in bitsets (line 1686-search "126}")
+
+FIX! I have no idea what my changes to class Comment (re: first) did to fix the problems I was having w/ GenComment not being called!

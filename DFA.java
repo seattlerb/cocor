@@ -622,30 +622,30 @@ class DFA {
 		gen.println(    "\t\tloop do");
 		gen.println(    "\t\t\tif (" + ChCond(com.stop.charAt(0)) + ") then");
 		if (com.stop.length()==1) {
-			gen.println("\t\t\t\tlevel -= 1;");
+			gen.println("\t\t\t\tlevel -= 1");
 			gen.println("\t\t\t\tif (level==0) then ; oldEols=@@line-line0; NextCh(); return true; end");
-			gen.println("\t\t\t\tNextCh();");
+			gen.println("\t\t\t\tNextCh()");
 		} else {
-			gen.println("\t\t\t\tNextCh();");
+			gen.println("\t\t\t\tNextCh()");
 			gen.println("\t\t\t\tif (" + ChCond(com.stop.charAt(1)) + ") then");
-			gen.println("\t\t\t\t\tlevel -= 1;");
+			gen.println("\t\t\t\t\tlevel -= 1");
 			gen.println("\t\t\t\t\tif (level==0) then ; oldEols=@@line-line0; NextCh(); return true; end");
-			gen.println("\t\t\t\t\tNextCh();");
+			gen.println("\t\t\t\t\tNextCh()");
 			gen.println("\t\t\t\tend");
 		}
 		if (com.nested) {
 			gen.println("\t\t\telsif (" + ChCond(com.start.charAt(0)) + ") then");
 			if (com.start.length()==1)
-				gen.println("\t\t\t\tlevel += 1; NextCh();");
+				gen.println("\t\t\t\tlevel += 1; NextCh()");
 			else {
-				gen.println("\t\t\t\tNextCh();");
+				gen.println("\t\t\t\tNextCh()");
 				gen.println("\t\t\t\tif (" + ChCond(com.start.charAt(1)) + ") then");
-				gen.println("\t\t\t\t\tlevel += 1; NextCh();");
+				gen.println("\t\t\t\t\tlevel += 1; NextCh()");
 				gen.println("\t\t\t\tend");
 			}
 		}
 		gen.println("\t\t\telsif (@@ch==EOF) then; return false");
-		gen.println("\t\t\telse NextCh();");
+		gen.println("\t\t\telse NextCh()");
 		gen.println("\t\t\tend");
 		gen.println("\t\tend");
 	}
@@ -654,19 +654,19 @@ class DFA {
 		gen.println("private; def self.Comment" + i + "()");
 		gen.println("\tlevel = 1; line0 = @@line; lineStart0 = @@lineStart; startCh=nil");
 		if (com.start.length()==1) {
-			gen.println("\tNextCh();");
+			gen.println("\tNextCh()");
 			GenComBody(com);
 		} else {
-			gen.println("\tNextCh();");
+			gen.println("\tNextCh()");
 			gen.println("\tif (" + ChCond(com.start.charAt(1)) + ") then");
-			gen.println("\t\tNextCh();");
+			gen.println("\t\tNextCh()");
 			GenComBody(com);
 			gen.println("\telse");
 			gen.println("\t\tif (@@ch==EOL) then; @@line -= 1; @@lineStart = lineStart0; end");
-			gen.println("\t\t@@pos -= 2; Buffer.Set(@@pos+1); NextCh();");
+			gen.println("\t\t@@pos -= 2; Buffer.Set(@@pos+1); NextCh()");
 			gen.println("\tend");
 		}
-		gen.println("\treturn false;");
+		gen.println("\treturn false");
 		gen.println("end");
 	}
 	
@@ -720,7 +720,7 @@ class DFA {
 			do {
 				if (i==j) gen.print("\t\t\t\tif ");
 				else gen.print("\t\t\t\telsif ");
-				gen.println("(@@t.val == " + key[i] + ") then; @@t.kind = " + knr[i] + ";");
+				gen.println("(@@t.val == " + key[i] + ") then; @@t.kind = " + knr[i]);
 				i++;
 			} while (i<k && key[i].charAt(1)==ch);
 			gen.println("\t\t\t\tend");
@@ -748,22 +748,22 @@ class DFA {
 		    else
 			PutRange(Tab.Class(action.sym));
 
-		    gen.println(") then; ");
+		    gen.println(") then");
 
 		    if (action.target.state != state)
-			gen.println("state = " + action.target.state.nr + "; ");
+			gen.println("state = " + action.target.state.nr);
 
 		    if (action.tc == Tab.contextTrans) {
-			gen.println("apx += 1; "); 
+			gen.println("apx += 1"); 
 			ctxEnd = false;
 		    } else if (state.ctx)
-			gen.println("apx = 0; ");
+			gen.println("apx = 0");
 
 		    // if (action.next==null)
 		    // gen.println("\t\t\t\t\t\tbreak # no");
 		}
 
-		if (state.firstAction != null) gen.println("\t\t\t\t\telse ;");
+		if (state.firstAction != null) gen.println("\t\t\t\t\telse");
 		if (endOf==Tab.noSym)
 			gen.println("@@t.kind = @@noSym; break; end");
 		else { // final state
@@ -774,18 +774,20 @@ class DFA {
 			sym = Tab.Sym(endOf);
 			if (ctxEnd) { // final context state: cut appendix
 				gen.println();
-				gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length();");
-				gen.println("\t\t\t\t\t\twhile (apx > 0) {");
-				gen.println("\t\t\t\t\t\t\tch = buf.charAt(--i);");
-				gen.println("\t\t\t\t\t\t\tif (ch==EOL) line--;");
-				gen.println("\t\t\t\t\t\t\tapx--;");
-				gen.println("\t\t\t\t\t\t}");
-				gen.println("\t\t\t\t\t\tbuf.setLength(i); NextCh();");
+				gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length()");
+				gen.println("\t\t\t\t\t\twhile (apx > 0) do");
+                gen.println("\t\t\t\t\t\t\ti -= 1");
+				gen.println("\t\t\t\t\t\t\t@@ch = buf[i]");
+				gen.println("\t\t\t\t\t\t\tif (@@ch==EOL) line -=1; end");
+				gen.println("\t\t\t\t\t\t\tapx -= 1");
+				gen.println("\t\t\t\t\t\tend");
+                gen.println("\t\t\t\t\t\tbuf.setLength(i)");
+                // HACK gen.println("\t\t\t\t\t\tNextCh()");
 				gen.print(  "\t\t\t\t\t\t");
 			}
-			gen.println("@@t.kind = " + endOf + "; ");
+			gen.println("@@t.kind = " + endOf);
 			if (sym.struct==Tab.classLitToken)
-				gen.println("@@t.val = buf.to_s; CheckLiteral(); ");
+				gen.println("@@t.val = buf.to_s; CheckLiteral()");
 			gen.println("break");
 			if (state.firstAction != null) gen.println("end");
 		}
@@ -866,7 +868,7 @@ class DFA {
 		for (State state=firstState.next; state!=null; state=state.next)
 		    WriteState(state);
 		gen.println("\t\t\t\twhen "+(State.lastNr+1));
-		gen.println("\t\t\t\t\t@@t.kind = 0; ");
+		gen.println("\t\t\t\t\t@@t.kind = 0");
 		CopyFramePart("$$$");
 		gen.flush();
 		return ok;

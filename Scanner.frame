@@ -9,6 +9,10 @@ class Token
     @kind = @pos = @col = @line = 0
   end
 
+  def clone
+    return Marshal.load(Marshal.dump(self))
+  end
+
   def ==(o)
     ! o.nil? &&
       @kind == o.kind &&
@@ -37,7 +41,7 @@ class Buffer
   end
   
   def self.Fill(name)
-    @@buf = File.new(name).readlines.join('')
+    @@buf = File.new(name).read
     @@bufLen = @@buf.size
   end
   
@@ -51,13 +55,14 @@ class Buffer
   end
   
   def self.read
+    c = 0
     if (@@pos < @@bufLen) then
       c = @@buf[@@pos]
       @@pos += 1
-      return c
     else
-      return 65535				# FIX!!!
+      c = 65535				# FIX!!!
     end
+    return c
   end
 end
 
@@ -65,7 +70,7 @@ class Scanner
 
   @@err = nil					# error messages
 
-  EOF = -1
+  EOF = 0					# TODO: verify... 
   CR = "\r"[0]
   NL = "\n"[0]					# FIX: this sucks
   EOL = NL
@@ -153,8 +158,9 @@ class Scanner
       case state
       when 0				# NextCh already done
 	@@t.kind = @@noSym
-	break				# TODO: make sure this breaks the while, not the case
+	break
 -->scan2
+	break
       end
     end
 #    puts "buf = '#{buf}' state = #{state} line=#{@@t.line} col=#{@@t.col} "

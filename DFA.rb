@@ -24,15 +24,15 @@ end
 #  State
 #-----------------------------------------------------------------------------
 
-class State						# state of finite automaton
+class State				# state of finite automaton
   @@lastNr = 0
 
   cls_attr_accessor :lastNr
   attr_accessor :nr, :firstAction, :endOf, :ctx, :next
 
   def initialize
-    @nr = @@lastNr
     @@lastNr += 1
+    @nr = @@lastNr
     @endOf = Tab::NoSym
     @ctx = false
     @firstAction = @next = nil
@@ -94,13 +94,10 @@ class State						# state of finite automaton
 	return a
       elsif (a.typ==Tab::Clas) then
 	s = Tab.Class(a.sym)
-	if (s.get(ch)) then
-	  return a
-	end
+	return a if s.get(ch)
       end
       a=a.next
     end
-
     return nil
   end
 
@@ -140,8 +137,7 @@ class Action			# action of finite automaton
       @sym == o.sym &&
       @tc == o.tc &&
       @next == o.next &&
-      @target.eql?(o.target)
-# HACK - cycle      @target == o.target
+      @target.eql?(o.target) # .eql? because == causes a cycle
   end
 
   def AddTarget(t)
@@ -193,11 +189,17 @@ class Action			# action of finite automaton
   def ShiftWith(s)
     i = 0
 
-# HACK    puts "ShiftWith(#{s})"
     if (Sets.Size(s)==1) then
       @typ = Tab::Chr
       @sym = Sets.First(s)
     else
+
+      i = Tab.maxC
+      while (i>=0) do
+	x = Tab.set()[Tab.chClass[i].set]
+	i -= 1
+      end
+
       i = Tab.ClassWithSet(s)
       if (i < 0) then # class with dummy name
 	i = Tab.NewClass("#", s)
@@ -228,7 +230,7 @@ class Action			# action of finite automaton
 	if (states.endOf==Tab::NoSym || states.endOf==t.state.endOf) then
 	  states.endOf = t.state.endOf
 	else
-	  System.out.println("Tokens " + states.endOf + " and " + t.state.endOf + " cannot be distinguished")
+	  System.out.println("Tokens #{states.endOf} and #{t.state.endOf} cannot be distinguished")
 	  states.correct = false
 	end
       end
@@ -332,7 +334,7 @@ class Comment				# info about comment syntax
   attr_accessor :stop
   attr_accessor :nested
   attr_accessor :next
-  cls_attr_accessor :first
+#  cls_attr_accessor :first
 
   def initialize(from, to, nested)
     @start = self.class.Str(from)
@@ -340,6 +342,14 @@ class Comment				# info about comment syntax
     @nested = nested
     @next = @@first
     @@first = self
+  end
+
+  def self.first # HACK HACK HACK
+    raise "no"
+  end
+
+  def self.firstX # HACK HACK HACK
+    @@first
   end
 
   def ==(o)
@@ -402,14 +412,14 @@ class DFA
     @@lastSimState
   end
 
-  def self.Init(dir)	# HACK - stubbed, implemented below
+  def self.Init(dir)
     @@srcDir = dir
-    @@firstState = nil
-    @@lastState = nil
+
+    @@firstState = @@lastState = nil
     State.lastNr = -1
     @@firstState = NewState()
     Melted.first = nil
-    Comment.first = nil
+    # HACK Comment.first = nil
     @@dirtyDFA = false
   end
 
@@ -425,7 +435,7 @@ class DFA
     if (ch<?\ || ch >= 127 || ch==?' || ch==?\\) then
       return ch.to_s
     else
-      return "'#{ch}'"
+      return "?#{ch.chr}" # TODO check this
     end
   end
 
@@ -447,9 +457,7 @@ class DFA
 	top += 1
 	lo[top] = i
 	i += 1
-	while (i < 128 && s.get(i)) do
-	  i += 1
-	end
+	i += 1 while (i < 128 && s.get(i))
 	hi[top] = i-1
       else
 	i += 1
@@ -466,15 +474,15 @@ class DFA
       PutRange(s1)
     else
       @@gen.print("(")
-      0.upto(top) do |i|
+      for i in 0..top do
 	if (hi[i]==lo[i]) then
-	  @@gen.print("@@ch==" + Ch(lo[i]))
+	  @@gen.print("@@ch==#{Ch(lo[i])}")
 	elsif (lo[i]==0) then
-	  @@gen.print("@@ch<=" + Ch(hi[i]))
+	  @@gen.print("@@ch<=#{Ch(hi[i])}")
 	elsif (hi[i]==127)
-	  @@gen.print("@@ch>=" + Ch(lo[i]))
+	  @@gen.print("@@ch>=#{Ch(lo[i])}")
 	else
-	  @@gen.print("@@ch>=" + Ch(lo[i]) + " && @@ch<=" + Ch(hi[i]))
+	  @@gen.print("@@ch>=#{Ch(lo[i])} && @@ch<=#{Ch(hi[i])}")
 	end
 	if (i < top) then
 	  @@gen.print(" || ")
@@ -486,7 +494,7 @@ class DFA
 
   def self.NewState
     s = State.new
-    if @@firstState == nil then
+    if @@firstState.nil? then
       @@firstState = s
     else
       @@lastState.next = s
@@ -505,7 +513,6 @@ class DFA
     a.target = t
     from.AddAction(a)
   end
-
 
   def self.CombineShifts
     seta = setb = a = b = c = nil
@@ -538,7 +545,7 @@ class DFA
 
     used.set(state.nr)
     a=state.firstAction
-    while (a!=nil) do
+    until (a.nil?) do
       FindUsedStates(a.target.state, used)
       a=a.next
     end
@@ -551,11 +558,11 @@ class DFA
 
     # combine equal final states
     s1=@@firstState.next
-    while (s1!=nil) do # firstState cannot be final
-      if (used.get(s1.nr) && s1.endOf!=Tab::NoSym && s1.firstAction==nil && !s1.ctx) then
+    until (s1.nil?) do # firstState cannot be final
+      if (used.get(s1.nr) && s1.endOf != Tab::NoSym && s1.firstAction.nil? && !s1.ctx) then
 	s2=s1.next
-	while (s2!=nil) do
-	  if (used.get(s2.nr) && s1.endOf==s2.endOf && s2.firstAction==nil & !s2.ctx) then
+	until (s2.nil?) do
+	  if (used.get(s2.nr) && s1.endOf == s2.endOf && s2.firstAction.nil? & !s2.ctx) then
 	    used.clear(s2.nr)
 	    newState[s2.nr] = s1
 	  end
@@ -566,11 +573,11 @@ class DFA
     end
 
     state=@@firstState
-    while (state!=nil) do
+    until (state.nil?) do
       if (used.get(state.nr)) then
 	a=state.firstAction
-	while (a!=nil) do
-	  if (!used.get(a.target.state.nr)) then
+	until (a.nil?) do
+	  unless (used.get(a.target.state.nr)) then
 	    a.target.state = newState[a.target.state.nr]
 	  end
 	  a=a.next
@@ -580,11 +587,11 @@ class DFA
     end
 
     # delete unused states
-    @@lastState = @@firstState # @@firstState has number 0
-    State.lastNr = 0
+    @@lastState = @@firstState
+    State.lastNr = 0 # @@firstState has number 0
 
     state=@@firstState.next
-    while (state!=nil) do
+    until (state.nil?) do
       if (used.get(state.nr)) then
 	State.lastNr += 1
 	state.nr = State.lastNr
@@ -597,13 +604,14 @@ class DFA
   end
 
   def self.TheState(p)
+    state = nil
     if (p==0) then
       state = self.NewState()
       state.endOf = @@curSy
-      return state
     else
-      return Tab.Node(p).state
+      state = Tab.Node(p).state
     end
+    return state
   end
 
   def self.Step(from, p, stepped)
@@ -689,7 +697,6 @@ class DFA
   end
 
   def self.ConvertToStates(p, sp)
-# HACK    puts "ConvertToStates(#{p.inspect}, #{sp.inspect})"
     @@curGraph = p
     @@curSy = sp
 
@@ -710,7 +717,8 @@ class DFA
     # s has quotes
     state = @@firstState
 
-    1.upto(len-1) do |i| # try to match s against existing DFA
+    i = 1
+    while (i < len) do # try to match s against existing DFA
       a = state.TheAction(s[i])
       break if (a == nil)
 
@@ -718,6 +726,7 @@ class DFA
 	weakMatch = true			# TODO: check and see if this should break
       end
       state = a.target.state
+      i += 1
     end
 
     if (weakMatch && i < len) then
@@ -742,8 +751,6 @@ class DFA
   end
 
   def self.SplitActions(state, a, b)
-
-# HACK    puts "SplitActions(#{state}, #{a}, #{b})"
 
     c = setc = nil
     seta = a.Symbols()
@@ -778,34 +785,35 @@ class DFA
   end
 
   def self.Overlap(a, b)
+    result = false
     seta = setb = nil
 
     if (a.typ==Tab::Chr) then
       if (b.typ==Tab::Chr) then
-	return a.sym==b.sym
+	result = a.sym==b.sym
       else
 	setb = Tab.Class(b.sym)
-	return setb.get(a.sym)
+	result = setb.get(a.sym)
       end
     else
       seta = Tab.Class(a.sym)
       if (b.typ==Tab::Chr) then
-	return seta.get(b.sym)
+	result = seta.get(b.sym)
       else
 	setb = Tab.Class(b.sym)
-	return ! Sets.Different(seta, setb)
+	result = ! Sets.Different(seta, setb)
       end
     end
+    return result
   end
 
-  def self.MakeUnique(state) # return true if actions were split
+  def self.MakeUnique(state) # return true if actions were split # verified 2003-07-13
     changed = false
 
     a = state.firstAction
-
-    while (a != nil) do
+    until (a.nil?) do
       b = a.next
-      while (b != nil) do
+      until (b.nil?) do
 	if (Overlap(a, b)) then
 	  SplitActions(state, a, b)
 	  changed = true
@@ -834,12 +842,12 @@ class DFA
 	  targ = action.target
 	  while (targ!=nil) do
 	    s.MeltWith(targ.state)
-	    while changed do
-	      changed = MakeUnique(s)
-	    end
-	    melt = Melted.new(states.set, s)
 	    targ=targ.next
 	  end
+	  begin
+	    changed = MakeUnique(s)
+	  end while changed
+	  melt = Melted.new(states.set, s)
 	end
 	action.target.next = nil
 	action.target.state = melt.state
@@ -872,10 +880,14 @@ class DFA
     FindCtxStates()
 
     state = @@firstState
+    i = 1
     until (state.nil?) do
-      while changed do
+      j = 1
+      begin
 	changed = MakeUnique(state)
-      end
+	j+= 1
+      end while changed
+      i += 1
       state=state.next
     end
     correct = true
@@ -929,7 +941,7 @@ class DFA
 	targ=action.target
 	while (targ!=nil) do
 	  Trace.print(" #{targ.state.nr}")
-	  if (action.tc==Tab.contextTrans) then
+	  if (action.tc==Tab::ContextTrans) then
 	    Trace.println(" context")
 	  else
 	    Trace.println()
@@ -953,52 +965,52 @@ class DFA
     @@gen.println("\t\tloop do")
     @@gen.println("\t\t\tif (#{ChCond(com.stop[0])}) then")
     if (com.stop.length()==1) then
-      @@gen.println("\t\t\t\tlevel -= 1;")
-      @@gen.println("\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end")
-      @@gen.println("\t\t\t\tNextCh();")
-    else
-      @@gen.println("\t\t\t\tNextCh();")
+      @@gen.println("\t\t\t\tlevel -= 1")
+      @@gen.println("\t\t\t\tif (level==0) then ; oldEols=@@line-line0; NextCh(); return true; end")
+      @@gen.println("\t\t\t\tNextCh()")
+    else # REFACTOR
+      @@gen.println("\t\t\t\tNextCh()")
       @@gen.println("\t\t\t\tif (#{ChCond(com.stop[1])}) then")
-      @@gen.println("\t\t\t\t\tlevel -= 1;")
-      @@gen.println("\t\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end")
-      @@gen.println("\t\t\t\t\tNextCh();")
+      @@gen.println("\t\t\t\t\tlevel -= 1")
+      @@gen.println("\t\t\t\t\tif (level==0) then ; oldEols=@@line-line0; NextCh(); return true; end")
+      @@gen.println("\t\t\t\t\tNextCh()")
       @@gen.println("\t\t\t\tend")
     end
 
     if (com.nested) then
       @@gen.println("\t\t\telsif (#{ChCond(com.start[0])}) then")
       if (com.start.length()==1) then
-	@@gen.println("\t\t\t\tlevel += 1; NextCh();")
+	@@gen.println("\t\t\t\tlevel += 1; NextCh()")
       else
-	@@gen.println("\t\t\t\tNextCh();")
+	@@gen.println("\t\t\t\tNextCh()")
 	@@gen.println("\t\t\t\tif (#{ChCond(com.start[1])}) then")
-	@@gen.println("\t\t\t\t\tlevel += 1; NextCh();")
+	@@gen.println("\t\t\t\t\tlevel += 1; NextCh()")
 	@@gen.println("\t\t\t\tend")
       end
     end
-    @@gen.println("\t\t\telsif (ch==EOF) then; return false")
-    @@gen.println("\t\t\telse NextCh();")
+    @@gen.println("\t\t\telsif (@@ch==EOF) then; return false")
+    @@gen.println("\t\t\telse NextCh()")
     @@gen.println("\t\t\tend")
     @@gen.println("\t\tend")
   end
 
   def self.GenComment(com, i)
     @@gen.println("private; def self.Comment#{i}()")
-    @@gen.println("\tlevel = 1; line0 = line; lineStart0 = lineStart; startCh=nil")
+    @@gen.println("\tlevel = 1; line0 = @@line; lineStart0 = @@lineStart; startCh=nil")
     if (com.start.length()==1) then
-      @@gen.println("\tNextCh();")
+      @@gen.println("\tNextCh()")
       GenComBody(com)
     else
-      @@gen.println("\tNextCh();")
+      @@gen.println("\tNextCh()")
       @@gen.println("\tif (#{ChCond(com.start[1])}) then")
-      @@gen.println("\t\tNextCh();")
+      @@gen.println("\t\tNextCh()")
       GenComBody(com)
       @@gen.println("\telse")
-      @@gen.println("\t\tif (ch==EOL) then; line -= 1; lineStart = lineStart0; end")
-      @@gen.println("\t\tpos = pos - 2; Buffer.Set(pos+1); NextCh();")
+      @@gen.println("\t\tif (@@ch==EOL) then; @@line -= 1; @@lineStart = lineStart0; end")
+      @@gen.println("\t\t@@pos -= 2; Buffer.Set(@@pos+1); NextCh()")
       @@gen.println("\tend")
     end
-    @@gen.println("\treturn false;")
+    @@gen.println("\treturn false")
     @@gen.println("end")
   end
 
@@ -1014,11 +1026,11 @@ class DFA
 	if (ch==startCh) then
 	  i = 0
 	  begin
-	    return if (i==high) # stop[0...i] found
+	    return if (i==high) # stop[0..i] found
 	    ch = (@@fram.read(1))[0]
 	    i += 1
 	  end while (ch==stop[i])
-	  # stop[0...i] found; continue with last read character
+	  # stop[0..i-1] found; continue with last read character
 	  @@gen.print(stop[0...i])
 	elsif (ch==CR) then
 	  @@gen.println()
@@ -1048,14 +1060,14 @@ class DFA
       sym = Tab.Sym(i)
       if (sym.struct==Tab::LitToken) then
 	j = k-1
-	while (j>=0 && sym.name.compareTo(key[j]) < 0) # FIX compareTo
+	while (j>=0 && ((sym.name <=> key[j]) < 0)) do
 	  key[j+1] = key[j]
 	  knr[j+1] = knr[j]
 	  j -= 1
 	end
 	key[j+1] = sym.name
 	knr[j+1] = i
-	k+= 1
+	k += 1
       end
     end
 
@@ -1071,9 +1083,9 @@ class DFA
 	else
 	  @@gen.print("\t\t\t\telsif ")
 	end
-	@@gen.println("(t.val.equals(#{key[i]})) then; t.kind = #{knr[i]};")
+	@@gen.println("(@@t.val == #{key[i]}) then; @@t.kind = #{knr[i]}")
 	i+= 1
-      end while (i<k && key[i][1]==ch)
+      end while (i<k && !key[i].nil? && key[i][1]==ch)
       @@gen.println("\t\t\t\tend")
     end
   end
@@ -1103,26 +1115,26 @@ class DFA
       else
 	PutRange(Tab.Class(action.sym))
       end
-      @@gen.println(") then; ")
+      @@gen.println(") then")
       if (action.target.state != state) then
-	@@gen.println("state = #{action.target.state.nr}; ")
+	@@gen.println("state = #{action.target.state.nr}")
       end
       if (action.tc == Tab::ContextTrans) then
-	@@gen.println("apx += 1; ")
+	@@gen.println("apx += 1")
 	ctxEnd = false
       elsif (state.ctx) then
-	@@gen.println("apx = 0; ")
+	@@gen.println("apx = 0")
       end
       action = action.next
     end # while
 
     # NO @@gen.println("\t\t\t\t\t\tbreak") if (action.next==nil)
-    @@gen.println("\t\t\t\t\telse ;") if (state.firstAction != nil)
+    @@gen.println("\t\t\t\t\telse") unless state.firstAction.nil?
 
     if (endOf==Tab::NoSym) then
-      @@gen.println("t.kind = noSym; break; end")
+      @@gen.println("@@t.kind = @@noSym; break; end")
     else # final state
-      if (state.firstAction==nil)
+      if (state.firstAction.nil?) then
 	@@gen.print("\t\t\t\t\t")
       else
 	@@gen.print("")
@@ -1130,18 +1142,20 @@ class DFA
       sym = Tab.Sym(endOf)
       if (ctxEnd) then # final context state: cut appendix
 	@@gen.println()
-	@@gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length();")
-	@@gen.println("\t\t\t\t\t\twhile (apx > 0) {")
-	@@gen.println("\t\t\t\t\t\t\tch = buf[--i];")
-	@@gen.println("\t\t\t\t\t\t\tif (ch==EOL) line--;")
-	@@gen.println("\t\t\t\t\t\t\tapx--;")
-	@@gen.println("\t\t\t\t\t\t}")
-	@@gen.println("\t\t\t\t\t\tbuf.setLength(i); NextCh();")
+	@@gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length()")
+	@@gen.println("\t\t\t\t\t\twhile (apx > 0) do")
+	@@gen.println("\t\t\t\t\t\t\ti -= 1")
+	@@gen.println("\t\t\t\t\t\t\t@@ch = buf[i]") # FIX HACK
+	@@gen.println("\t\t\t\t\t\t\tif (@@ch==EOL) then line -= 1; end")
+	@@gen.println("\t\t\t\t\t\t\tapx -= 1")
+	@@gen.println("\t\t\t\t\t\tend")
+	# HACK @@gen.println("\t\t\t\t\t\tbuf.setLength(i)")
+	@@gen.println("\t\t\t\t\t\tNextCh()")
 	@@gen.print(  "\t\t\t\t\t\t")
       end
-      @@gen.println("t.kind = #{endOf}; ")
+      @@gen.println("@@t.kind = #{endOf}")
       if (sym.struct==Tab::ClassLitToken) then
-	@@gen.println("t.val = buf.toString(); CheckLiteral(); ")
+	@@gen.println("@@t.val = buf.to_s; CheckLiteral()")
       end
       @@gen.println("break")
       if (state.firstAction != nil)
@@ -1201,7 +1215,7 @@ class DFA
     @@gen.println("\tprivate; @@start = [")
     for i in 0...8 do
       for j in 0...16 do
-	@@gen.print(Int(startTab[16*i+j], 3) + ",")
+	@@gen.printf "%3d,", startTab[16*i+j]
       end
       @@gen.println()
     end
@@ -1215,9 +1229,10 @@ class DFA
     end
 
     CopyFramePart("-->comment")
-    com = Comment.first
+    com = Comment.firstX # HACK
+
     i = 0
-    while (com != nil) do
+    until (com.nil?) do
       GenComment(com, i)
       com = com.next
       i+= 1
@@ -1227,11 +1242,11 @@ class DFA
     GenLiterals()
     CopyFramePart("-->scan1")
 
-    if (Comment.first!=nil) then
+    unless (Comment.firstX.nil?) then # HACK
       @@gen.print("\t\tif (")
-      com = Comment.first
+      com = Comment.firstX # HACK 
       i = 0
-      while (com != nil) do
+      until (com.nil?) do
 	@@gen.print(ChCond(com.start[0]))
 	@@gen.print(" && Comment#{i}() ")
 	@@gen.print(" || ") unless com.next.nil?
@@ -1248,14 +1263,10 @@ class DFA
       state=state.next
     end
     @@gen.println("\t\t\t\twhen #{State.lastNr+1}")
-    @@gen.println("\t\t\t\t\tt.kind = 0; ")
+    @@gen.println("\t\t\t\t\t@@t.kind = 0")
     CopyFramePart("$$$")
     @@gen.flush()
     return ok
   end
 
 end # class DFA
-
-__END__
-
-}
