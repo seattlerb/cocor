@@ -35,17 +35,18 @@ class Parser
 	end
 	
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
-		while (p > 0)
+		until (p.nil?)
 			n = Node.Node(p)
 			if (n.typ==Node::Chr || n.typ==Node::Clas) then
 				n.p2 = Tab::ContextTrans
 			elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
-				SetCtx(n.p1)
+				SetCtx(n.sub)
 			elsif (n.typ==Node::Alt) then
-				SetCtx(n.p1)
+				SetCtx(n.sub)
 				SetCtx(n.p2)
 			end
-			p = n.next
+			break if n.up
+			p = n.nxt
 		end
 	end
 	
@@ -186,7 +187,7 @@ class Parser
                                        SemErr(15)
                                        c = CharClass.NewClass(s.name, BitSet.new())
                                      end
-                                     g.l = Node.NewNode(Node::Clas, c, 0)
+                                     g.l = Node.new(Node::Clas, c, 0)
                                      g.r = g.l
                                    else # string
 				     g = Graph.StrToGraph(s.name)
@@ -319,7 +320,7 @@ end
 				         SemErr(23)
 				       end
 				   end
-                                   g.l = Node.NewNode(typ, sp, @token.line)
+                                   g.l = Node.new(typ, sp, @token.line)
 				   g.r = g.l
                                    n = Node.Node(g.l)
 				 
@@ -362,7 +363,7 @@ end
 		when 38 then
 
 			pos = self.SemText()
-			g.l = Node.NewNode(Node::Sem, 0, 0)
+			g.l = Node.new(Node::Sem, 0, 0)
                                    g.r = g.l
                                    n = Node.Node(g.l)
 				   n.pos = pos
@@ -372,13 +373,13 @@ end
 			Get()
 			set = Sets.FullSet(Tab::MaxTerminals)
                                    set.clear(Tab::EofSy)
-                                   g.l = Node.NewNode(Node::Any, Tab.NewSet(set), 0)
+                                   g.l = Node.new(Node::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 
 		when 36 then
 
 			Get()
-			g.l = Node.NewNode(Node::Sync, 0, 0)
+			g.l = Node.new(Node::Sync, 0, 0)
                                    g.r = g.l
 				 
 		else
@@ -398,7 +399,7 @@ end
 			end
 		elsif (StartOf(8)) then
 			g = Graph.new()
-                                   g.l = Node.NewNode(Node::Eps, 0, 0)
+                                   g.l = Node.new(Node::Eps, 0, 0)
                                    g.r = g.l
 				 
 		else Error(48)
@@ -769,7 +770,7 @@ end
                                    else 
                                        sym = Sym.Sym(sp)
                                        if (sym.typ==Node::Nt) then
-                                           if (sym.struct > 0) then
+					    if !sym.struct.nil? then
 						SemErr(7)
 					   end
                                        else
@@ -805,7 +806,7 @@ end
 			ExpectWeak(8, 20)
 		end
 		if (Tab.ddt[2]) then
-				     Graph.PrintGraph()
+				     Node.PrintGraph()
 				   end
                                    Tab.gramSy = Sym.FindSym(gramName)
                                    if (Tab.gramSy==Tab::NoSym) then

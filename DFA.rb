@@ -1,6 +1,25 @@
 require 'Scanner'
 require "module-hack"
 
+############################################################
+# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK 
+############################################################
+
+class Fixnum
+  def n
+    $stderr.puts "WARNING: Fixnum#n called from " + caller[0]
+    self
+  end
+  def nil?
+    $stderr.puts "WARNING: Fixnum#nil? called from " + caller[0]
+    return self == 0
+  end
+end
+
+############################################################
+# HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK 
+############################################################
+
 class StateSet		# set of target states returned by GetTargetStates
 
   attr_accessor :set		# all target states of an action
@@ -32,14 +51,14 @@ class State				# state of finite automaton
   attr_accessor :firstAction		# to first action of this state
   attr_accessor :endOf			# nr. of recognized token if state is final
   attr_accessor :ctx			# true if state is reached via contextTrans
-  attr_accessor :next
+  attr_accessor :nxt
 
   def initialize
     self.class.lastNr += 1
     @nr = self.class.lastNr
     @endOf = Tab::NoSym
     @ctx = false
-    @firstAction = @next = nil
+    @firstAction = @nxt = nil
   end
 
   def ==(o)
@@ -48,7 +67,7 @@ class State				# state of finite automaton
       @firstAction == o.firstAction &&
       @endOf == o.endOf &&
       @ctx == o.ctx &&
-      @next == o.next
+      @nxt == o.nxt
   end
 
   def AddAction(act)
@@ -56,16 +75,16 @@ class State				# state of finite automaton
     a = @firstAction
     while (a and act.typ >= a.typ) do
       lasta = a
-      a = a.next
+      a = a.nxt
     end
 
     # collecting classes at the beginning gives better performance
-    act.next = a
+    act.nxt = a
     if (a == @firstAction) then
       @firstAction = act
     else
       unless lasta.nil? then
-	lasta.next = act
+	lasta.nxt = act
       else
 	$stderr.puts "AddAction: lasta is nil. @firstAction=#{@firstAction}"
       end
@@ -78,14 +97,14 @@ class State				# state of finite automaton
 
     while (a != nil && a != act) do
       lasta = a
-      a = a.next
+      a = a.nxt
     end
 
     if (a != nil) then
       if (a==@firstAction) then
-	@firstAction = a.next
+	@firstAction = a.nxt
       else
-	lasta.next = a.next
+	lasta.nxt = a.nxt
       end
     end
   end
@@ -100,7 +119,7 @@ class State				# state of finite automaton
 	s = CharClass.Class(a.sym)
 	return a if s.get(ch)
       end
-      a=a.next
+      a=a.nxt
     end
     return nil
   end
@@ -112,7 +131,7 @@ class State				# state of finite automaton
       a = Action.new(action.typ, action.sym, action.tc)
       a.AddTargets(action)
       self.AddAction(a)
-      action=action.next
+      action=action.nxt
     end
   end
 end
@@ -126,13 +145,18 @@ class Action			# action of finite automaton
   attr_accessor :sym		# action symbol
   attr_accessor :tc		# transition code: normTrans, contextTrans
   attr_accessor :target		# states reached from this action
-  attr_accessor :next
+  attr_accessor :nxt
 
   def initialize(typ, sym, tc)
     @typ = typ
     @sym = sym
     @tc = tc
-    @target = @next = nil
+    @target = @nxt = nil
+
+    if !sym.kind_of?(Fixnum) && sym.nil? then
+      $stderr.puts "WARNING: sym set to nil, setting to zero from " + caller[0]
+      @sym = 0
+    end
   end
 
   def ==(o)
@@ -140,7 +164,7 @@ class Action			# action of finite automaton
       @typ == o.typ &&
       @sym == o.sym &&
       @tc == o.tc &&
-      @next == o.next &&
+      @nxt == o.nxt &&
       @target.eql?(o.target) # .eql? because == causes a cycle
   end
 
@@ -151,14 +175,14 @@ class Action			# action of finite automaton
     while (p != nil && t.state.nr >= p.state.nr) do
       return if t.state == p.state
       last = p
-      p = p.next
+      p = p.nxt
     end
-    t.next = p
+    t.nxt = p
 
     if (p==@target) then
       @target = t
     else
-      last.next = t
+      last.nxt = t
     end
   end
 
@@ -169,7 +193,7 @@ class Action			# action of finite automaton
     while (p!=nil) do
       t = Target.new(p.state)
       self.AddTarget(t)
-      p=p.next
+      p=p.nxt
     end
 
     if (a.tc==Tab::ContextTrans) then
@@ -249,7 +273,7 @@ class Action			# action of finite automaton
 	# $stderr.puts("Ambiguous context clause")
 	# states.correct = false
       end
-      t=t.next
+      t=t.nxt
     end
     return states
   end
@@ -261,17 +285,17 @@ end # class Action
 #-----------------------------------------------------------------------------
 
 class Target				# set of states that are reached by an action
-  attr_accessor :state, :next
+  attr_accessor :state, :nxt
 
   def initialize(s)
     @state = s
-    @next = nil
+    @nxt = nil
   end
 
   def ==(o)
     ! o.nil? &&
       @state == o.state &&
-      @next == o.next
+      @nxt == o.nxt
   end
 
 end
@@ -286,14 +310,14 @@ class Melted			# info about melted states
 
   attr_accessor :set		# set of old states
   attr_accessor :state		# new state
-  attr_accessor :next
+  attr_accessor :nxt
   cls_attr_accessor :first
 
   def initialize(set, state)
     @set = set
     @state = state
 
-    @next = @@first
+    @nxt = @@first
     @@first = self
   end
 
@@ -301,14 +325,14 @@ class Melted			# info about melted states
     ! o.nil? &&
       @set == o.set &&
       @state == o.state &&
-      @next == o.next
+      @nxt == o.nxt
   end
 
   def self.Set(nr)
     m = @@first
 
     while (m != nil && m.state.nr != nr) do
-      m = m.next
+      m = m.nxt
     end
 
     return m.set
@@ -321,7 +345,7 @@ class Melted			# info about melted states
       if (s == m.set) then
 	return m
       end
-      m = m.next
+      m = m.nxt
     end
     return nil
   end
@@ -339,13 +363,13 @@ class Comment				# info about comment syntax
   attr_accessor :start
   attr_accessor :stop
   attr_accessor :nested
-  attr_accessor :next
+  attr_accessor :nxt
 
   def initialize(from, to, nested)
     @start = self.class.Str(from)
     @stop = self.class.Str(to)
     @nested = nested
-    @next = @@first
+    @nxt = @@first
     @@first = self
   end
 
@@ -359,13 +383,13 @@ class Comment				# info about comment syntax
     n = nil
     set = nil
 
-    while (p != 0) do
+    until (p.nil?) do
       n = Node.Node(p)
 
       if (n.typ==Node::Chr) then
-	s << n.p1.chr
+	s << n.val.chr
       elsif (n.typ==Node::Clas) then
-	set = CharClass.Class(n.p1)
+	set = CharClass.Class(n.val)
 	if (Sets.Size(set) != 1) then
 	  DFA.SemErr(26)
 	end
@@ -373,10 +397,11 @@ class Comment				# info about comment syntax
       else
 	DFA.SemErr(22)
       end
-      p = n.next
+      p = n.nxt
     end
 
     if (s.length() > 2) then
+      $stderr.puts("Comment is fubar! '#{s}'")
       DFA.SemErr(25)
     end
 
@@ -489,7 +514,7 @@ class DFA
     if @@firstState.nil? then
       @@firstState = s
     else
-      @@lastState.next = s
+      @@lastState.nxt = s
     end
     @@lastState = s
     return s
@@ -512,7 +537,7 @@ class DFA
     while (state!=nil) do
       a=state.firstAction
       while (a!=nil) do
-	b = a.next
+	b = a.nxt
 	while (b != nil) do
 	  if (a.target.state==b.target.state && a.tc==b.tc) then
 	    seta = a.Symbols()
@@ -520,15 +545,15 @@ class DFA
 	    seta.or(setb)
 	    a.ShiftWith(seta)
 	    c = b
-	    b = b.next
+	    b = b.nxt
 	    state.DetachAction(c)
 	  else
-	    b = b.next
+	    b = b.nxt
 	  end
 	end # while
-	a=a.next
+	a=a.nxt
       end # while
-      state=state.next
+      state=state.nxt
     end # while
   end
 
@@ -539,7 +564,7 @@ class DFA
     a=state.firstAction
     until (a.nil?) do
       FindUsedStates(a.target.state, used)
-      a=a.next
+      a=a.nxt
     end
   end
 
@@ -549,19 +574,19 @@ class DFA
     FindUsedStates(@@firstState, used)
 
     # combine equal final states
-    s1=@@firstState.next
+    s1=@@firstState.nxt
     until (s1.nil?) do # firstState cannot be final
       if (used.get(s1.nr) && s1.endOf != Tab::NoSym && s1.firstAction.nil? && !s1.ctx) then
-	s2=s1.next
+	s2=s1.nxt
 	until (s2.nil?) do
 	  if (used.get(s2.nr) && s1.endOf == s2.endOf && s2.firstAction.nil? && !s2.ctx) then
 	    used.clear(s2.nr)
 	    newState[s2.nr] = s1
 	  end
-	  s2=s2.next
+	  s2=s2.nxt
 	end
       end
-      s1=s1.next
+      s1=s1.nxt
     end
 
     state=@@firstState
@@ -572,32 +597,32 @@ class DFA
 	  unless (used.get(a.target.state.nr)) then
 	    a.target.state = newState[a.target.state.nr]
 	  end
-	  a=a.next
+	  a=a.nxt
 	end
       end
-      state=state.next
+      state=state.nxt
     end
 
     # delete unused states
     @@lastState = @@firstState
     State.lastNr = 0 # @@firstState has number 0
 
-    state=@@firstState.next
+    state=@@firstState.nxt
     until (state.nil?) do
       if (used.get(state.nr)) then
 	State.lastNr += 1
 	state.nr = State.lastNr
 	@@lastState = state
       else
-	@@lastState.next = state.next
+	@@lastState.nxt = state.nxt
       end
-      state=state.next
+      state=state.nxt
     end
   end
 
   def self.TheState(p)
     state = nil
-    if (p==0) then
+    if (p.nil?) then
       state = self.NewState()
       state.endOf = @@curSy
     else
@@ -608,32 +633,31 @@ class DFA
 
   def self.Step(from, p, stepped)
     n = nil
-    return if p == 0
+    return if p.nil?
 
-    stepped.set(p)
+    stepped.set(p.n)
     n = Node.Node(p)
 
     case (n.typ)
     when Node::Clas, Node::Chr then
-      NewTransition(from, TheState(n.next.abs), n.typ, n.p1, n.p2)
+      NewTransition(from, TheState(n.nxt), n.typ, n.val, n.p2)
     when Node::Alt then
-      Step(from, n.p1, stepped)
+      Step(from, n.sub, stepped)
       Step(from, n.p2, stepped)
     when Node::Iter, Node::Opt then
-      nxt = n.next.abs
-      if (!stepped.get(nxt)) then
-	Step(from, nxt, stepped)
+      if (!n.nxt.nil? && !stepped[n.nxt.n]) then
+	Step(from, n.nxt, stepped)
       end
-      Step(from, n.p1, stepped)
+      Step(from, n.sub, stepped)
     end
   end
 
   def self.NumberNodes(p, state)
     # Assigns a state n.state to every node n. There will be a transition from
-    # n.state to n.next.state triggered by n.sym. All nodes in an alternative
+    # n.state to n.nxt.state triggered by n.sym. All nodes in an alternative
     # chain are represented by the same state.
 
-    return if p == 0
+    return if p.nil?
 
     n = Node.Node(p)
 
@@ -651,22 +675,22 @@ class DFA
 
     case (n.typ)
     when Node::Clas, Node::Chr then
-      NumberNodes(n.next.abs, nil)
+      NumberNodes(n.nxt, nil)
     when Node::Opt then
-      NumberNodes(n.next.abs, nil)
-      NumberNodes(n.p1, state)
+      NumberNodes(n.nxt, nil)
+      NumberNodes(n.sub, state)
     when Node::Iter then
-      NumberNodes(n.next.abs, state)
-      NumberNodes(n.p1, state)
+      NumberNodes(n.nxt, state)
+      NumberNodes(n.sub, state)
     when Node::Alt then
-      NumberNodes(n.p1, state)
+      NumberNodes(n.sub, state)
       NumberNodes(n.p2, state)
     end
   end
 
   def self.FindTrans (p, start, mark)
-    return if p==0 || mark.get(p)
-    mark.set(p)
+    return if p.nil? || mark[p.n]
+    mark.set(p.n)
     n = Node.Node(p)
 
     if (start) then
@@ -675,15 +699,15 @@ class DFA
 
     case (n.typ)
     when Node::Clas, Node::Chr then
-      FindTrans(n.next.abs, true, mark)
+      FindTrans(n.nxt, true, mark)
     when Node::Opt then
-      FindTrans(n.next.abs, true, mark)
-      FindTrans(n.p1, false, mark)
+      FindTrans(n.nxt, true, mark)
+      FindTrans(n.sub, false, mark)
     when Node::Iter then
-      FindTrans(n.next.abs, false, mark)
-      FindTrans(n.p1, false, mark)
+      FindTrans(n.nxt, false, mark)
+      FindTrans(n.sub, false, mark)
     when Node::Alt then
-      FindTrans(n.p1, false, mark)
+      FindTrans(n.sub, false, mark)
       FindTrans(n.p2, false, mark)
     end
   end
@@ -804,15 +828,15 @@ class DFA
 
     a = state.firstAction
     until (a.nil?) do
-      b = a.next
+      b = a.nxt
       until (b.nil?) do
 	if (Overlap(a, b)) then
 	  SplitActions(state, a, b)
 	  changed = true
 	end
-	b = b.next
+	b = b.nxt
       end
-      a = a.next
+      a = a.nxt
     end
     return changed
   end
@@ -823,7 +847,7 @@ class DFA
 
     action=state.firstAction
     while (action!=nil) do
-      if (action.target.next != nil) then
+      if (action.target.nxt != nil) then
 	states = action.GetTargetStates()
 	correct = correct && states.correct
 	melt = Melted.StateWithSet(states.set)
@@ -834,32 +858,32 @@ class DFA
 	  targ = action.target
 	  while (targ!=nil) do
 	    s.MeltWith(targ.state)
-	    targ=targ.next
+	    targ=targ.nxt
 	  end
 	  begin
 	    changed = MakeUnique(s)
 	  end while changed
 	  melt = Melted.new(states.set, s)
 	end
-	action.target.next = nil
+	action.target.nxt = nil
 	action.target.state = melt.state
       end
-      action=action.next
+      action=action.nxt
     end
     return correct
   end
 
   def self.FindCtxStates()
     state = @@firstState
-    while (state!=nil) do
+    until (state.nil?) do
       a = state.firstAction
-      while (a != nil) do
+      until (a.nil?) do
 	if a.tc == Tab::ContextTrans then
 	  a.target.state.ctx = true
 	end
-	a=a.next
+	a=a.nxt
       end
-      state=state.next
+      state=state.nxt
     end
   end
 
@@ -880,14 +904,14 @@ class DFA
 	j+= 1
       end while changed
       i += 1
-      state=state.next
+      state=state.nxt
     end
     correct = true
 
     state=@@firstState
     while (state!=nil) do
       correct = MeltStates(state) && correct
-      state=state.next
+      state=state.nxt
     end
 
     DeleteRedundantStates()
@@ -938,11 +962,11 @@ class DFA
 	  else
 	    Trace.println()
 	  end
-	  targ=targ.next
+	  targ=targ.nxt
 	end
-	action=action.next
+	action=action.nxt
       end
-      state=state.next
+      state=state.nxt
     end
     Trace.println("\n---------- character classes ----------")
     i = 0
@@ -1117,7 +1141,7 @@ class DFA
       elsif (state.ctx) then
 	@@gen.println("apx = 0")
       end
-      action = action.next
+      action = action.nxt
     end # while
 
     @@gen.println("\t\t\t\t\telse") unless state.firstAction.nil?
@@ -1171,7 +1195,7 @@ class DFA
 	  startTab[i] = targetState if (s.get(i))
 	end
       end
-      action=action.next
+      action=action.nxt
     end
   end
 
@@ -1224,7 +1248,7 @@ class DFA
     i = 0
     until (com.nil?) do
       GenComment(com, i)
-      com = com.next
+      com = com.nxt
       i+= 1
     end
 
@@ -1239,18 +1263,18 @@ class DFA
       until (com.nil?) do
 	@@gen.print(ChCond(com.start[0]))
 	@@gen.print(" && Comment#{i}() ")
-	@@gen.print(" || ") unless com.next.nil?
-	com = com.next
+	@@gen.print(" || ") unless com.nxt.nil?
+	com = com.nxt
 	i += 1
       end
       @@gen.print(") then ; return Scan(); end")
     end
 
     CopyFramePart("-->scan2")
-    state=@@firstState.next
+    state=@@firstState.nxt
     while (state!=nil)
       WriteState(state)
-      state=state.next
+      state=state.nxt
     end
     @@gen.println("\t\t\t\twhen #{State.lastNr+1}")
     @@gen.println("\t\t\t\t\t@@t.kind = 0")

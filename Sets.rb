@@ -4,7 +4,7 @@ require 'BitSet'
 class Sets
 
   def Sets.Empty(s)
-    s.bits.each do |x| 
+    s.each do |x| 
       return false if (x) 
     end
     return true
