@@ -1,0 +1,111 @@
+
+
+class Parser
+-->constants
+	private; T = true
+	private; X = false
+	
+	@token=nil			# last recognized token
+	@t=nil				# lookahead token
+
+	-->declarations
+
+	private; def Parser.Error(n)
+		Scanner.err.ParsErr(n, t.line, t.col)
+	end
+	
+	private; def Parser.Get
+		while true
+			@token = @t
+			@t = Scanner.Scan
+			return if (t.kind<=maxT)
+-->pragmas
+			@t = token
+		end
+	end
+	
+	private; def Parser.Expect(n)
+		if (@t.kind==n) then
+		  Get()
+		else
+		  Error(n)
+		end
+	end
+	
+	private; def Parser.StartOf(s)
+		return @@set[s][@t.kind]
+	end
+	
+	private; def Parser.ExpectWeak(n, follow)
+		if (@t.kind == n)
+		  Get
+		else
+		  Error(n);
+		  while (!StartOf(follow))
+		    Get();
+		  end
+		end
+	end
+	
+	private; def Parser.WeakSeparator(n, syFol, repFol)
+		s = []
+		if (@t.kind==n) then
+		  Get()
+		  return true
+		elsif (StartOf(repFol))
+		  return false
+		else
+			for i in 0..maxT
+				s[i] = @@set[syFol][i] || @@set[repFol][i] || @@set[0][i]
+			end
+			Error(n)
+			while (!s[@t.kind])
+			  Get()
+			end
+			return StartOf(syFol)
+		end
+	end
+	
+-->productions
+
+	def Parser.Parse()
+		@t = Token.new();
+		Get();
+-->parseRoot
+	end
+
+	@@set = [
+-->initialization
+	]
+end
+
+-->ErrorStream
+class ErrorStream
+
+	def initialize()
+	  @count = 0
+	end
+	
+	def ParsErr(n, line, col)
+		s = ""
+		@count += 1
+		$stderr.print("-- line " + line + " col " + col + ": ")
+		case (n)
+-->errors
+		else s = "error " + n
+		end
+		$stderr.puts(s);
+	end
+	
+	def SemErr(n, line, col)
+		@count += 1
+		$stderr.print("-- line " + line + " col " + col + ": ")
+	end
+	
+	def Exception(s)
+		$stderr.puts(s)
+		exit(1)
+	end
+	
+end
+$$$

@@ -1,0 +1,8 @@
+
+.FORCE: all
+all:
+	rm -rf build
+	mkdir build
+	cp *.rb *.frame *.ATG build
+	(cd build; ruby Comp.rb Coco.ATG)
+	(cd build; ruby -cw *.rb)

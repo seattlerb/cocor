@@ -1,0 +1,122 @@
+require 'BitSet'
+
+class Token
+  attr_accessor :kind, :pos, :col, :line, :val
+end
+
+class Buffer
+
+  @@buf = ""			# FIX: make these instance variables and clean this crap up
+  @@bufLen = 0
+  @@pos = 0
+  
+  def Buffer.Fill(name)
+    @@buf = File.new(name).readlines
+    @@bufLen = @@buf.size
+  end
+  
+  def Buffer.Set(position)
+    if (position < 0) then
+      position = 0
+    elsif (position >= @@bufLen) then
+      position = @@bufLen
+    end
+    @@pos = position
+  end
+  
+  def Buffer.read
+    if (@@pos < @@bufLen) then
+      return buf[@@pos]
+      @@pos += 1
+    else
+      return 65535
+    end
+  end
+end
+
+class Scanner
+
+  @@err = nil					# error messages
+
+  EOF = '\0'
+  EOL = '\r'
+-->declarations
+
+  # HACK private static Token t			# current token
+  # HACK private static char ch			# current input character
+  # HACK private static int pos			# position of current character
+  # HACK private static int line		# line number of current character
+  # HACK private static int lineStart	# start position of current line
+  # HACK private static int oldEols		# >0: no. of EOL in a comment
+  # HACK private static BitSet ignore	# set of characters to be ignored by the scanner
+
+  def Scanner.Init(file, e=ErrorStream.new)
+    ignore = BitSet.new(128)
+-->initialization
+    @@err = e
+    Buffer.Fill(file)
+    @@pos = -1
+    @@line = 1
+    @@lineStart = 0
+    @@oldEols = 0
+    NextCh
+  end
+	
+  def Scanner.NextCh
+    if (@@oldEols > 0) then
+      @@ch = EOL
+      @@oldEols -= 1
+    else
+      @@ch = Buffer.read
+      @@pos
+      if (@@ch==EOL) then
+	@@line += 1
+	@@lineStart = @@pos + 1
+      end
+    end
+    if (@@ch > '\u007f') then # FIX: should be a const of some sort
+      if (@@ch == '\uffff') then
+	@@ch = EOF
+      else
+	$stderr.println("-- invalid character at line " + @@line + " col " + (@@pos - @@lineStart))
+	@@ch = ' '
+      end
+    end
+  end
+	
+-->comment
+	
+  def Scanner.CheckLiteral
+    case (t.val.charAt(0))
+-->literals
+    end
+  end
+
+  def Scanner.Scan
+    buf=""
+    NextCh while @@ignore.get(@@ch)
+-->scan1
+    t = Token.new
+    t.pos = @@pos
+    t.col = @@pos - @@lineStart
+    t.line = line 
+    buf = ""
+    state = start[@@ch]
+    apx = 0
+
+    while true
+      buf += ch.to_s
+      NextCh
+      case state
+      when 0				# NextCh already done
+	t.kind = noSym
+	last
+-->scan2
+      end
+    end
+    t.val = buf.to_s
+    return t
+  end
+end
+
+$$$

@@ -1,0 +1,470 @@
+/*$01267*/
+/* Coco/R
+   This grammar produces LL1 warnings for Attribs and AttrDecl, which can be ignored.
+*/
+COMPILER Coco
+
+	private; @@ident = 0
+	private; @@string = 1
+	private; @@genScanner = nil
+
+	private; def Parser.SemErr(n)
+		Scanner.err.SemErr(n, t.line, t.col)
+	end
+	
+	private; def Parser.MatchLiteral(sp) # store string either as token or as literal
+		sym = Tab.Sym(sp)
+		matchedSp = DFA.MatchedDFA(sym.name, sp)
+		if (matchedSp==Tab.noSym)
+		  sym.struct = Tab.classToken
+		else 
+		  sym1 = Tab.Sym(matchedSp)
+		  sym1.struct = Tab.classLitToken
+		  sym.struct = Tab.litToken
+		end
+	end
+	
+	private; def Parser.SetCtx(p) # set transition code to contextTrans
+		while (p > 0)
+			n = Tab.Node(p)
+			if (n.typ==Tab.chr || n.typ==Tab.clas) then
+				n.p2 = Tab.contextTrans;
+			elsif (n.typ==Tab.opt || n.typ==Tab.iter) then
+				SetCtx(n.p1);
+			elsif (n.typ==Tab.alt) then
+				SetCtx(n.p1); SetCtx(n.p2);
+			end
+			p = n.next;
+		end
+	end
+	
+	private; def Parser.SetDDT(s)
+		for i in 1..(s.length-1)
+			ch = s.charAt(i);
+			if (Character.isDigit(ch)) then
+			  Tab.ddt[Character.digit(ch, 10)] = true
+			end
+		end
+	end
+	
+	private; def Parser.FixString(s)
+		a=s # TODO: remove a
+		int len = a.length
+		if (len == 2) then
+		  SemErr(29)
+		end
+		boolean dbl = false
+		for i in 1..(len-1)
+			if (a[i]=='"') then
+			  dbl = true
+			elsif (a[i]==' ') then
+			  SemErr(24)
+			end
+		end
+		if (!dbl) then
+		  a[0] = '"'
+		  a[len-1] = '"'
+		end
+
+		return new String(a, 0, len);
+	end
+	
+# -------------------------------------------------------------------------
+
+CHARACTERS
+  letter   = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".
+  digit    = "0123456789".
+  eol      = CHR(13).
+  lf       = CHR(10).
+  tab      = CHR(9).
+  noQuote1 = ANY - '"' - eol.
+  noQuote2 = ANY - "'" - eol.
+
+IGNORE eol + lf + tab
+
+
+TOKENS
+  ident     = letter {letter | digit}.
+  string    = '"' {noQuote1} '"' | "'" {noQuote2} "'".
+  number    = digit {digit}.
+  badString = '"' {noQuote1} eol | "'" {noQuote2} eol.
+
+
+PRAGMAS
+  ddtSym   = "$" {digit}.		(. SetDDT(t.val); .)
+
+
+COMMENTS FROM "/*" TO "*/" NESTED
+
+/* ------------------------------------------------------------------------- */
+
+PRODUCTIONS
+
+Coco                            (. int gramLine, sp, eofSy;
+                                   boolean undefined, noAttrs, noRet, ok, ok1;
+                                   String gramName;
+                                   Symbol sym;
+                                   Graph g;
+				.)
+=
+  "COMPILER"                    (. gramLine = token.line;
+                                   eofSy = Tab.NewSym(Tab.t, "EOF", 0);
+                                   genScanner = true;
+                                   ok = true;
+                                   Tab.ignored = new BitSet(); .) 
+  ident                         (. gramName = token.val;
+                                   Tab.semDeclPos = new Position();
+                                   Tab.semDeclPos.beg = t.pos; .)
+  {ANY}                         (. Tab.semDeclPos.len = t.pos - Tab.semDeclPos.beg;
+                                   Tab.semDeclPos.col = 0; .)
+  { Declaration }
+                                SYNC 
+  "PRODUCTIONS"                 (. Tab.ignored.set(32); #' ' is always ignored
+                                   if (genScanner) then; ok = DFA.MakeDeterministic(); end
+                                   Tab.nNodes = 0; .)
+  { ident                       (. sp = Tab.FindSym(token.val);
+                                   undefined = sp == Tab.noSym;
+                                   if (undefined) then
+                                       sp = Tab.NewSym(Tab.nt, token.val, token.line);
+                                       sym = Tab.Sym(sp);
+                                   else 
+                                       sym = Tab.Sym(sp);
+                                       if (sym.typ==Tab.nt) then
+                                           if (sym.struct > 0) then; SemErr(7); end
+                                       else SemErr(8);
+                                         sym.line = token.line;
+				       end
+                                   end
+                                   noAttrs = sym.attrPos==nil; sym.attrPos = nil;
+                                   noRet = sym.retVar==nil; sym.retVar = nil; .)
+    [ AttrDecl <sym> ]          (. if (!undefined) then
+                                       if ((noAttrs && sym.attrPos!=nil) || (noRet && sym.retVar!=nil) || (!noAttrs && sym.attrPos==nil) || (!noRet && sym.retVar==nil)) then
+				         SemErr(5);
+				       end
+				   end
+                                   .)
+    [ SemText <^sym.semPos> ] 
+    WEAK "="
+    Expression <^g>             (. sym.struct = g.l;
+                                   Tab.CompleteGraph(g.r); .) 
+    WEAK "."
+  }                             (. if (Tab.ddt[2]) then; Tab.PrintGraph(); end
+                                   Tab.gramSy = Tab.FindSym(gramName);
+                                   if (Tab.gramSy==Tab.noSym) then
+				       SemErr(11)
+                                   else
+                                       sym = Tab.Sym(Tab.gramSy);
+                                       if (sym.attrPos != nil) then
+				         SemErr(12);
+				       end
+                                   end
+				.)
+  "END" ident                   (. if (!gramName.equals(token.val)) then; SemErr(17); end
+                                   if (Scanner.err.count == 0) then
+                                       System.out.println("checking");
+                                       Tab.CompSymbolSets();
+                                       if (ok) then; ok = Tab.NtsComplete(); end
+                                       if (ok) then
+                                           ok1 = Tab.AllNtReached();
+                                           ok = Tab.NoCircularProductions();
+                                       end
+                                       if (ok) then; ok = Tab.AllNtToTerm(); end
+                                       if (ok) then; ok1 = Tab.LL1(); end
+                                       if (Tab.ddt[7]) then; Tab.XRef(); end
+                                       if (ok) then
+                                           print("parser"); $stderr.flush();
+                                           ParserGen.WriteParser();
+                                           if (genScanner) then
+                                               print(" + scanner");
+                                               $stdout.flush();
+                                               ok = DFA.WriteScanner();
+                                               if (Tab.ddt[0]) then
+					         DFA.PrintStates();
+					       end
+                                           end
+                                           puts(" generated");
+                                           if (Tab.ddt[8]) then
+					     ParserGen.WriteStatistics();
+					   end
+                                       end
+                                   else
+				     ok = false;
+				   end
+                                   if (Tab.ddt[6]) then Tab.PrintSymbolTable(); end
+                                   puts
+				.)
+  ".".
+/*------------------------------------------------------------------------------------*/
+Declaration                     (. Graph g1, g2; boolean nested = false; .)
+=
+  "CHARACTERS" { SetDecl }
+| "TOKENS"     { TokenDecl <Tab.t> }
+| "PRAGMAS"    { TokenDecl <Tab.pr> }
+| "COMMENTS"
+  "FROM" TokenExpr <^g1>
+  "TO" TokenExpr <^g2>
+  ( "NESTED"                    (. nested = true; .)
+  |                             (. nested = false; .)
+  )                             (. new Comment(g1.l, g2.l, nested); .)
+| "IGNORE" Set <^Tab.ignored>
+.
+
+/*------------------------------------------------------------------------------------*/
+SetDecl                         (. int c; BitSet s; String name; .)
+=
+  ident                         (. name = token.val;
+                                   c = Tab.ClassWithName(name);
+                                   if (c > 0) then; SemErr(7); end .)
+  "=" Set <^s>                  (. c = Tab.NewClass(name, s); .)
+  ".".
+/*------------------------------------------------------------------------------------*/
+Set <^BitSet s>                 (. BitSet s2; .)
+=
+  SimSet <^s>
+  { "+" SimSet <^s2>            (. s.or(s2); .)
+  | "-" SimSet <^s2>            (. Sets.Differ(s, s2); .)
+  }.
+/*------------------------------------------------------------------------------------*/
+SimSet <^BitSet s>              (. String name; int c, n; .)
+=
+                                (. s = new BitSet(128); .)
+( ident                         (. c = Tab.ClassWithName(token.val);
+                                   if (c < 0) then; SemErr(15); else s.or(Tab.Class(c)); end .)
+| string                        (. name = token.val
+				   i=1
+                                   while (name.charAt(i)!=name.charAt(0))
+                                       s.set(name.charAt(i)); i += 1; end .)
+| "CHR" "(" number              (. n = Integer.parseInt(token.val, 10);
+                                   s.set(n); .)
+  ")"
+| "ANY"                         (. s = Sets.FullSet(127); .)
+)
+.
+/*------------------------------------------------------------------------------------*/
+TokenDecl <int typ>             (. SymInfo s; int sp; Position pos; Graph g; .)
+=
+  Symbol <^s>                   (. if (Tab.FindSym(s.name) != Tab.noSym) then
+				     SemErr(7)
+				     sp = 0
+                                   else
+                                       sp = Tab.NewSym(typ, s.name, token.line);
+                                       Tab.Sym(sp).struct = Tab.classToken;
+                                   end .)
+  SYNC
+  ( "=" TokenExpr <^g> "."      (. if (s.kind != ident) then; SemErr(13); end
+                                   Tab.CompleteGraph(g.r);
+                                   DFA.ConvertToStates(g.l, sp); .)
+  |                             (. if (s.kind==ident) then
+				     genScanner = false
+                                   else
+				     MatchLiteral(sp)
+				   end
+				.)
+  )
+  [ SemText <^pos>              (. if (typ==Tab.t) then; SemErr(14); end
+                                   Tab.Sym(sp).semPos = pos; .)
+  ].
+/*------------------------------------------------------------------------------------*/
+AttrDecl <Symbol sym>           (. int beg, col, dim; StringBuffer buf;.)
+=
+  "<"
+  [ "^"
+    ident                       (. buf = new StringBuffer(token.val); dim = 0;.)
+    { "[" "]"					(. dim += 1; .)
+    }
+    ident                       (. sym.retVar = token.val; .)
+    { "[" "]"					(. dim += 1; .)
+    }							(. while (dim > 0); buf.append("[]"); dim -= 1; end
+    							   sym.retType = buf.toString(); .)
+    [","]
+  ]                             (. beg = t.pos; col = t.col; .)
+  { ANY }
+  ">"                           (. if (token.pos > beg) then
+                                       sym.attrPos = new Position();
+                                       sym.attrPos.beg = beg; sym.attrPos.col = col;
+                                       sym.attrPos.len = token.pos - beg;
+                                   end .)
+| "<."
+  [ "^"
+    ident                       (. buf = new StringBuffer(token.val); dim = 0;.)
+    { "[" "]"					(. dim += 1; .)
+    }
+    ident                       (. sym.retVar = token.val; .)
+    { "[" "]"					(. dim += 1; .)
+    }							(. while (dim > 0) ; buf.append("[]"); dim -= 1; end
+    							   sym.retType = buf.toString(); .)
+    [","]
+  ]                             (. beg = t.pos; col = t.col; .)
+  { ANY }
+  ".>"                          (. if (token.pos > beg) then
+                                       sym.attrPos = new Position();
+                                       sym.attrPos.beg = beg; sym.attrPos.col = col;
+                                       sym.attrPos.len = token.pos - beg;
+                                   end .).
+/*------------------------------------------------------------------------------------*/
+Expression <^Graph g>           (. Graph g2; boolean first; .)
+=
+  Term <^g>                     (. first = true; .)
+  { WEAK "|"
+    Term <^g2>                  (. if (first) then; g = Tab.FirstAlt(g); first = false; end
+                                   g = Tab.Alternative(g, g2); .)
+  }.
+/*------------------------------------------------------------------------------------*/
+Term<^Graph g>                  (. Graph g2; .)
+=                               (. g = nil; .)
+  ( Factor <^g>
+    { Factor <^g2>              (. g = Tab.Sequence(g, g2); .)
+    }
+  |                             (. g = new Graph();
+                                   g.l = Tab.NewNode(Tab.eps, 0, 0);
+                                   g.r = g.l; .)
+  ).
+/*------------------------------------------------------------------------------------*/
+Factor <^Graph g>               (. GraphNode n;
+                                   SymInfo s;
+                                   Symbol sym;
+                                   Position pos;
+                                   BitSet set;
+                                   int sp, typ;
+                                   boolean undefined, weak = false; .)
+=
+                                (. g = new Graph(); weak = false; .)
+( [ "WEAK"                      (. weak = true; .)
+  ]
+  Symbol <^s>                   (. sp = Tab.FindSym(s.name); undefined = sp==Tab.noSym;
+                                   if (undefined) then
+                                       if (s.kind==ident) then
+                                           sp = Tab.NewSym(Tab.nt, s.name, 0); # forward nt
+                                       elsif (genScanner) then
+                                           sp = Tab.NewSym(Tab.t, s.name, token.line);
+                                           MatchLiteral(sp);
+                                       else # undefined string in production
+                                           SemErr(6); sp = 0;
+                                       end
+                                   end
+                                   sym = Tab.Sym(sp); typ = sym.typ;
+                                   if (typ!=Tab.t && typ!=Tab.nt) then; SemErr(4); end
+                                   if (weak) then
+                                       if (sym.typ==Tab.t) then
+				         typ = Tab.wt
+				       else
+				         SemErr(23);
+				       end
+				   end
+                                   g.l = Tab.NewNode(typ, sp, token.line); g.r = g.l;
+                                   n = Tab.Node(g.l); .)
+  [ Attribs <n>                 (. if (s.kind!=ident) then; SemErr(3); end .)
+  ]                             (. if (undefined) then
+                                       sym.attrPos = n.pos; sym.retVar = n.retVar; # dummies
+                                   else
+                                       if ((n.pos!=nil && sym.attrPos==nil) || (n.retVar!=nil && sym.retVar==nil) || (n.pos==nil && sym.attrPos!=nil) || (n.retVar==nil && sym.retVar!=nil)) then; SemErr(5); end
+                                   end
+				.)
+| "(" Expression <^g> ")"
+| "[" Expression <^g> "]"       (. g = Tab.Option(g); .)
+| "{" Expression <^g> "}"       (. g = Tab.Iteration(g); .)
+| SemText <^pos>                (. g.l = Tab.NewNode(Tab.sem, 0, 0);
+                                   g.r = g.l;
+                                   n = Tab.Node(g.l); n.pos = pos; .)
+| "ANY"                         (. set = Sets.FullSet(Tab.maxTerminals);
+                                   set.clear(Tab.eofSy);
+                                   g.l = Tab.NewNode(Tab.any, Tab.NewSet(set), 0);
+                                   g.r = g.l; .)
+| "SYNC"                        (. g.l = Tab.NewNode(Tab.sync, 0, 0);
+                                   g.r = g.l; .)
+).
+/*------------------------------------------------------------------------------------*/
+TokenExpr <^Graph g>            (. Graph g2; boolean first; .)
+=
+  TokenTerm <^g>                (. first = true; .)
+  { WEAK "|"
+    TokenTerm <^g2>             (. if (first) then; g = Tab.FirstAlt(g); first = false; end
+                                   g = Tab.Alternative(g, g2); .)
+  }.
+/*------------------------------------------------------------------------------------*/
+TokenTerm <^Graph g>            (. Graph g2; .)
+=
+  TokenFactor <^g>
+  { TokenFactor <^g2>           (. g = Tab.Sequence(g, g2); .)
+  }
+  [ "CONTEXT"
+    "(" TokenExpr <^g2>         (. SetCtx(g2.l); g = Tab.Sequence(g, g2); .)
+    ")"
+  ].
+/*------------------------------------------------------------------------------------*/
+TokenFactor <^Graph g>          (. String name; int kind, c; SymInfo s; .)
+=
+                                (. g = new Graph(); .)
+( Symbol <^s>                   (. if (s.kind==ident) then
+                                       c = Tab.ClassWithName(s.name);
+                                       if (c < 0) then
+                                           SemErr(15);
+                                           c = Tab.NewClass(s.name, new BitSet());
+                                       end
+                                       g.l = Tab.NewNode(Tab.clas, c, 0);
+                                       g.r = g.l;
+                                   else # string
+				     g = Tab.StrToGraph(s.name)
+				   end
+				.)
+| "(" TokenExpr <^g> ")"
+| "[" TokenExpr <^g> "]"        (. g = Tab.Option(g); .)
+| "{" TokenExpr <^g> "}"        (. g = Tab.Iteration(g); .)
+).
+/*------------------------------------------------------------------------------------*/
+Symbol <^SymInfo s> = 
+                                (. s = new SymInfo(); .)
+  ( ident                       (. s.kind = ident; s.name = token.val; .)
+  | string                      (. s.kind = string; s.name = FixString(token.val); .)
+  ).
+/*------------------------------------------------------------------------------------*/
+Attribs <GraphNode n>           (. int beg, col; .)
+= 
+  "<"
+  ( "^"                         (. beg = t.pos; .)
+  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, t.pos); .)
+	( "," AttrRest<n>
+	| ">"
+	)
+  |	AttrRest<n>
+  )
+| "<."                          /*alternative format to allow ">" in attributes*/
+  ( "^"                         (. beg = t.pos; .)
+  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, t.pos); .)
+	( "," AttrRest1<n>
+	| ".>"
+	)
+  |	AttrRest1<n>
+  ).
+/*------------------------------------------------------------------------------------*/
+AttrRest <GraphNode n>          (. int beg, col; .)
+=
+                                (. beg = t.pos; col = t.col; .)
+  { ANY }
+  ">"                           (. if (token.pos > beg) then
+                                       n.pos = new Position();
+                                       n.pos.beg = beg; n.pos.col = col;
+                                       n.pos.len = token.pos - beg;
+                                   end
+				.).
+/*------------------------------------------------------------------------------------*/
+AttrRest1 <GraphNode n>         (. int beg, col; .)
+=
+                                (. beg = t.pos; col = t.col; .)
+  { ANY }
+  ".>"                          (. if (token.pos > beg) then
+                                       n.pos = new Position();
+                                       n.pos.beg = beg; n.pos.col = col;
+                                       n.pos.len = token.pos - beg;
+                                   end .).
+/*------------------------------------------------------------------------------------*/
+SemText <^Position pos> = 
+  "(."                          (. pos = new Position();
+                                   pos.beg = t.pos; pos.col = t.col; .)
+  { ANY
+  | badString                   (. SemErr(18); .)
+  | "(."                        (. SemErr(19); .)
+  }
+  ".)"                          (. pos.len = token.pos - pos.beg; .).
+
+END Coco.
