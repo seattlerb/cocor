@@ -1,7 +1,7 @@
 
 class BitSet
 
-  def initialize(size)
+  def initialize(size=128)
     @size = size
     @bits = Array.new(size, false)
   end
