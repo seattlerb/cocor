@@ -33,6 +33,8 @@ FEATURES/PROBLEMS:
 + Happy neato ruby parsers and lexers.
 - Not clean. Design needs massive cleanup.
 - Needs actual documentation (unless you've used coco/r before).
+- Needs actual tests.
+- Probably lots of other bad things... I'd love feedback.
 
 SYNOPSYS:
 

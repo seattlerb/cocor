@@ -12,6 +12,8 @@
 #     $ {digit}
 #in the attributed grammar.
 
+$COCO_VERSION = "1.0.0"
+
 require 'DFA'
 require 'ErrorStream'
 require 'Parser'
@@ -77,7 +79,7 @@ class Errors < ErrorStream
 end
 
 if $0 == __FILE__ then
-  puts("Coco/R(uby) v 1.0");
+  puts("Coco/R(uby) v #{$COCO_VERSION}");
   if (ARGV.length == 0) then
     $stderr.puts("-- no file name specified")
     exit(1)

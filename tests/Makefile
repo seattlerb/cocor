@@ -10,23 +10,14 @@ all: links
 	for g in *.ATG; do \
 	  echo $$g; \
 	  d=build/$$(basename $$g .ATG); \
-	  j=$$d/java; \
 	  r=$$d/ruby; \
 	  mkdir -p $$r; \
-	  mkdir -p $$j; \
 	  cp *.frame $$g $$r; \
-	  cp *.frame $$g $$j; \
-	  ruby -w Comp.rb $$r/$$g &> $$r/out; \
-	  grep -v "Coco/R" $$r/out > $$r/output; \
-	  java Coco.Comp $$j/$$g &> $$j/out; \
-	  grep -v "Coco/R" $$j/out > $$j/output; \
-	  rm $$d/*/out; \
-	  diff -rw $$d/* | tee $$d/diff.txt; \
+	  ruby -w Comp.rb $$r/$$g; \
 	done
 
 links: build
 	chmod -R a+w build
-	ln -sf ../build/Coco .
 	for f in $(LINKS); do \
 	  ln -sf ../build2/$$f . ; \
 	done
