@@ -28,10 +28,16 @@ class State {			// state of finite automaton
 	
 	void AddAction(Action act) {
 		Action lasta = null, a = firstAction;
-		while (a != null && act.typ >= a.typ) {lasta = a; a = a.next;}
+		while (a != null && act.typ >= a.typ) {
+		    lasta = a;
+		    a = a.next;
+		}
 		// collecting classes at the beginning gives better performance
 		act.next = a;
-		if (a==firstAction) firstAction = act; else lasta.next = act;
+		if (a==firstAction) 
+		    firstAction = act; 
+		else
+		    lasta.next = act;
 	}
 	
 	void DetachAction(Action act) {

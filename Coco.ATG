@@ -150,9 +150,15 @@ Coco                            (. gramLine = sp = eofSy = 0
 				   sym.retVar = nil
 				.)
     [ AttrDecl <sym> ]          (. if (!undefined) then
-                                       if ((noAttrs && sym.attrPos!=nil) || (noRet && sym.retVar!=nil) || (!noAttrs && sym.attrPos==nil) || (!noRet && sym.retVar==nil)) then
-				         SemErr(5)
-				       end
+                                     if ((noAttrs  && sym.attrPos!=nil) || 
+				         (noRet    && sym.retVar !=nil) || 
+					 (!noAttrs && sym.attrPos==nil) || 
+					 (!noRet   && sym.retVar ==nil)) then
+				       $stderr.puts
+				       $stderr.puts "*** 1 sym=#{sym}"
+				       $stderr.puts
+				       SemErr(5)
+				     end
 				   end
                                    .)
     [ SemText <^sym.semPos> ] 
@@ -341,36 +347,52 @@ AttrDecl <Sym sym>		(. beg = col = dim = 0
     				   sym.retType = buf.to_s
 				 .)
     [","]
-  ]                             (. beg = @t.pos; col = @t.col; .)
+  ]                             (. beg = @t.pos
+  				   col = @t.col
+				 .)
   { ANY }
   ">"                           (. if (@token.pos > beg) then
-                                       sym.attrPos = Position.new();
-                                       sym.attrPos.beg = beg; sym.attrPos.col = col;
-                                       sym.attrPos.len = @token.pos - beg;
-                                   end .)
+                                     sym.attrPos = Position.new
+                                     sym.attrPos.beg = beg
+				     sym.attrPos.col = col
+                                     sym.attrPos.len = @token.pos - beg
+                                   end
+				 .)
 | "<."
   [ "^"
-    ident                       (. buf = StringBuffer.new(@token.val); dim = 0;.)
-    { "[" "]"					(. dim += 1; .)
+    ident                       (. buf = [ @token.val ]
+    				   dim = 0
+				 .)
+    { "[" "]"			(. dim += 1 .)
     }
-    ident                       (. sym.retVar = @token.val; .)
-    { "[" "]"					(. dim += 1; .)
-    }							(. while (dim > 0) ; buf.append("[]"); dim -= 1; end
-    							   sym.retType = buf.toString(); .)
+    ident                       (. sym.retVar = @token.val .)
+    { "[" "]"			(. dim += 1 .)
+    }				(. while (dim > 0) do
+    				     buf << "[]"
+				     dim -= 1
+				   end
+				   sym.retType = buf.join('')
+				 .)
     [","]
-  ]                             (. beg = @t.pos; col = @t.col; .)
+  ]                             (. beg = @t.pos
+  				   col = @t.col
+				 .)
   { ANY }
   ".>"                          (. if (@token.pos > beg) then
-                                       sym.attrPos = Position.new();
-                                       sym.attrPos.beg = beg; sym.attrPos.col = col;
-                                       sym.attrPos.len = @token.pos - beg;
-                                   end .).
+                                       sym.attrPos = Position.new()
+                                       sym.attrPos.beg = beg
+				       sym.attrPos.col = col
+                                       sym.attrPos.len = @token.pos - beg
+                                   end
+				 .).
 /*------------------------------------------------------------------------------------*/
-Expression <^Graph g>           (. g2 = nil; first = false; .)
+Expression <^Graph g>           (. g2 = nil
+	   	   		   first = false
+				 .)
 =
-  Term <^g>                     (. first = true; .)
+  Term <^g>                     (. first = true .)
   { WEAK "|"
-    Term <^g2>                  (. if (first) then;
+    Term <^g2>                  (. if (first) then
 				     g = Tab.FirstAlt(g)
 				     first = false
 				   end
@@ -399,7 +421,8 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				 .)
 ( [ "WEAK"                      (. weak = true .)
   ]
-  Symbol <^s>                   (. sp = Tab.FindSym(s.name)
+  Symbol <^s>                   (. puts "symbol name = #{s.name}"
+  	 			   sp = Tab.FindSym(s.name)
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
@@ -428,23 +451,38 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				   g.r = g.l
                                    n = Tab.Node(g.l)
 				 .)
-  [ Attribs <n>                 (. if (s.kind!=@@ident) then; SemErr(3); end .)
+  [ Attribs <n>                 (. if (s.kind!=@@ident) then
+    	    			     SemErr(3)
+				   end
+				 .)
   ]                             (. if (undefined) then
-                                       sym.attrPos = n.pos; sym.retVar = n.retVar; # dummies
+                                       sym.attrPos = n.pos
+				       sym.retVar  = n.retVar # dummies
                                    else
-                                       if ((n.pos!=nil && sym.attrPos==nil) || (n.retVar!=nil && sym.retVar==nil) || (n.pos==nil && sym.attrPos!=nil) || (n.retVar==nil && sym.retVar!=nil)) then; SemErr(5); end
+                                       if ((n.pos!=nil && sym.attrPos==nil) ||
+				           (n.retVar!=nil && sym.retVar==nil) ||
+					   (n.pos==nil && sym.attrPos!=nil) ||
+					   (n.retVar==nil && sym.retVar!=nil)) then
+				       $stderr.puts
+				       $stderr.puts "*** n.class = #{n.class}, sym.class = #{sym.class}"
+				       $stderr.puts "*** 2 n.pos=#{n.pos.inspect}, n.ret=#{n.retVar.inspect}, sym.pos=#{sym.attrPos.inspect}, sym.ret=#{sym.retVar.inspect}"
+				       $stderr.puts
+					 SemErr(5)
+				       end
                                    end
-				.)
+				 .)
 | "(" Expression <^g> ")"
-| "[" Expression <^g> "]"       (. g = Tab.Option(g); .)
-| "{" Expression <^g> "}"       (. g = Tab.Iteration(g); .)
-| SemText <^pos>                (. g.l = Tab.NewNode(Tab::Sem, 0, 0);
-                                   g.r = g.l;
-                                   n = Tab.Node(g.l); n.pos = pos; .)
-| "ANY"                         (. set = Sets.FullSet(Tab::MaxTerminals);
-                                   set.clear(Tab::EofSy);
-                                   g.l = Tab.NewNode(Tab::Any, Tab.NewSet(set), 0);
-                                   g.r = g.l;
+| "[" Expression <^g> "]"       (. g = Tab.Option(g) .)
+| "{" Expression <^g> "}"       (. g = Tab.Iteration(g) .)
+| SemText <^pos>                (. g.l = Tab.NewNode(Tab::Sem, 0, 0)
+                                   g.r = g.l
+                                   n = Tab.Node(g.l)
+				   n.pos = pos
+				 .)
+| "ANY"                         (. set = Sets.FullSet(Tab::MaxTerminals)
+                                   set.clear(Tab::EofSy)
+                                   g.l = Tab.NewNode(Tab::Any, Tab.NewSet(set), 0)
+                                   g.r = g.l
 				 .)
 | "SYNC"                        (. g.l = Tab.NewNode(Tab::Sync, 0, 0)
                                    g.r = g.l

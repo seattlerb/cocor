@@ -15,7 +15,7 @@ coco:
 	(cd build; java Coco.Comp Coco.ATG)
 	(cd build; ruby -cw *.rb)
 	(cd build; $(MAKE))
-	(cp Makefile.sub build/build/Makefile; cd build/build; $(MAKE))
+#	(cp Makefile.sub build/build/Makefile; cd build/build; $(MAKE))
 
 build:
 	mkdir build

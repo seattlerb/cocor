@@ -5,11 +5,33 @@ class Position	 			# position of source code stretch (e.g. semantic action)
   attr_accessor :beg			# start relative to the beginning of the file
   attr_accessor :len			# length of stretch
   attr_accessor :col			# column number of start position
+
+  def initialize
+    @beg = @len = @col = 0
+  end
+
+  def ==(o)
+    ! o.nil? &&
+      @beg == o.beg &&
+      @len == o.len &&
+      @col == o.col
+  end
+  
 end
 
 class SymInfo
   attr_accessor :name
   attr_accessor :kind			# 0 = ident, 1 = string
+
+  def initialize
+    @name = ""
+    @kind = 0
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 # RENAMED from Symbol
@@ -32,6 +54,14 @@ class Sym
     @name = @retType = @retVar = ""
   end
 
+  def ==(o)
+    raise "Not implemented yet"
+  end
+
+  def to_s
+    "<Symbol: #{@retType}/#{@retVar}/#{@name}>"
+  end
+  
 end
 
 class GraphNode
@@ -56,22 +86,57 @@ class GraphNode
 
   def initialize
     @typ = @next = @p1 = @p2 = @line = 0
+    @pos = nil
+    @retVar = @state = ""
   end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 class FirstSet
     attr_accessor :ts			# terminal symbols
     attr_accessor :ready		# if true, ts is complete
+
+  def initialize
+    raise "Not implemented yet"
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 class FollowSet
     attr_accessor :ts			# terminal symbols
     attr_accessor :nts			# nonterminals whose start set is to be included into ts
+
+  def initialize
+    @ts = @nts = nil # BitSet
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 class CharClass
     attr_accessor :name			# class name
     attr_accessor :set			# index of set representing the class
+
+  def initialize
+    @name = ""
+    @set = 0
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 class Graph
@@ -81,17 +146,42 @@ class Graph
   def initialize
     @l = @r = 0
   end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 class XNode				# node of cross reference list
     attr_accessor :line
     attr_accessor :next
+
+  def initialize
+    @line = 0
+    @next = nil
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 class CNode				# node of list for finding circular productions
     attr_accessor :left
     attr_accessor :right
     attr_accessor :deleted
+
+  def initialize
+    @left = @right = 0
+    @deleted = false
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
 end
 
 class Tab
@@ -162,13 +252,19 @@ class Tab
   # I'm only adding these as they get used and fubar something
   public
   cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy
-  cls_attr_accessor :ddt
 
-  # HACK TODO WHATEVER: figure out why cls_attr_accessor isn't working
-  def self.ddt
+  def self.ddt # HACK : I have no idea why cls_attr_accessor isn't working 
     @@ddt
   end
 
+  def initialize
+    raise "Not implemented yet"
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+  
   private
   def self.Assert(cond, n)
     if (!cond) then
@@ -244,6 +340,7 @@ class Tab
       end
       i += 1
     end
+    $stderr.puts "NoSym found"
     return NoSym
   end
 
@@ -276,7 +373,6 @@ class Tab
   end
 
   def self.Alternative(g1, g2)
-    $stderr.puts "g1 = #{g1}, g1.l = #{g1.l}"
     p = 0
     g2.l = NewNode(Alt, g2.l, 0)
     p = g1.l
@@ -390,7 +486,6 @@ class Tab
   def self.NewClass(name, s)
     c = nil
     @@maxC += 1
-    $stderr.puts(caller.join("\n"))
     Assert(@@maxC < MaxClasses, 7)
     if (name == "#") then
       name = "#" + (?A + @@dummyName).chr
@@ -416,7 +511,7 @@ class Tab
   # TODO: these aren't necessary in ruby
   def self.ClassWithSet(s)
     i = @@maxC
-    while (i>=0 && s != @@set[@@chClass[i].set]) do # FIX: maybe ! .eql instead of !=
+    while (i>=0 && s != @@set[@@chClass[i].set]) do
       i -= 1
     end
     return i

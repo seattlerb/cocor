@@ -1,12 +1,23 @@
 require 'Scanner'
 require "module-hack"
 
-class StateSet					# set of target states returned by GetTargetStates
+class StateSet		# set of target states returned by GetTargetStates
   attr_accessor :set, :endOf, :ctx, :correct
-  # BitSet set					# all target states of an action
-  # int endOf					# token that is recognized after this action
-  # boolean ctx					# true if target states are reached via context transition
-  # boolean correct				# true if no error occured in GetTargetStates
+  # BitSet set		# all target states of an action
+  # int endOf		# token that is recognized after this action
+  # boolean ctx	# true if target states are reached via context transition
+  # boolean correct	# true if no error occured in GetTargetStates
+
+  def initialize
+    @set = nil
+    @endOf = 0
+    @ctx = @correct = false
+  end
+
+  def ==(o)
+    raise "Not implemented yet"
+  end
+
 end
 
 #-----------------------------------------------------------------------------
@@ -19,25 +30,21 @@ class State						# state of finite automaton
   cls_attr_accessor :lastNr
   attr_accessor :nr, :firstAction, :endOf, :ctx, :next
   
-  # static int lastNr					# highest state number
-  # int nr						# state number
-  # Action firstAction				# to first action of this state
-  # int endOf						# nr. of recognized token if state is final
-  # boolean ctx					# true if state is reached via contextTrans
-  # State next
-  
   def initialize
     @nr = @@lastNr
     @@lastNr += 1
     @endOf = Tab::NoSym
-    @firstAction = nil
-    @endOf = 0
     @ctx = false
-    @state = nil
+    @firstAction = @next = nil
   end
   
-  def to_s
-    return "#<State@#{"%x" % self.id}: lastNr=#{@@lastNr}, nr=#{@nr}, endOf=#{@endOf}, ctx=#{@ctx}, firstAction=#{@firstAction}, next=#{@next}>"
+  def ==(o)
+    return !o.nil? &&
+      @nr == o.nr &&
+      @firstAction == o.firstAction && 
+      @endOf == o.endOf &&
+      @ctx == o.ctx &&
+      @next == o.next
   end
 
   def AddAction(act)
@@ -53,7 +60,11 @@ class State						# state of finite automaton
     if (a == @firstAction) then
       @firstAction = act
     else
-      lasta.next = act
+      unless lasta.nil? then
+	lasta.next = act
+      else
+	$stderr.puts "AddAction: lasta is nil. @firstAction=#{@firstAction}"
+      end
     end
   end
   
@@ -109,19 +120,29 @@ end
 #  Action
 #-----------------------------------------------------------------------------
 
-class Action						# action of finite automaton
-  attr_accessor :typ					# type of action symbol: clas, chr
-  attr_accessor :sym					# action symbol
-  attr_accessor :tc					# transition code: normTrans, contextTrans
-  attr_accessor :target					# states reached from this action
+class Action			# action of finite automaton
+  attr_accessor :typ		# type of action symbol: clas, chr
+  attr_accessor :sym		# action symbol
+  attr_accessor :tc		# transition code: normTrans, contextTrans
+  attr_accessor :target		# states reached from this action
   attr_accessor :next
   
   def initialize(typ, sym, tc)
     @typ = typ
     @sym = sym
     @tc = tc
+    @target = @next = nil
   end
   
+  def ==(o)
+    return !o.nil? &&
+      @typ == o.typ &&
+      @sym == o.sym &&
+      @tc == o.tc &&
+# HACK - cycle      @target == o.target &&
+      @next == o.next
+  end
+
   def AddTarget(t)
     last = nil
     p = @target
@@ -238,6 +259,13 @@ class Target				# set of states that are reached by an action
     @state = s
     @next = nil
   end
+
+  def ==(o)
+    ! o.nil? &&
+      @state == o.state &&
+      @next == o.next
+  end
+
 end
 
 #-----------------------------------------------------------------------------
@@ -258,6 +286,13 @@ class Melted			# info about melted states
     
     @next = @@first
     @@first = self
+  end
+
+  def ==(o)
+    ! o.nil? &&
+      @set == o.set &&
+      @state == o.state &&
+      @next == o.next
   end
 
   def self.Set(nr)
@@ -295,6 +330,18 @@ class Comment				# info about comment syntax
   attr_accessor :nested
   attr_accessor :next
   
+  def initialize(from, to, nested)
+    @start = self.class.Str(from)
+    @stop = self.class.Str(to)
+    @nested = nested
+    @next = @@first
+    @@first = self
+  end
+  
+  def ==(o)
+    raise "Not implemented yet"
+  end
+
   # private maybe??
   def self.Str(p)
     s = ""
@@ -323,14 +370,6 @@ class Comment				# info about comment syntax
     end
 
     return s.to_s
-  end
-  
-  def initialize(from, to, nested)
-    @start = self.class.Str(from)
-    @stop = self.class.Str(to)
-    @nested = nested
-    @next = @@first
-    @@first = self
   end
   
 end
@@ -587,7 +626,7 @@ class DFA
 
     return unless n.state.nil? # already visited
 
-    if (state==nil) then
+    if (state.nil?) then
       state = NewState()
     end
 

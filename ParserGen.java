@@ -318,8 +318,8 @@ class ParserGen {
 	    gen.println("\t\t$stderr.puts(\"+ " + sym.name + "\")");
 	    CopySourcePart(sym.semPos, 2);
 	    GenCode(sym.struct, 2, new BitSet());
-	    if (sym.retVar!=null) gen.println("\t\treturn " + sym.retVar);
 	    gen.println("\t\t$stderr.puts(\"- " + sym.name + "\")");
+	    if (sym.retVar!=null) gen.println("\t\treturn " + sym.retVar);
 	    gen.println("\tend"); gen.println();
 	}
     }

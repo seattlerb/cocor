@@ -3,6 +3,21 @@ require 'module-hack'
 
 class Token
   attr_accessor :kind, :pos, :col, :line, :val
+
+  def initialize
+    @val = ""
+    @kind = @pos = @col = @line = 0
+  end
+
+  def ==(o)
+    ! o.nil? &&
+      @kind == o.kind &&
+      @pos == o.pos &&
+      @col == o.col &&
+      @line == o.line &&
+      @val == o.val
+  end
+
 end
 
 class Buffer

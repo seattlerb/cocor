@@ -7,5 +7,5 @@ all:
 	rm -rf build
 	mkdir build
 	cp $(FRAMES) *.ATG build
-	ruby Comp.rb build/Coco.ATG
+	ruby -w Comp.rb build/Coco.ATG
 #	(cd build; ruby -cw *.rb)

@@ -1,5 +1,6 @@
 
 require 'Sets'
+require 'module-hack'
 
 class Parser
 -->constants
@@ -87,6 +88,11 @@ class ErrorStream
 
 	def initialize()
 	  @count = 0
+	end
+
+	def ==(o)
+	  !o.nil? &&
+	    @count == o.count
 	end
 	
 	def ParsErr(n, line, col)

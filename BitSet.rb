@@ -57,9 +57,4 @@ class BitSet
   end 
   # Returns the "logical size" of this BitSet : the index of  the highest set bit in the BitSet plus one. 
 
-  def size
-    return @size
-  end 
-  # Returns the number of bits of space actually in use by this BitSet to represent bit values. 
-
 end
