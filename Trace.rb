@@ -1,22 +1,28 @@
 class Trace
-  def Trace.Init(dir)
+
+  def self.Init(dir)
     begin
-      out = File.new(File.join(dir, "listing"), "w");
+      @@out = File.new(File.join(dir, "listing"), "w");
     rescue
       Scanner.err.Exception("-- could not open trace file");
-      out=$stdout
+      @@out=$stdout
     end
   end
 
-  def Trace.print(s)
-    out.print(s)
+  def self.print(s)
+    @@out.print(s)
   end
   
-  def Trace.println(s)
-    out.puts(s)
+  def self.println(s)
+    @@out.puts(s)
   end
   
-  def Trace.println()
-    out.puts()
+  def self.println()
+    @@out.puts()
   end
+
+  def self.out
+    @@out
+  end
+
 end

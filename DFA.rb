@@ -76,9 +76,9 @@ class State						# state of finite automaton
     s=nil
     a=@firstAction
     while (a!=nil) do
-      if (a.typ==Tab.chr && ch==a.sym) then
+      if (a.typ==Tab::Chr && ch==a.sym) then
 	return a
-      elsif (a.typ==Tab.clas) then
+      elsif (a.typ==Tab::Clas) then
 	s = Tab.Class(a.sym)
 	if (s.get(ch)) then
 	  return a
@@ -169,7 +169,7 @@ class Action						# action of finite automaton
     i = 0
 
     if (Sets.Size(s)==1) then
-      @typ = Tab.chr
+      @typ = Tab::Chr
       @sym = Sets.First(s)
     else
       i = Tab.ClassWithSet(s)
@@ -668,7 +668,7 @@ class DFA
 
     while (i<len) do # make new DFA for s[i..len-1]
       to = NewState()
-      NewTransition(state, to, Tab.chr, s.charAt(i), Tab.normTrans)
+      NewTransition(state, to, Tab::Chr, s.charAt(i), Tab::NormTrans)
       state = to
       i += 1
     end
@@ -857,7 +857,7 @@ class DFA
 	else
 	  Trace.print("          ");
 	end
-	if (action.typ==Tab.clas) then
+	if (action.typ==Tab::Clas) then
 	  Trace.print(Tab.ClassName(action.sym));
 	else
 	  Trace.print(Ch(action.sym));
@@ -1015,7 +1015,7 @@ private static void GenComBody(Comment com) {
 					else
 					  gen.print("\t\t\t\t\telsif (");
 
-					  if (action.typ==Tab.chr) 
+					  if (action.typ==Tab::Chr) 
 					    gen.print(ChCond((char)action.sym));
 					  else
 					    PutRange(Tab.Class(action.sym));
@@ -1056,7 +1056,7 @@ private static void GenComBody(Comment com) {
 							      gen.print(  "\t\t\t\t\t\t");
 							    }
 							    gen.println("t.kind = " + endOf + "; ");
-							    if (sym.struct==Tab.classLitToken)
+							    if (sym.struct==Tab::ClassLitToken)
 							      gen.println("t.val = buf.toString(); CheckLiteral(); ");
 							      if (state.firstAction != nil) gen.println("end");
 							      }
@@ -1068,7 +1068,7 @@ private static void GenComBody(Comment com) {
 							      startTab[0] = State.lastNr + 1; # eof
 							      for (Action action= firstState.firstAction; action!=nil; action=action.next) {
 								  targetState = action.target.state.nr;
-								  if (action.typ==Tab.chr) startTab[action.sym] = targetState;
+								  if (action.typ==Tab::Chr) startTab[action.sym] = targetState;
 								  else {
 								      s = Tab.Class(action.sym); max = s.size();
 								      for (i=0; i<=max; i++)

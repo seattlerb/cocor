@@ -3,23 +3,23 @@ package Coco;
 import java.io.*;
 import java.util.*;
 
-class StateSet {			// set of target states returned by GetTargetStates
-	BitSet set;					// all target states of an action
-	int endOf;					// token that is recognized after this action
-	boolean ctx;				// true if target states are reached via context transition
-	boolean correct;			// true if no error occured in GetTargetStates
+class StateSet {	// set of target states returned by GetTargetStates
+	BitSet set;	// all target states of an action
+	int endOf;	// token that is recognized after this action
+	boolean ctx;	// true if target states are reached via context transition
+	boolean correct;// true if no error occured in GetTargetStates
 }
 
 //-----------------------------------------------------------------------------
 //  State
 //-----------------------------------------------------------------------------
 
-class State {				// state of finite automaton
-	static int lastNr;			// highest state number
-	int nr;						// state number
-	Action firstAction;			// to first action of this state
-	int endOf;					// nr. of recognized token if state is final
-	boolean ctx;				// true if state is reached via contextTrans
+class State {			// state of finite automaton
+	static int lastNr;	// highest state number
+	int nr;			// state number
+	Action firstAction;	// to first action of this state
+	int endOf;		// nr. of recognized token if state is final
+	boolean ctx;		// true if state is reached via contextTrans
 	State next;
 	
 	State() {

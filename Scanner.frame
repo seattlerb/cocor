@@ -43,7 +43,7 @@ class Scanner
   EOF = -1
   EOL = '\n'[0]
   MAXASCII = 127				# FIX: this is dumb
-  MAXCHR = '\uffff'				# FIX: not ruby compatible
+  MAXCHR = 65535				# FIX: not ruby compatible
   SPACE = ' '[0]
 
 -->declarations
@@ -92,7 +92,7 @@ class Scanner
       if (@@ch == MAXCHR) then
 	@@ch = EOF
       else
-	$stderr.println("-- invalid character at line " + @@line + " col " + (@@pos - @@lineStart))
+	$stderr.puts("-- invalid character (#{@@ch}) at line #{@@line} col #{@@pos - @@lineStart}")
 	@@ch = SPACE
       end
     end
@@ -120,7 +120,7 @@ class Scanner
     apx = 0
 
     while true
-      buf += @@ch.chr
+      buf += @@ch.chr unless @@ch < 0
       self.NextCh
 #      $stderr.puts "state = #{state}, ch = #{@@ch} / '#{@@ch.chr}'"
       case state

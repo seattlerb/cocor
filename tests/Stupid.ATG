@@ -1,0 +1,20 @@
+COMPILER Stupid
+
+CHARACTERS
+  letter = "abcdefg".
+  eol    = CHR(13).
+  lf     = CHR(10).
+  tab    = CHR(9).
+
+TOKENS
+  ident  = letter.
+
+IGNORE eol + lf + tab
+
+COMMENTS FROM "(*" TO "*)" NESTED
+
+PRODUCTIONS
+
+Stupid = ( "a" {"b"} "c" | "d" ["e"] "f" | ) "g" (. puts "yeah!" .).
+
+END Stupid.
