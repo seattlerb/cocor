@@ -5,8 +5,8 @@ class BitSet < Array
 
   attr_reader :trueCount
 
-  def initialize(size=128)
-    super(size, false)
+  def initialize(size=128, default=false)
+    super(size, default)
     @trueCount = 0
   end
 
@@ -30,7 +30,7 @@ class BitSet < Array
   # Sets the bit specified by the index to false .
 
   def get(i)
-    self.class.warn_usage if $DEBUG
+#    self.class.warn_usage if $DEBUG
     self[i]
   end
   # Returns the value of the bit with the specified index. 
