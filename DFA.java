@@ -270,7 +270,7 @@ class DFA {
 		if (ch<' ' || ch>=127 || ch=='\'' || ch=='\\')
 		    return String.valueOf((int)ch);
 		else
-		    return "'" + ch + "'[0]";
+		    return "?" + ch;
 	}
 	
 	private static String ChCond(char ch) {
@@ -714,7 +714,7 @@ class DFA {
 			do {
 				if (i==j) gen.print("\t\t\t\tif ");
 				else gen.print("\t\t\t\telsif ");
-				gen.println("(t.val.equals(" + key[i] + ")) then; t.kind = " + knr[i] + ";");
+				gen.println("(@@t.val == " + key[i] + ") then; @@t.kind = " + knr[i] + ";");
 				i++;
 			} while (i<k && key[i].charAt(1)==ch);
 			gen.println("\t\t\t\tend");
@@ -753,13 +753,13 @@ class DFA {
 		    } else if (state.ctx)
 			gen.println("apx = 0; ");
 
-		    if (action.next==null)
-			gen.println("\t\t\t\t\t\tbreak");
+		    // if (action.next==null)
+		    // gen.println("\t\t\t\t\t\tbreak # no");
 		}
 
 		if (state.firstAction != null) gen.println("\t\t\t\t\telse ;");
 		if (endOf==Tab.noSym)
-			gen.println("t.kind = @@noSym; break; end");
+			gen.println("@@t.kind = @@noSym; break; end");
 		else { // final state
 			if (state.firstAction==null)
 				gen.print("\t\t\t\t\t");
@@ -777,9 +777,10 @@ class DFA {
 				gen.println("\t\t\t\t\t\tbuf.setLength(i); NextCh();");
 				gen.print(  "\t\t\t\t\t\t");
 			}
-			gen.println("t.kind = " + endOf + "; ");
+			gen.println("@@t.kind = " + endOf + "; ");
 			if (sym.struct==Tab.classLitToken)
-				gen.println("t.val = buf.toString(); CheckLiteral(); ");
+				gen.println("@@t.val = buf.to_s; CheckLiteral(); ");
+			gen.println("break");
 			if (state.firstAction != null) gen.println("end");
 		}
 	}
@@ -859,7 +860,7 @@ class DFA {
 		for (State state=firstState.next; state!=null; state=state.next)
 		    WriteState(state);
 		gen.println("\t\t\t\twhen "+(State.lastNr+1));
-		gen.println("\t\t\t\t\tt.kind = 0; ");
+		gen.println("\t\t\t\t\t@@t.kind = 0; ");
 		CopyFramePart("$$$");
 		gen.flush();
 		return ok;

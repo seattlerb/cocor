@@ -21,7 +21,7 @@ class Parser
 			@t = Scanner.Scan
 			return if (@t.kind<=MaxT)
 -->pragmas
-			@t = token
+			@t = @token
 		end
 	end
 	

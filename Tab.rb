@@ -256,6 +256,11 @@ class Tab
     raise "Um. no"
   end
 
+  def self.ddt
+    $stderr.puts "ddt"
+    return @@ddt
+  end
+
 end
 
 __END__

@@ -126,7 +126,7 @@ class ParserGen {
 	else if (n <= maxTerm)
 	    for (i=0; i<=Tab.maxT; i++) {
 		if (s.get(i)) {
-		    gen.print("t.kind==" + i);
+		    gen.print("@t.kind==" + i);
 		    n--; if (n > 0) gen.print(" || ");
 		}
 	    }
@@ -191,7 +191,7 @@ class ParserGen {
 	    case Tab.alt: {
 		s1 = Tab.First(p); equal = s1.equals(checked);
 		alts = Alternatives(p);
-		if (alts > 5) {Indent(indent); gen.println("case (t.kind)");}
+		if (alts > 5) {Indent(indent); gen.println("case (@t.kind)");}
 		p2 = p;
 		while (p2 != 0) {
 		    n2 = Tab.Node(p2);
@@ -269,7 +269,7 @@ class ParserGen {
 	
     private static void GenCodePragmas() {
 	for (int i=Tab.maxT+1; i<=Tab.maxP; i++) {
-	    gen.println("\t\tif (t.kind==" + i + ") then");
+	    gen.println("\t\tif (@t.kind==" + i + ") then");
 	    CopySourcePart(Tab.Sym(i).semPos, 3);
 	    gen.println("\t\tend");
 	}

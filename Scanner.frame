@@ -99,7 +99,7 @@ class Scanner
 -->comment
 	
   def self.CheckLiteral
-    case (t.val.charAt(0))
+    case (@@t.val[0])
 -->literals
     end
   end
@@ -108,26 +108,31 @@ class Scanner
     buf=""
     self.NextCh while @@ignore.get(@@ch)
 -->scan1
-    t = Token.new
-    t.pos = @@pos
-    t.col = @@pos - @@lineStart
-    t.line = @@line 
+    @@t = Token.new
+    @@t.pos = @@pos
+    @@t.col = @@pos - @@lineStart
+    @@t.line = @@line 
+    @@t.kind = "FIX"
     buf = ""
     state = @@start[@@ch]
     apx = 0
 
     while true
-      buf += @@ch.to_s
+      buf += @@ch.chr
       self.NextCh
+      $stderr.puts "state = #{state}, ch = #{@@ch} / '#{@@ch.chr}'"
       case state
       when 0				# NextCh already done
-	t.kind = @@noSym
+	@@t.kind = @@noSym
 	break				# TODO: make sure this breaks the while, not the case
 -->scan2
       end
     end
-    t.val = buf.to_s
-    return t
+    @@t.val = buf.to_s
+
+    raise "kind not set for Token" unless @@t.kind and @@t.kind != "FIX"
+
+    return @@t
   end
 end
 
