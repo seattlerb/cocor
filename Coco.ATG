@@ -4,15 +4,15 @@
 */
 COMPILER Coco
 
-	private; @@ident = 0
-	private; @@string = 1
-	private; @@genScanner = nil
+	@@ident = 0
+	@@string = 1
+	@@genScanner = nil
 
-	private; def Parser.SemErr(n)
+	def Parser.SemErr(n)
 		Scanner.err.SemErr(n, @t.line, @t.col)
 	end
 	
-	private; def Parser.MatchLiteral(sp) # store string either as token or as literal
+	def Parser.MatchLiteral(sp) # store string either as token or as literal
 		sym = Tab.Sym(sp)
 		matchedSp = DFA.MatchedDFA(sym.name, sp)
 		if (matchedSp==Tab::NoSym)
@@ -24,7 +24,7 @@ COMPILER Coco
 		end
 	end
 	
-	private; def Parser.SetCtx(p) # set transition code to contextTrans
+	def Parser.SetCtx(p) # set transition code to contextTrans
 		while (p > 0)
 			n = Tab.Node(p)
 			if (n.typ==Tab::Chr || n.typ==Tab::Clas) then
@@ -39,7 +39,7 @@ COMPILER Coco
 		end
 	end
 	
-	private; def Parser.SetDDT(s)
+	def Parser.SetDDT(s)
 		for i in 1..(s.length-1)
 		  ch = s[i].chr
 		  if (/[0-9]/.match(ch)) then
@@ -48,7 +48,7 @@ COMPILER Coco
 		end
 	end
 	
-	private; def Parser.FixString(s)
+	def Parser.FixString(s)
 		a=s # TODO: remove a
 		len = a.length
 		if (len == 2) then
