@@ -187,7 +187,6 @@ class Node
   Opt  = 13
 
   @@gn = Array.new(0, :Node)		# grammar graph
-  @@nNodes = -1				# index of last graph node
 
   attr_accessor :typ			# t, nt, wt, chr, clas, any, eps, sem, sync, alt, iter, opt
   attr_accessor :next			# index of successor node
@@ -220,14 +219,11 @@ class Node
 
   def self.NewNode(typ, p1, line)
 
-    @@nNodes += 1
+    assert(@@gn.length <= Node::MaxNodes, 3)
 
-    assert(@@nNodes <= Node::MaxNodes, 3)
+    @@gn.push Node.new(typ, p1, line)
 
-
-    @@gn[@@nNodes] = Node.new(typ, p1, line)
-
-    return @@nNodes
+    return @@gn.length - 1
   end
 
   def ==(o)
@@ -239,12 +235,12 @@ class Node
   end
 
   def self.NodeCount
-    return @@nNodes
+    return @@gn.length - 1
   end
 
   def self.EraseNodes
-    @@nNodes = 0
-    @@gn = []
+    @@gn = Array.new(0, :Node)		# grammar graph
+    dummy = Node.NewNode(0, 0, 0) # fills slot zero
   end
 
   def self.DelGraph(p)
@@ -466,14 +462,32 @@ class Graph
     len = s.length() - 1
     g = Graph.new
     i = 1
+    
     while (i<len) do
       Node.Node(g.r).next = Node.NewNode(Node::Chr, s[i], 0)
       g.r = Node.Node(g.r).next
       i += 1
     end
-      g.l = Node.Node(0).next
-      Node.Node(0).next = 0
+    
+    g.l = Node.Node(0).next
+    Node.Node(0).next = 0
+    
     return g
+
+    # len = s.length() - 1
+    # g = Graph.new
+    # i = 1
+    # first = Node.NodeCount # HACK HACK HACK
+    # p Node.Node(first)
+    # g.r = first
+    # while (i<len) do
+    #   p = Node.NewNode(Node::Chr, s[i], 0)
+    #   Node.Node(g.r).next = p
+    #   g.r = p
+    #   i += 1
+    # end
+    # g.l = first
+    # return g
   end
 
   def self.PrintGraph
@@ -573,7 +587,7 @@ class Tab
     @@set[0] = BitSet.new()
     @@set[0].set(EofSy)
 
-    dummy = Node.NewNode(0, 0, 0) # fills slot zero
+    Node.EraseNodes # TODO: remove me... stupid bastards
   end
 
   # ---------------------------------------------------------------------
