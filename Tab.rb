@@ -59,7 +59,7 @@ class Sym
   end
 
   def to_s
-    "<Symbol: #{@retType}/#{@retVar}/#{@name}>"
+    "<Symbol: name=#{@name}/retType=#{@retType.inspect}/retVar=#{@retVar.inspect}/attrPos:#{attrPos.inspect}>"
   end
   
 end

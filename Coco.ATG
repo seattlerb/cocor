@@ -144,19 +144,16 @@ Coco                            (. gramLine = sp = eofSy = 0
                                          sym.line = @token.line
 				       end
                                    end
-                                   noAttrs = sym.attrPos==nil
+                                   noAttrs = sym.attrPos.nil?
 				   sym.attrPos = nil
-                                   noRet = sym.retVar==nil
+                                   noRet = sym.retVar.nil? || sym.retVar.empty?
 				   sym.retVar = nil
 				.)
     [ AttrDecl <sym> ]          (. if (!undefined) then
-                                     if ((noAttrs  && sym.attrPos!=nil) || 
-				         (noRet    && sym.retVar !=nil) || 
-					 (!noAttrs && sym.attrPos==nil) || 
-					 (!noRet   && sym.retVar ==nil)) then
-				       $stderr.puts
-				       $stderr.puts "*** 1 sym=#{sym}"
-				       $stderr.puts
+                                     if ((noAttrs  && !sym.attrPos.nil?) || 
+				         (noRet    && !sym.retVar.nil?) || 
+					 (!noAttrs && sym.attrPos.nil?) || 
+					 (!noRet   && sym.retVar .nil?)) then
 				       SemErr(5)
 				     end
 				   end
@@ -175,7 +172,7 @@ Coco                            (. gramLine = sp = eofSy = 0
 				       SemErr(11)
                                    else
                                        sym = Tab.Sym(Tab.gramSy)
-                                       if (sym.attrPos != nil) then
+                                       unless (sym.attrPos.nil?) then
 				         SemErr(12)
 				       end
                                    end
@@ -456,19 +453,15 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				   end
 				 .)
   ]                             (. if (undefined) then
-                                       sym.attrPos = n.pos
-				       sym.retVar  = n.retVar # dummies
+                                     sym.attrPos = n.pos
+				     sym.retVar  = n.retVar # dummies
                                    else
-                                       if ((n.pos!=nil && sym.attrPos==nil) ||
-				           (n.retVar!=nil && sym.retVar==nil) ||
-					   (n.pos==nil && sym.attrPos!=nil) ||
-					   (n.retVar==nil && sym.retVar!=nil)) then
-				       $stderr.puts
-				       $stderr.puts "*** n.class = #{n.class}, sym.class = #{sym.class}"
-				       $stderr.puts "*** 2 n.pos=#{n.pos.inspect}, n.ret=#{n.retVar.inspect}, sym.pos=#{sym.attrPos.inspect}, sym.ret=#{sym.retVar.inspect}"
-				       $stderr.puts
-					 SemErr(5)
-				       end
+                                     if ((!n.pos.nil?    &&  sym.attrPos.nil?) ||
+				         (!n.retVar.nil? &&  sym.retVar.nil?) ||
+					 ( n.pos.nil?    && !sym.attrPos.nil?) ||
+					 ( n.retVar.nil? && !sym.retVar.nil?)) then
+				       SemErr(5)
+				     end
                                    end
 				 .)
 | "(" Expression <^g> ")"
@@ -575,10 +568,10 @@ AttrRest <GraphNode n>          (. beg = col = 0 .)
 				 .)
   { ANY }
   ">"                           (. if (@token.pos > beg) then
-                                       n.pos = Position.new()
-                                       n.pos.beg = beg
-				       n.pos.col = col
-                                       n.pos.len = @token.pos - beg
+                                     n.pos = Position.new()
+                                     n.pos.beg = beg
+				     n.pos.col = col
+                                     n.pos.len = @token.pos - beg
                                    end
 				.).
 /*------------------------------------------------------------------------------------*/
@@ -589,10 +582,10 @@ AttrRest1 <GraphNode n>         (. beg = col = 0 .)
 				 .)
   { ANY }
   ".>"                          (. if (@token.pos > beg) then
-                                       n.pos = Position.new()
-                                       n.pos.beg = beg
-				       n.pos.col = col
-                                       n.pos.len = @token.pos - beg
+                                     n.pos = Position.new()
+                                     n.pos.beg = beg
+				     n.pos.col = col
+                                     n.pos.len = @token.pos - beg
                                    end
 				 .).
 /*------------------------------------------------------------------------------------*/
