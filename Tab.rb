@@ -253,7 +253,7 @@ class Tab
   @@visited = nil # BitSet
   @@termNt = nil # BitSet			# mark lists for graph traversals
   @@curSy = 0					# current symbol in computation of sets
-  @@nTyp = [ " ", "T   ", "Pr  ", "Nt  ", "Clas", "Chr ", "Wt  ",
+  @@nTyp = [ "    ", "T   ", "Pr  ", "Nt  ", "Clas", "Chr ", "Wt  ",
              "Any ", "Eps ", "Sync", "Sem ", "Alt ", "Iter", "Opt " ]
 
   # HACK HACK HACK... this is weird that I need to copy this code in.
