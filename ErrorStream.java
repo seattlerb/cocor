@@ -11,7 +11,7 @@ class ErrorStream {
 	void ParsErr(int n, int line, int col) {
 		String s;
 		count++;
-		System.out.print("-- line " + line + " col " + col + ": ");
+		System.err.print("-- line " + line + " col " + col + ": ");
 		switch (n) {
 			case 0: {s = "EOF expected"; break;}
 			case 1: {s = "ident expected"; break;}
@@ -73,16 +73,17 @@ class ErrorStream {
 
 			default: s = "error " + n;
 		}
-		System.out.println(s);
+		System.err.println(s);
 	}
 	
 	void SemErr(int n, int line, int col) {
 		count++;
-		System.out.print("-- line " + line + " col " + col + ": ");
+		System.err.print("-- line " + line + " col " + col + ": ");
 	}
 	
 	void Exception (String s) {
-		System.out.println(s); System.exit(0);
+	    System.err.println(s); 
+	    System.exit(1);
 	}
 	
 }
