@@ -162,7 +162,7 @@ class Scanner
 
     raise "kind not set for Token" unless @@t.kind and @@t.kind != "FIX"
 
-    puts @@t
+#    puts @@t
 
     return @@t
   end
