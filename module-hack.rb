@@ -1,8 +1,11 @@
-
 class Module
-  def cls_attr_accessor(*names)
-    for name in names do
-      eval "def self.#{name}; @@#{name}; end; def self.#{name}=(x); @@#{name}=x; end"
-    end
+  private
+  def cls_attr_accessor (*attrs)
+    attrs.each {|attr|
+      module_eval(<<-EOS)
+        def self.#{attr};     @@#{attr};     end
+        def self.#{attr}=(v); @@#{attr} = v; end
+      EOS
+    }
   end
-end
+end 

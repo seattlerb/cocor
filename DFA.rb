@@ -35,8 +35,8 @@ class State				# state of finite automaton
   attr_accessor :next
 
   def initialize
-    @@lastNr += 1
-    @nr = @@lastNr
+    self.class.lastNr += 1
+    @nr = self.class.lastNr
     @endOf = Tab::NoSym
     @ctx = false
     @firstAction = @next = nil

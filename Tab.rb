@@ -254,13 +254,6 @@ class Tab
   @@nTyp = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
              "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
 
-  # HACK HACK HACK... this is weird that I need to copy this code in.
-  def self.cls_attr_accessor(*names)
-    for name in names do
-      eval "def self.#{name}; @@#{name}; end; def self.#{name}=(x); @@#{name}=x; end"
-    end
-  end
-
   # I'm only adding these as they get used and fubar something
   cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy, :firstNt, :lastNt
   cls_attr_accessor :ddt, :maxT, :maxP, :maxC, :set, :chClass
