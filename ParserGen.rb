@@ -11,10 +11,10 @@ class ParserGen
 
   MaxSymSets = 128	# max. nr. of symbol sets
   MaxTerm    = 3	# sets of size < maxTerm are enumerated
-  CR         = '\r'
-  LF         = '\n'
-  TAB        = '\t'
-  EOF        = '\uffff'
+
+  CR  = "\r"[0]
+  LF  = "\n"[0]					# FIX: this sucks, also, rename to NL
+  EOF = 0
 
   TErr = 0		# error codes
   AltErr = 1
@@ -43,7 +43,7 @@ class ParserGen
   end
 
   def self.Indent(n)
-    "\t" * n
+    @@gen.print("\t" * n)
   end
 
   def self.Alternatives(p)
@@ -196,7 +196,7 @@ class ParserGen
     @@gen.println(" then")
   end
 
-  def self.GenCode (p, indent, checked)
+  def self.GenCode(p, indent, checked)
     n = n2 = s1 = s2 = sym = nil
     alts = p2 = 0
     equal = false

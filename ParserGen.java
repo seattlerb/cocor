@@ -146,7 +146,7 @@ class ParserGen {
 		}
 		gen.print(i);
 	    }
-	gen.println(" then ");
+	gen.println(" then");
     }
 	
     private static void GenCode (int p, int indent, BitSet checked) {
