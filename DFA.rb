@@ -280,7 +280,7 @@ end
 #-----------------------------------------------------------------------------
 
 class Comment				# info about comment syntax
-  @@first
+  @@first = nil
 
   attr_accessor :start
   attr_accessor :stop
@@ -331,28 +331,33 @@ end
 #  DFA
 #-----------------------------------------------------------------------------
 
+class DFA
+  MAXSTATES = 300
+  EOF = '\uffff' # FIX: not a valid ruby character... *sigh*
+  CR  = '\r'
+  LF  = '\n'
+  
+  @@firstState=nil
+  @@lastState=nil			# last allocated state
+  @@lastSimState=nil		# last non melted state
+  @@fram=nil		# scanner frame input
+  @@gen=nil			# generated scanner file
+  @@srcDir=nil			# directory of attribute grammar file
+  @@curSy=nil				# current token to be recognized (in FindTrans)
+  @@curGraph=nil			# start of graph for current token (in FindTrans)
+  @@dirtyDFA=nil		# DFA may become nondeterministic in MatchedDFA
+
+  def self.Init(dir)
+  end
+    
+  def self.SemErr(n)
+    Scanner.err.SemErr(n, 0, 0)
+  end
+    
+end
+
 __END__
 
-class DFA {
-    static final int maxStates = 300;
-    static final char EOF = '\uffff';
-    static final char CR  = '\r';
-    static final char LF  = '\n';
-    
-    static State firstState;
-    static State lastState;			# last allocated state
-    static int lastSimState;		# last non melted state
-    static InputStream fram;		# scanner frame input
-    static PrintStream gen;			# generated scanner file
-    static String srcDir;			# directory of attribute grammar file
-    static int curSy;				# current token to be recognized (in FindTrans)
-    static int curGraph;			# start of graph for current token (in FindTrans)
-    static boolean dirtyDFA;		# DFA may become nondeterministic in MatchedDFA
-    
-    static void SemErr(int n) {
-      Scanner.err.SemErr(n, 0, 0);
-    }
-    
     private static String Int(int n, int len) {
       char[] a = new char[16];
       String s = String.valueOf(n);
@@ -444,7 +449,7 @@ class DFA {
 					    }
 					    
 					    private static void DeleteRedundantStates() {
-					      State[] newState = new State[maxStates];
+					      State[] newState = new State[MAXSTATES];
 					      BitSet used = new BitSet();
 					      FindUsedStates(firstState, used);
 					      # combine equal final states

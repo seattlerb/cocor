@@ -267,8 +267,10 @@ class DFA {
 	}
 	
 	private static String Ch(char ch) {
-		if (ch<' ' || ch>=127 || ch=='\'' || ch=='\\') return String.valueOf((int)ch);
-		else return "'" + ch + "'";
+		if (ch<' ' || ch>=127 || ch=='\'' || ch=='\\')
+		    return String.valueOf((int)ch);
+		else
+		    return "'" + ch + "'[0]";
 	}
 	
 	private static String ChCond(char ch) {
@@ -757,7 +759,7 @@ class DFA {
 
 		if (state.firstAction != null) gen.println("\t\t\t\t\telse ;");
 		if (endOf==Tab.noSym)
-			gen.println("t.kind = noSym; break; end");
+			gen.println("t.kind = @@noSym; break; end");
 		else { // final state
 			if (state.firstAction==null)
 				gen.print("\t\t\t\t\t");

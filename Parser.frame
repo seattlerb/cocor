@@ -1,4 +1,5 @@
 
+require 'BitSet'
 
 class Parser
 -->constants
@@ -11,14 +12,14 @@ class Parser
 	-->declarations
 
 	private; def Parser.Error(n)
-		Scanner.err.ParsErr(n, t.line, t.col)
+		Scanner.err.ParsErr(n, @t.line, @t.col)
 	end
 	
 	private; def Parser.Get
 		while true
 			@token = @t
 			@t = Scanner.Scan
-			return if (t.kind<=maxT)
+			return if (@t.kind<=MaxT)
 -->pragmas
 			@t = token
 		end
@@ -55,7 +56,7 @@ class Parser
 		elsif (StartOf(repFol))
 		  return false
 		else
-			for i in 0..maxT
+			for i in 0..MaxT
 				s[i] = @@set[syFol][i] || @@set[repFol][i] || @@set[0][i]
 			end
 			Error(n)
@@ -89,17 +90,17 @@ class ErrorStream
 	def ParsErr(n, line, col)
 		s = ""
 		@count += 1
-		$stderr.print("-- line " + line + " col " + col + ": ")
+		$stderr.print("-- line #{line} col #{col}: ")
 		case (n)
 -->errors
-		else s = "error " + n
+		else s = "error #{n}"
 		end
 		$stderr.puts(s);
 	end
 	
 	def SemErr(n, line, col)
 		@count += 1
-		$stderr.print("-- line " + line + " col " + col + ": ")
+		$stderr.print("-- line #{line} col #{col}: ")
 	end
 	
 	def Exception(s)

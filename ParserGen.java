@@ -336,8 +336,8 @@ class ParserGen {
 	gen.println();
 	// gen.println("class " + root.name); // HACK
 	CopyFramePart("-->constants");
-	gen.println("\tprivate; maxT = " + Tab.maxT);
-	gen.println("\tprivate; maxP = " + Tab.maxP);
+	gen.println("\tprivate; MaxT = " + Tab.maxT); // TODO: const case them
+	gen.println("\tprivate; MaxP = " + Tab.maxP);
 	CopyFramePart("-->declarations"); CopySourcePart(Tab.semDeclPos, 0);
 	CopyFramePart("-->pragmas"); GenCodePragmas();
 	CopyFramePart("-->productions"); GenProductions();
