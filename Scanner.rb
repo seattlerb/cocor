@@ -81,16 +81,16 @@ class Scanner
   MAXCHR = 65535				# FIX: not ruby compatible
   SPACE = ' '[0]
 
-	private; @@noSym = 40; # FIX: make this a constant
+	private; @@noSym = 38; # FIX: make this a constant
 	private; @@start = [
- 27,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+ 25,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-  0,  0,  6,  0,  5,  0,  0,  7, 12, 13,  0, 10, 18, 11,  9,  0,
-  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  0,  0, 14,  8, 19,  0,
+  0,  0,  6,  0,  5,  0,  0,  7, 12, 13,  0, 10, 16, 11,  9,  0,
+  3,  3,  3,  3,  3,  3,  3,  3,  3,  3,  0,  0, 14,  8, 17,  0,
   0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,
-  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 16,  0, 17, 15,  0,
+  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 19,  0, 20, 15,  0,
   0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,
-  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 23, 22, 24,  0,  0,
+  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1, 21, 18, 22,  0,  0,
   0]
 
 
@@ -188,7 +188,7 @@ end
 				elsif (@@t.val == "CHR") then; @@t.kind = 20
 				elsif (@@t.val == "COMMENTS") then; @@t.kind = 13
 				elsif (@@t.val == "COMPILER") then; @@t.kind = 5
-				elsif (@@t.val == "CONTEXT") then; @@t.kind = 37
+				elsif (@@t.val == "CONTEXT") then; @@t.kind = 35
 				end
 			when ?E
 				if (@@t.val == "END") then; @@t.kind = 9
@@ -207,14 +207,14 @@ end
 				elsif (@@t.val == "PRODUCTIONS") then; @@t.kind = 6
 				end
 			when ?S
-				if (@@t.val == "SYNC") then; @@t.kind = 36
+				if (@@t.val == "SYNC") then; @@t.kind = 34
 				end
 			when ?T
 				if (@@t.val == "TO") then; @@t.kind = 15
 				elsif (@@t.val == "TOKENS") then; @@t.kind = 11
 				end
 			when ?W
-				if (@@t.val == "WEAK") then; @@t.kind = 33
+				if (@@t.val == "WEAK") then; @@t.kind = 29
 				end
 
     end
@@ -263,7 +263,7 @@ break
 				when 5
 					if ((@@ch>=?0 && @@ch<=?9)) then
 					else
-@@t.kind = 41
+@@t.kind = 39
 break
 end
 				when 6
@@ -286,10 +286,8 @@ state = 2
 					@@t.kind = 7
 break
 				when 9
-					if (@@ch==?>) then
-state = 21
-					elsif (@@ch==?)) then
-state = 26
+					if (@@ch==?)) then
+state = 24
 					else
 @@t.kind = 8
 break
@@ -302,7 +300,7 @@ break
 break
 				when 12
 					if (@@ch==?.) then
-state = 25
+state = 23
 					else
 @@t.kind = 21
 break
@@ -311,12 +309,8 @@ end
 					@@t.kind = 22
 break
 				when 14
-					if (@@ch==?.) then
-state = 20
-					else
-@@t.kind = 24
+					@@t.kind = 24
 break
-end
 				when 15
 					@@t.kind = 25
 break
@@ -330,30 +324,24 @@ break
 					@@t.kind = 28
 break
 				when 19
-					@@t.kind = 29
-break
-				when 20
 					@@t.kind = 30
 break
-				when 21
+				when 20
 					@@t.kind = 31
 break
-				when 22
+				when 21
 					@@t.kind = 32
 break
+				when 22
+					@@t.kind = 33
+break
 				when 23
-					@@t.kind = 34
+					@@t.kind = 36
 break
 				when 24
-					@@t.kind = 35
+					@@t.kind = 37
 break
 				when 25
-					@@t.kind = 38
-break
-				when 26
-					@@t.kind = 39
-break
-				when 27
 					@@t.kind = 0
 
 	break

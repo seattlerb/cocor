@@ -288,22 +288,22 @@ TokenDecl <int typ>             (. s = pos = g = nil
 				   sp = 0
 				 .)
 =
-  Symbol <^s>                   (. if (Sym.FindSym(s.name) != Sym::NoSym) then
+  Symbol <^name, ^kind>         (. if (Sym.FindSym(name) != Sym::NoSym) then
 				     SemErr(7)
 				     sp = 0
                                    else
-                                     sp = Sym.new(typ, s.name, @token.line)
+                                     sp = Sym.new(typ, name, @token.line)
                                      sp.graph = Sym::ClassToken
                                    end
 				 .)
   SYNC
-  ( "=" TokenExpr <^g> "."      (. if (s.kind != @@ident) then
+  ( "=" TokenExpr <^g> "."      (. if (kind != @@ident) then
 				     SemErr(13)
 				   end
                                    Graph.CompleteGraph(g.r)
                                    DFA.ConvertToStates(g.l, sp)
 				 .)
-  |                             (. if (s.kind==@@ident) then
+  |                             (. if (kind==@@ident) then
 				     @@genScanner = false
                                    else
 				     MatchLiteral(sp)
@@ -317,55 +317,24 @@ TokenDecl <int typ>             (. s = pos = g = nil
 				 .)
   ].
 /*------------------------------------------------------------------------------------*/
-AttrDecl <Sym sym>		(. beg = col = dim = 0
+AttrDecl <Sym sym>		(. beg = col = 0
 				   buf = nil
+				   buf2 = []
 				 .)
 =
   "<"
-  [ "^"
-    ident                       (. buf = @token.val.clone
-    				   dim = 0
-				 .)
-    { "[" "]"			(. dim += 1 .)
-    }
-    ident                       (. sym.retVar = @token.val .)
-    { "[" "]"			(. dim += 1 .)
-    }				(. while (dim > 0) do
-				     buf.append("[]")
-				     dim -= 1
-				   end
+  { "^"
+    ident                       (. buf = @token.val.clone .)
+    ident                       (. buf2 << @token.val.dup
     				   sym.retType = buf.to_s
 				 .)
     [","]
-  ]                             (. beg = @t.pos
+  }                             (. sym.retVar = buf2.join(', ') unless buf2.empty?
+  				   beg = @t.pos
   				   col = @t.col
 				 .)
   { ANY }
   ">"                           (. if (@token.pos > beg) then
-                                     sym.attrPos = Position.new(beg, @token.pos - beg, col)
-                                   end
-				 .)
-| "<."
-  [ "^"
-    ident                       (. buf = [ @token.val ]
-    				   dim = 0
-				 .)
-    { "[" "]"			(. dim += 1 .)
-    }
-    ident                       (. sym.retVar = @token.val .)
-    { "[" "]"			(. dim += 1 .)
-    }				(. while (dim > 0) do
-    				     buf << "[]"
-				     dim -= 1
-				   end
-				   sym.retType = buf.join('')
-				 .)
-    [","]
-  ]                             (. beg = @t.pos
-  				   col = @t.col
-				 .)
-  { ANY }
-  ".>"                          (. if (@token.pos > beg) then
                                      sym.attrPos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 .).
@@ -405,13 +374,13 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				 .)
 ( [ "WEAK"                      (. weak = true .)
   ]
-  Symbol <^s>                   (. sp = Sym.FindSym(s.name)
+  Symbol <^name, ^kind>         (. sp = Sym.FindSym(name)
 				   undefined = sp==Sym::NoSym
                                    if (undefined) then
-                                       if (s.kind==@@ident) then
-                                           sp = Sym.new(Node::Nt, s.name, 0) # forward nt
+                                       if (kind==@@ident) then
+                                           sp = Sym.new(Node::Nt, name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Sym.new(Node::T, s.name, @token.line)
+                                           sp = Sym.new(Node::T, name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
@@ -434,7 +403,7 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				   g.r = g.l
                                    n = g.l
 				 .)
-  [ Attribs <n>                 (. if (s.kind!=@@ident) then
+  [ Attribs <n>                 (. if (kind!=@@ident) then
     	    			     SemErr(3)
 				   end
 				 .)
@@ -500,16 +469,16 @@ TokenFactor <^Graph g>          (. name = s = nil
 				 .)
 =
                                 (. g = Graph.new .)
-( Symbol <^s>                   (. if (s.kind==@@ident) then
-                                     c = CharClass.ClassWithName(s.name)
+( Symbol <^name, ^kind>         (. if (kind==@@ident) then
+                                     c = CharClass.ClassWithName(name)
                                      if (c < 0) then
                                        SemErr(15)
-                                       c = CharClass.NewClass(s.name, BitSet.new())
+                                       c = CharClass.NewClass(name, BitSet.new())
                                      end
                                      g.l = Node.new(Node::Clas, c, 0)
                                      g.r = g.l
                                    else # string
-				     g = Graph.StrToGraph(s.name)
+				     g = Graph.StrToGraph(name)
 				   end
 				.)
 | "(" TokenExpr <^g> ")"
@@ -517,36 +486,34 @@ TokenFactor <^Graph g>          (. name = s = nil
 | "{" TokenExpr <^g> "}"        (. g = Graph.Iteration(g) .)
 ).
 /*------------------------------------------------------------------------------------*/
-Symbol <^SymInfo s>
-=
-  ( ident                       (. s = SymInfo.new(@token.val, @@ident)
+Symbol <^String name, ^int kind>
+=				(. name = "???"
+				   kind = @@ident
 				 .)
-  | string                      (. s = SymInfo.new(FixString(@token.val), @@string)
+  ( ident                       (. name = @token.val .)
+  | string                      (. name = FixString(@token.val)
+    				   kind = @@string
 				 .)
   ).
+
 /*------------------------------------------------------------------------------------*/
-Attribs <Node n>           (. beg = col = 0 .)
+Attribs <Node n>                (. beg = col = 0; buf = [] .)
 = 
   "<"
   ( "^"                         (. beg = @t.pos .)
-  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, @t.pos)
-				 .)
-	( "," AttrRest<n>
-	| ">"
-	)
-  |	AttrRest<n>
-  )
-| "<."                          /*alternative format to allow ">" in attributes*/
-  ( "^"                         (. beg = @t.pos .)
-  	{ ANY }			(. n.retVar = ParserGen.GetString(beg, @t.pos)
-				 .)
-	( "," AttrRest1<n>
-	| ".>"
-	)
-  |	AttrRest1<n>
+    { ANY }			(. buf << ParserGen.GetString(beg, @t.pos) .)
+    { ","
+      "^"			(. beg = @t.pos .)
+      { ANY }			(. buf << ParserGen.GetString(beg, @t.pos) .)
+    }
+    ( "," AttrRest<n>
+    | ">"
+    )				(. n.retVar = buf.join(', ') if ! buf.empty? .)
+  | AttrRest<n>
   ).
+
 /*------------------------------------------------------------------------------------*/
-AttrRest <Node n>          (. beg = col = 0 .)
+AttrRest <Node n>               (. beg = col = 0 .)
 =
                                 (. beg = @t.pos
 				   col = @t.col
@@ -556,17 +523,7 @@ AttrRest <Node n>          (. beg = col = 0 .)
                                      n.pos = Position.new(beg, @token.pos - beg, col)
                                    end
 				.).
-/*------------------------------------------------------------------------------------*/
-AttrRest1 <Node n>         (. beg = col = 0 .)
-=
-                                (. beg = @t.pos
-				   col = @t.col
-				 .)
-  { ANY }
-  ".>"                          (. if (@token.pos > beg) then
-                                     n.pos = Position.new(beg, @token.pos - beg, col)
-                                   end
-				 .).
+
 /*------------------------------------------------------------------------------------*/
 SemText <^Position pos> =
   "(."                          (. beg = @t.pos

@@ -5,7 +5,7 @@ require 'Sets'
 require 'module-hack'
 
 class Parser
-	private; MaxT = 40
+	private; MaxT = 38
 
 	private; T = true
 	private; X = false
@@ -91,7 +91,7 @@ class Parser
 			@token = @t
 			@t = Scanner.Scan
 			return if (@t.kind<=MaxT)
-		if (@t.kind==41) then
+		if (@t.kind==39) then
 			SetDDT(@t.val) 
 		end
 
@@ -141,7 +141,7 @@ class Parser
 		end
 	end
 	
-	private; def self.AttrRest1(n)
+	private; def self.AttrRest(n)
 		beg = col = 0 
 		beg = @t.pos
 				   col = @t.col
@@ -149,22 +149,7 @@ class Parser
 		while (StartOf(1))
 			Get()
 		end
-		Expect(31)
-		if (@token.pos > beg) then
-                                     n.pos = Position.new(beg, @token.pos - beg, col)
-                                   end
-				 
-	end
-
-	private; def self.AttrRest(n)
-		beg = col = 0 
-		beg = @t.pos
-				   col = @t.col
-				 
-		while (StartOf(2))
-			Get()
-		end
-		Expect(29)
+		Expect(27)
 		if (@token.pos > beg) then
                                      n.pos = Position.new(beg, @token.pos - beg, col)
                                    end
@@ -177,34 +162,34 @@ class Parser
 				 
 		g = Graph.new 
 		if (@t.kind==1 || @t.kind==2) then
-			s = self.Symbol()
-			if (s.kind==@@ident) then
-                                     c = CharClass.ClassWithName(s.name)
+			name, kind = self.Symbol()
+			if (kind==@@ident) then
+                                     c = CharClass.ClassWithName(name)
                                      if (c < 0) then
                                        SemErr(15)
-                                       c = CharClass.NewClass(s.name, BitSet.new())
+                                       c = CharClass.NewClass(name, BitSet.new())
                                      end
                                      g.l = Node.new(Node::Clas, c, 0)
                                      g.r = g.l
                                    else # string
-				     g = Graph.StrToGraph(s.name)
+				     g = Graph.StrToGraph(name)
 				   end
 				
 		elsif (@t.kind==21) then
 			Get()
 			g = self.TokenExpr()
 			Expect(22)
-		elsif (@t.kind==26) then
+		elsif (@t.kind==30) then
 			Get()
 			g = self.TokenExpr()
-			Expect(27)
+			Expect(31)
 			g = Graph.Option(g) 
-		elsif (@t.kind==34) then
+		elsif (@t.kind==32) then
 			Get()
 			g = self.TokenExpr()
-			Expect(35)
+			Expect(33)
 			g = Graph.Iteration(g) 
-		else Error(41)
+		else Error(39)
 end
 		return g
 	end
@@ -212,11 +197,11 @@ end
 	private; def self.TokenTerm()
 		g2 = nil 
 		g = self.TokenFactor()
-		while (StartOf(3))
+		while (StartOf(2))
 			g2 = self.TokenFactor()
 			g = Graph.Sequence(g, g2) 
 		end
-		if (@t.kind==37) then
+		if (@t.kind==35) then
 			Get()
 			Expect(21)
 			g2 = self.TokenExpr()
@@ -229,50 +214,35 @@ end
 	end
 
 	private; def self.Attribs(n)
-		beg = col = 0 
-		if (@t.kind==24) then
+		beg = col = 0; buf = [] 
+		Expect(24)
+		if (@t.kind==25) then
 			Get()
-			if (@t.kind==25) then
+			beg = @t.pos 
+			while (StartOf(3))
 				Get()
+			end
+			buf << ParserGen.GetString(beg, @t.pos) 
+			while (@t.kind==26)
+				Get()
+				Expect(25)
 				beg = @t.pos 
-				while (StartOf(4))
+				while (StartOf(3))
 					Get()
 				end
-				n.retVar = ParserGen.GetString(beg, @t.pos)
-				 
-				if (@t.kind==28) then
-					Get()
-					self.AttrRest(n)
-				elsif (@t.kind==29) then
-					Get()
-				else Error(42)
-end
-			elsif (StartOf(5)) then
+				buf << ParserGen.GetString(beg, @t.pos) 
+			end
+			if (@t.kind==26) then
+				Get()
 				self.AttrRest(n)
-			else Error(43)
-end
-		elsif (@t.kind==30) then
-			Get()
-			if (@t.kind==25) then
+			elsif (@t.kind==27) then
 				Get()
-				beg = @t.pos 
-				while (StartOf(6))
-					Get()
-				end
-				n.retVar = ParserGen.GetString(beg, @t.pos)
-				 
-				if (@t.kind==28) then
-					Get()
-					self.AttrRest1(n)
-				elsif (@t.kind==31) then
-					Get()
-				else Error(44)
+			else Error(40)
 end
-			elsif (StartOf(5)) then
-				self.AttrRest1(n)
-			else Error(45)
-end
-		else Error(46)
+			n.retVar = buf.join(', ') if ! buf.empty? 
+		elsif (StartOf(4)) then
+			self.AttrRest(n)
+		else Error(41)
 end
 	end
 
@@ -285,20 +255,20 @@ end
 				   weak = false
 				 
 		case (@t.kind)
-		when 1, 2, 33 then
+		when 1, 2, 29 then
 
-			if (@t.kind==33) then
+			if (@t.kind==29) then
 				Get()
 				weak = true 
 			end
-			s = self.Symbol()
-			sp = Sym.FindSym(s.name)
+			name, kind = self.Symbol()
+			sp = Sym.FindSym(name)
 				   undefined = sp==Sym::NoSym
                                    if (undefined) then
-                                       if (s.kind==@@ident) then
-                                           sp = Sym.new(Node::Nt, s.name, 0) # forward nt
+                                       if (kind==@@ident) then
+                                           sp = Sym.new(Node::Nt, name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Sym.new(Node::T, s.name, @token.line)
+                                           sp = Sym.new(Node::T, name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
@@ -321,9 +291,9 @@ end
 				   g.r = g.l
                                    n = g.l
 				 
-			if (@t.kind==24 || @t.kind==30) then
+			if (@t.kind==24) then
 				self.Attribs(n)
-				if (s.kind!=@@ident) then
+				if (kind!=@@ident) then
     	    			     SemErr(3)
 				   end
 				 
@@ -336,6 +306,7 @@ end
 				         (!n.retVar.nil? &&  sym.retVar.nil?) ||
 					 ( n.pos.nil?    && !sym.attrPos.nil?) ||
 					 ( n.retVar.nil? && !sym.retVar.nil?)) then
+					 STDERR.puts "Attribs"
 				       SemErr(5)
 				     end
                                    end
@@ -345,19 +316,19 @@ end
 			Get()
 			g = self.Expression()
 			Expect(22)
-		when 26 then
+		when 30 then
 
 			Get()
 			g = self.Expression()
-			Expect(27)
+			Expect(31)
 			g = Graph.Option(g) 
-		when 34 then
+		when 32 then
 
 			Get()
 			g = self.Expression()
-			Expect(35)
+			Expect(33)
 			g = Graph.Iteration(g) 
-		when 38 then
+		when 36 then
 
 			pos = self.SemText()
 			g.l = Node.new(Node::Sem, 0, 0)
@@ -373,14 +344,14 @@ end
                                    g.l = Node.new(Node::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 
-		when 36 then
+		when 34 then
 
 			Get()
 			g.l = Node.new(Node::Sync, 0, 0)
                                    g.r = g.l
 				 
 		else
-  Error(47)
+  Error(42)
 		end
 		return g
 	end
@@ -388,34 +359,37 @@ end
 	private; def self.Term()
 		g2 = nil 
 		g = nil 
-		if (StartOf(7)) then
+		if (StartOf(5)) then
 			g = self.Factor()
-			while (StartOf(7))
+			while (StartOf(5))
 				g2 = self.Factor()
 				g = Graph.Sequence(g, g2) 
 			end
-		elsif (StartOf(8)) then
+		elsif (StartOf(6)) then
 			g = Graph.new()
                                    g.l = Node.new(Node::Eps, 0, 0)
                                    g.r = g.l
 				 
-		else Error(48)
+		else Error(43)
 end
 		return g
 	end
 
 	private; def self.Symbol()
+		name = "???"
+				   kind = @@ident
+				 
 		if (@t.kind==1) then
 			Get()
-			s = SymInfo.new(@token.val, @@ident)
-				 
+			name = @token.val 
 		elsif (@t.kind==2) then
 			Get()
-			s = SymInfo.new(FixString(@token.val), @@string)
+			name = FixString(@token.val)
+    				   kind = @@string
 				 
-		else Error(49)
+		else Error(44)
 end
-		return s
+		return name, kind
 	end
 
 	private; def self.SimSet()
@@ -452,7 +426,7 @@ end
 		elsif (@t.kind==23) then
 			Get()
 			s = Sets.FullSet(127) 
-		else Error(50)
+		else Error(45)
 end
 		return s
 	end
@@ -480,7 +454,7 @@ end
 				 
 		g = self.TokenTerm()
 		first = true 
-		while (WeakSeparator(32,3,9) )
+		while (WeakSeparator(28,2,7) )
 			g2 = self.TokenTerm()
 			if (first) then
 				     g = Graph.FirstAlt(g)
@@ -496,36 +470,36 @@ end
 		s = pos = g = nil
 				   sp = 0
 				 
-		s = self.Symbol()
-		if (Sym.FindSym(s.name) != Sym::NoSym) then
+		name, kind = self.Symbol()
+		if (Sym.FindSym(name) != Sym::NoSym) then
 				     SemErr(7)
 				     sp = 0
                                    else
-                                     sp = Sym.new(typ, s.name, @token.line)
+                                     sp = Sym.new(typ, name, @token.line)
                                      sp.graph = Sym::ClassToken
                                    end
 				 
-		while (!(StartOf(10))); Error(51); Get(); end
+		while (!(StartOf(8))); Error(46); Get(); end
 		if (@t.kind==7) then
 			Get()
 			g = self.TokenExpr()
 			Expect(8)
-			if (s.kind != @@ident) then
+			if (kind != @@ident) then
 				     SemErr(13)
 				   end
                                    Graph.CompleteGraph(g.r)
                                    DFA.ConvertToStates(g.l, sp)
 				 
-		elsif (StartOf(11)) then
-			if (s.kind==@@ident) then
+		elsif (StartOf(9)) then
+			if (kind==@@ident) then
 				     @@genScanner = false
                                    else
 				     MatchLiteral(sp)
 				   end
 				
-		else Error(52)
+		else Error(47)
 end
-		if (@t.kind==38) then
+		if (@t.kind==36) then
 			pos = self.SemText()
 			if (typ==Node::T) then
 				     SemErr(14)
@@ -559,7 +533,7 @@ end
 				 
 		g = self.Term()
 		first = true 
-		while (WeakSeparator(32,12,13) )
+		while (WeakSeparator(28,10,11) )
 			g2 = self.Term()
 			if (first) then
 				     g = Graph.FirstAlt(g)
@@ -572,12 +546,12 @@ end
 	end
 
 	private; def self.SemText()
-		Expect(38)
+		Expect(36)
 		beg = @t.pos
 				   col = @t.col
 				 
-		while (StartOf(14))
-			if (StartOf(15)) then
+		while (StartOf(12))
+			if (StartOf(13)) then
 				Get()
 			elsif (@t.kind==4) then
 				Get()
@@ -587,100 +561,42 @@ end
 				SemErr(19) 
 			end
 		end
-		Expect(39)
+		Expect(37)
 		pos = Position.new(beg, @token.pos - beg, col)
   				 
 		return pos
 	end
 
 	private; def self.AttrDecl(sym)
-		beg = col = dim = 0
+		beg = col = 0
 				   buf = nil
+				   buf2 = []
 				 
-		if (@t.kind==24) then
+		Expect(24)
+		while (@t.kind==25)
 			Get()
-			if (@t.kind==25) then
-				Get()
-				Expect(1)
-				buf = @token.val.clone
-    				   dim = 0
-				 
-				while (@t.kind==26)
-					Get()
-					Expect(27)
-					dim += 1 
-				end
-				Expect(1)
-				sym.retVar = @token.val 
-				while (@t.kind==26)
-					Get()
-					Expect(27)
-					dim += 1 
-				end
-				while (dim > 0) do
-				     buf.append("[]")
-				     dim -= 1
-				   end
+			Expect(1)
+			buf = @token.val.clone 
+			Expect(1)
+			buf2 << @token.val.dup
     				   sym.retType = buf.to_s
 				 
-				if (@t.kind==28) then
-					Get()
-				end
-			end
-			beg = @t.pos
-  				   col = @t.col
-				 
-			while (StartOf(2))
+			if (@t.kind==26) then
 				Get()
 			end
-			Expect(29)
-			if (@token.pos > beg) then
-                                     sym.attrPos = Position.new(beg, @token.pos - beg, col)
-                                   end
+		end
+		sym.retVar = buf2.join(', ') unless buf2.empty?
+  				   beg = @t.pos
+  				   col = @t.col
 				 
-		elsif (@t.kind==30) then
+		while (StartOf(1))
 			Get()
-			if (@t.kind==25) then
-				Get()
-				Expect(1)
-				buf = [ @token.val ]
-    				   dim = 0
-				 
-				while (@t.kind==26)
-					Get()
-					Expect(27)
-					dim += 1 
-				end
-				Expect(1)
-				sym.retVar = @token.val 
-				while (@t.kind==26)
-					Get()
-					Expect(27)
-					dim += 1 
-				end
-				while (dim > 0) do
-    				     buf << "[]"
-				     dim -= 1
-				   end
-				   sym.retType = buf.join('')
-				 
-				if (@t.kind==28) then
-					Get()
-				end
-			end
-			beg = @t.pos
-  				   col = @t.col
-				 
-			while (StartOf(1))
-				Get()
-			end
-			Expect(31)
-			if (@token.pos > beg) then
+		end
+		Expect(27)
+		if (@token.pos > beg) then
                                      sym.attrPos = Position.new(beg, @token.pos - beg, col)
                                    end
 				 
-		else Error(53)
-end
 	end
 
 	private; def self.Declaration()
@@ -711,15 +627,15 @@ end
 			if (@t.kind==16) then
 				Get()
 				nested = true 
-			elsif (StartOf(16)) then
+			elsif (StartOf(14)) then
 				nested = false 
-			else Error(54)
+			else Error(48)
 end
 			Comment.new(g1.l, g2.l, nested) 
 		elsif (@t.kind==17) then
 			Get()
 			Tab.ignored = self.Set()
-		else Error(55)
+		else Error(49)
 end
 	end
 
@@ -741,15 +657,15 @@ end
 		gramName = @token.val
                                    beg = @t.pos
 				
-		while (StartOf(17))
+		while (StartOf(15))
 			Get()
 		end
 		Tab.semDeclPos = Position.new(beg, @t.pos-beg, 0)
 				
-		while (StartOf(18))
+		while (StartOf(16))
 			self.Declaration()
 		end
-		while (!(@t.kind==0 || @t.kind==6)); Error(56); Get(); end
+		while (!(@t.kind==0 || @t.kind==6)); Error(50); Get(); end
 		Expect(6)
 		Tab.ignored.set(32)	#' ' is always ignored
                                    if (@@genScanner) then
@@ -778,7 +694,7 @@ end
                                    noRet = sym.retVar.nil? || sym.retVar.empty?
 				   sym.retVar = nil
 				
-			if (@t.kind==24 || @t.kind==30) then
+			if (@t.kind==24) then
 				self.AttrDecl(sym)
 			end
 			if (!undefined) then
@@ -786,19 +702,25 @@ end
 				         (noRet    && !sym.retVar.nil?) || 
 					 (!noAttrs && sym.attrPos.nil?) || 
 					 (!noRet   && sym.retVar .nil?)) then
+					 STDERR.puts "AttrDecl #{noAttrs}, #{noRet} #{sym.attrPos.inspect} #{sym.retVar.inspect}"
+
+                                     	 STDERR.puts "1" if (noAttrs  && !sym.attrPos.nil?)
+					 STDERR.puts "2" if (noRet    && !sym.retVar.nil?)
+					 STDERR.puts "3" if (!noAttrs && sym.attrPos.nil?)
+					 STDERR.puts "4" if (!noRet   && sym.retVar .nil?)
 				       SemErr(5)
 				     end
 				   end
                                    
-			if (@t.kind==38) then
+			if (@t.kind==36) then
 				sym.semPos = self.SemText()
 			end
-			ExpectWeak(7, 19)
+			ExpectWeak(7, 17)
 			g = self.Expression()
 			sym.graph = g.l
                                    Graph.CompleteGraph(g.r)
 				
-			ExpectWeak(8, 20)
+			ExpectWeak(8, 18)
 		end
 		if (Tab.ddt[2]) then
 				     Node.PrintGraph()
@@ -873,27 +795,25 @@ end
 	end
 
 	@@set = [
-	[T,T,T,X, X,X,T,T, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X],
-	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,X, T,T,T,T, T,T,T,T, T,X],
-	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,X,T,T, T,T,T,T, T,T,T,T, T,X],
-	[X,T,T,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,T,X,X, X,X,T,X, X,X,X,X, X,X,T,X, X,X,X,X, X,X],
-	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, X,X,T,T, T,T,T,T, T,T,T,T, T,X],
-	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,X],
-	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, X,T,T,X, T,T,T,T, T,T,T,T, T,X],
-	[X,T,T,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,T,X,T, X,X,T,X, X,X,X,X, X,T,T,X, T,X,T,X, X,X],
-	[X,X,X,X, X,X,X,X, T,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X,X,T, X,X,X,X, T,X,X,T, X,X,X,X, X,X],
-	[X,X,X,X, X,X,T,X, T,X,T,T, T,T,X,T, T,T,X,X, X,X,T,X, X,X,X,T, X,X,X,X, X,X,X,T, X,X,X,X, X,X],
-	[T,T,T,X, X,X,T,T, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X],
-	[X,T,T,X, X,X,T,X, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X],
-	[X,T,T,X, X,X,X,X, T,X,X,X, X,X,X,X, X,X,X,X, X,T,T,T, X,X,T,T, X,X,X,X, T,T,T,T, T,X,T,X, X,X],
-	[X,X,X,X, X,X,X,X, T,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X,X,T, X,X,X,X, X,X,X,T, X,X,X,X, X,X],
-	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,X, T,X],
-	[X,T,T,T, X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,X,X, T,X],
-	[X,X,X,X, X,X,T,X, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X],
-	[X,T,T,T, T,T,X,T, T,T,X,X, X,X,T,T, T,X,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,X],
-	[X,X,X,X, X,X,X,X, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X],
-	[T,T,T,X, X,X,T,T, T,X,T,T, T,T,X,X, X,T,X,X, X,T,X,T, X,X,T,X, X,X,X,X, T,T,T,X, T,X,T,X, X,X],
-	[T,T,T,X, X,X,T,T, X,T,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X],
+	[T,T,T,X, X,X,T,T, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, T,X,X,X],
+	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,X, T,T,T,T, T,T,T,T, T,T,T,X],
+	[X,T,T,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,T,X,X, X,X,X,X, X,X,T,X, T,X,X,X, X,X,X,X],
+	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,X,X, T,T,T,T, T,T,T,T, T,T,T,X],
+	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,X],
+	[X,T,T,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,T,X,T, X,X,X,X, X,T,T,X, T,X,T,X, T,X,X,X],
+	[X,X,X,X, X,X,X,X, T,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X,X,X, T,X,X,T, X,T,X,X, X,X,X,X],
+	[X,X,X,X, X,X,T,X, T,X,T,T, T,T,X,T, T,T,X,X, X,X,T,X, X,X,X,X, X,X,X,T, X,T,X,X, X,X,X,X],
+	[T,T,T,X, X,X,T,T, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, T,X,X,X],
+	[X,T,T,X, X,X,T,X, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, T,X,X,X],
+	[X,T,T,X, X,X,X,X, T,X,X,X, X,X,X,X, X,X,X,X, X,T,T,T, X,X,X,X, T,T,T,T, T,T,T,X, T,X,X,X],
+	[X,X,X,X, X,X,X,X, T,X,X,X, X,X,X,X, X,X,X,X, X,X,T,X, X,X,X,X, X,X,X,T, X,T,X,X, X,X,X,X],
+	[X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,X,T,X],
+	[X,T,T,T, X,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, X,X,T,X],
+	[X,X,X,X, X,X,T,X, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X],
+	[X,T,T,T, T,T,X,T, T,T,X,X, X,X,T,T, T,X,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,T, T,T,T,X],
+	[X,X,X,X, X,X,X,X, X,X,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X],
+	[T,T,T,X, X,X,T,T, T,X,T,T, T,T,X,X, X,T,X,X, X,T,X,T, X,X,X,X, T,T,T,X, T,X,T,X, T,X,X,X],
+	[T,T,T,X, X,X,T,T, X,T,T,T, T,T,X,X, X,T,X,X, X,X,X,X, X,X,X,X, X,X,X,X, X,X,X,X, T,X,X,X],
 	]
 end
 

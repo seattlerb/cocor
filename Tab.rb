@@ -38,22 +38,6 @@ class Position	 			# position of source code stretch (e.g. semantic action)
   end
 end
 
-# REFACTOR: c# version has this folded into Sym(bol)
-class SymInfo
-  attr_accessor :name
-  attr_accessor :kind			# 0 = ident, 1 = string
-
-  def initialize(name, kind)
-    @name = name
-    @kind = kind
-  end
-
-  def ==(o)
-    raise "Not implemented yet"
-  end
-  
-end
-
 # RENAMED from Symbol
 class Sym
 
