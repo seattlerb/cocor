@@ -29,7 +29,7 @@ class State						# state of finite automaton
 
   cls_attr_accessor :lastNr
   attr_accessor :nr, :firstAction, :endOf, :ctx, :next
-  
+
   def initialize
     @nr = @@lastNr
     @@lastNr += 1
@@ -37,11 +37,11 @@ class State						# state of finite automaton
     @ctx = false
     @firstAction = @next = nil
   end
-  
+
   def ==(o)
     return !o.nil? &&
       @nr == o.nr &&
-      @firstAction == o.firstAction && 
+      @firstAction == o.firstAction &&
       @endOf == o.endOf &&
       @ctx == o.ctx &&
       @next == o.next
@@ -54,7 +54,7 @@ class State						# state of finite automaton
       lasta = a
       a = a.next
     end
-    
+
     # collecting classes at the beginning gives better performance
     act.next = a
     if (a == @firstAction) then
@@ -67,11 +67,11 @@ class State						# state of finite automaton
       end
     end
   end
-  
+
   def DetachAction(act)
     lasta = nil
     a = @firstAction
-    
+
     while (a != nil && a != act) do
       lasta = a
       a = a.next
@@ -80,12 +80,12 @@ class State						# state of finite automaton
     if (a != nil) then
       if (a==@firstAction) then
 	@firstAction = a.next
-      else 
+      else
 	lasta.next = a.next
       end
     end
   end
-  
+
   def TheAction(ch)
     s=nil
     a=@firstAction
@@ -103,7 +103,7 @@ class State						# state of finite automaton
       a=a.next
     end
   end
-  
+
   def MeltWith(s) # copy actions of s to state
     a = nil
     action=s.firstAction
@@ -126,14 +126,14 @@ class Action			# action of finite automaton
   attr_accessor :tc		# transition code: normTrans, contextTrans
   attr_accessor :target		# states reached from this action
   attr_accessor :next
-  
+
   def initialize(typ, sym, tc)
     @typ = typ
     @sym = sym
     @tc = tc
     @target = @next = nil
   end
-  
+
   def ==(o)
     return !o.nil? &&
       @typ == o.typ &&
@@ -182,14 +182,14 @@ class Action			# action of finite automaton
 
     if (@typ==Tab::Clas) then
       s = Tab.Class(@sym).clone()
-    else 
-      s = BitSet.new() 
+    else
+      s = BitSet.new()
       s.set(@sym)
     end
 
     return s
   end
-  
+
   def ShiftWith(s)
     i = 0
 
@@ -206,7 +206,7 @@ class Action			# action of finite automaton
       @sym = i
     end
   end
-  
+
   def GetTargetStates # compute the set of target states
     stateNr=0
     states = StateSet.new
@@ -247,7 +247,7 @@ class Action			# action of finite automaton
     end
     return states
   end
-  
+
 end # class Action
 
 #-----------------------------------------------------------------------------
@@ -256,7 +256,7 @@ end # class Action
 
 class Target				# set of states that are reached by an action
   attr_accessor :state, :next
-  
+
   def initialize(s)
     @state = s
     @next = nil
@@ -280,13 +280,13 @@ class Melted			# info about melted states
 
   attr_accessor :set		# set of old states
   attr_accessor :state		# new state
-  attr_accessor :next 
+  attr_accessor :next
   cls_attr_accessor :first
-  
+
   def initialize(set, state)
     @set = set
     @state = state
-    
+
     @next = @@first
     @@first = self
   end
@@ -307,11 +307,11 @@ class Melted			# info about melted states
 
     return m.set
   end
-  
+
   def self.StateWithSet(s)
     m = @@first
 
-    while (m != nil) do 
+    while (m != nil) do
       if (s == m.set) then
 	return m
       end
@@ -333,7 +333,7 @@ class Comment				# info about comment syntax
   attr_accessor :nested
   attr_accessor :next
   cls_attr_accessor :first
-  
+
   def initialize(from, to, nested)
     @start = self.class.Str(from)
     @stop = self.class.Str(to)
@@ -341,7 +341,7 @@ class Comment				# info about comment syntax
     @next = @@first
     @@first = self
   end
-  
+
   def ==(o)
     raise "Not implemented yet"
   end
@@ -368,14 +368,14 @@ class Comment				# info about comment syntax
       end
       p = n.next
     end
-    
+
     if (s.length() > 2) then
       DFA.SemErr(25)
     end
 
     return s.to_s
   end
-  
+
 end
 
 #-----------------------------------------------------------------------------
@@ -387,7 +387,7 @@ class DFA
   EOF = '\uffff' # FIX: not a valid ruby character... *sigh*
   CR  = '\r'
   LF  = '\n'
-  
+
   @@firstState=nil
   @@lastState=nil	# last allocated state
   @@lastSimState=0	# last non melted state
@@ -412,24 +412,25 @@ class DFA
     Comment.first = nil
     @@dirtyDFA = false
   end
-    
+
   def self.SemErr(n)
     Scanner.err.SemErr(n, 0, 0)
   end
-    
+
   def self.Int(n, len)
     return n.to_s[0..len]
   end
-	
+
   def self.Ch(ch)
     if (ch<?\ || ch >= 127 || ch==?' || ch==?\\) then
       return ch.to_s
-    else 
+    else
       return "'#{ch}'"
     end
   end
-	  
+
   def self.ChCond(ch)
+    # TODO: assert ch is an int?
     return "@@ch==#{self.Ch(ch)}"
   end
 
@@ -458,31 +459,31 @@ class DFA
     # print ranges
     if (top==1 && lo[0]==0 && hi[1]==127 && hi[0]+2==lo[1]) then # only one bit is false
       # FIX: WHY THE MOTHERFUCK DIDN'T THEY JUST OUTPUT THE FUCKING CODE?!?
-      # e.g. gen.print("@@ch != " + Ch((char)hi[0]+1))
+      # e.g. @@gen.print("@@ch != " + Ch((char)hi[0]+1))
       s1 = BitSet.new		# FIX: omg this makes no sense
       s1.set(hi[0]+1)
-      gen.print("!")
+      @@gen.print("!")
       PutRange(s1)
     else
-      gen.print("(")
+      @@gen.print("(")
       0.upto(top) do |i|
 	if (hi[i]==lo[i]) then
-	  gen.print("@@ch==" + Ch(lo[i]))
+	  @@gen.print("@@ch==" + Ch(lo[i]))
 	elsif (lo[i]==0) then
-	  gen.print("@@ch<=" + Ch(hi[i]))
+	  @@gen.print("@@ch<=" + Ch(hi[i]))
 	elsif (hi[i]==127)
-	  gen.print("@@ch>=" + Ch(lo[i]))
+	  @@gen.print("@@ch>=" + Ch(lo[i]))
 	else
-	  gen.print("@@ch>=" + Ch(lo[i]) + " && @@ch<=" + Ch(hi[i]))
+	  @@gen.print("@@ch>=" + Ch(lo[i]) + " && @@ch<=" + Ch(hi[i]))
 	end
 	if (i < top) then
-	  gen.print(" || ")
+	  @@gen.print(" || ")
 	end
       end
-      gen.print(")")
+      @@gen.print(")")
     end
   end
-	  
+
   def self.NewState
     s = State.new
     if @@firstState == nil then
@@ -493,7 +494,7 @@ class DFA
     @@lastState = s
     return s
   end
-    
+
   def self.NewTransition(from, to, typ, sym, tc)
     a = t = nil
     if (to==@@firstState) then
@@ -504,7 +505,7 @@ class DFA
     a.target = t
     from.AddAction(a)
   end
-    
+
 
   def self.CombineShifts
     seta = setb = a = b = c = nil
@@ -522,7 +523,7 @@ class DFA
 	    c = b
 	    b = b.next
 	    state.DetachAction(c)
-	  else 
+	  else
 	    b = b.next
 	  end
 	end # while
@@ -604,7 +605,7 @@ class DFA
       return Tab.Node(p).state
     end
   end
-    
+
   def self.Step(from, p, stepped)
     n = nil
     return if p == 0
@@ -643,7 +644,7 @@ class DFA
     end
 
     n.state = state
-    
+
     if (Tab.DelGraph(p)) then
       state.endOf = @@curSy
     end
@@ -722,7 +723,7 @@ class DFA
     if (weakMatch && i < len) then
       state = @@firstState
       i = 1
-      dirtyDFA = true
+      @@dirtyDFA = true
     end
 
     while (i<len) do # make new DFA for s[i..len-1]
@@ -761,7 +762,7 @@ class DFA
       Sets.Differ(setc, seta)
       a.AddTargets(b)
       b.ShiftWith(setc)
-    else 
+    else
       setc = seta.clone()
       setc.and(setb)
       Sets.Differ(seta, setc)
@@ -782,7 +783,7 @@ class DFA
     if (a.typ==Tab::Chr) then
       if (b.typ==Tab::Chr) then
 	return a.sym==b.sym
-      else 
+      else
 	setb = Tab.Class(b.sym)
 	return setb.get(a.sym)
       end
@@ -790,13 +791,13 @@ class DFA
       seta = Tab.Class(a.sym)
       if (b.typ==Tab::Chr) then
 	return seta.get(b.sym)
-      else 
+      else
 	setb = Tab.Class(b.sym)
 	return ! Sets.Different(seta, setb)
       end
     end
   end
-			  
+
   def self.MakeUnique(state) # return true if actions were split
     changed = false
 
@@ -815,7 +816,7 @@ class DFA
     end
     return changed
   end
-	
+
   def self.MeltStates(state)
     changed = correct = true
     states = s = targ = melt = nil
@@ -851,17 +852,17 @@ class DFA
   def self.FindCtxStates()
     state = @@firstState
     while (state!=nil) do
-      a = state.firstAction 
+      a = state.firstAction
       while (a != nil) do
 	if a.tc == Tab::ContextTrans then
-	  a.target.state.ctx = true 
+	  a.target.state.ctx = true
 	end
 	a=a.next
       end
       state=state.next
     end
   end
-	    
+
   def self.MakeDeterministic()
 
     state = nil
@@ -879,12 +880,12 @@ class DFA
     end
     correct = true
 
-    state=@@firstState 
+    state=@@firstState
     while (state!=nil) do
       correct = MeltStates(state) && correct
       state=state.next
     end
-    
+
     DeleteRedundantStates()
     CombineShifts()
     return correct
@@ -901,7 +902,7 @@ class DFA
 
       if (state.endOf == Tab::NoSym) then
 	Trace.print("     ")
-      else 
+      else
 	Trace.print("E(" + Int(state.endOf, 2) + ")")
       end
 
@@ -929,7 +930,7 @@ class DFA
 	while (targ!=nil) do
 	  Trace.print(" #{targ.state.nr}")
 	  if (action.tc==Tab.contextTrans) then
-	    Trace.println(" context") 
+	    Trace.println(" context")
 	  else
 	    Trace.println()
 	  end
@@ -937,7 +938,7 @@ class DFA
 	end
 	action=action.next
       end
-      state=state.next 
+      state=state.next
     end
     Trace.println("\n---------- character classes ----------")
     i = 0
@@ -949,56 +950,56 @@ class DFA
   end
 
   def self.GenComBody(com)
-    gen.println("\t\tloop do")
-    gen.println("\t\t\tif (#{ChCond(com.stop[0])}) then")
+    @@gen.println("\t\tloop do")
+    @@gen.println("\t\t\tif (#{ChCond(com.stop[0])}) then")
     if (com.stop.length()==1) then
-      gen.println("\t\t\t\tlevel -= 1;")
-      gen.println("\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end")
-      gen.println("\t\t\t\tNextCh();")
+      @@gen.println("\t\t\t\tlevel -= 1;")
+      @@gen.println("\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end")
+      @@gen.println("\t\t\t\tNextCh();")
     else
-      gen.println("\t\t\t\tNextCh();")
-      gen.println("\t\t\t\tif (#{ChCond(com.stop[1])}) then")
-      gen.println("\t\t\t\t\tlevel -= 1;")
-      gen.println("\t\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end")
-      gen.println("\t\t\t\t\tNextCh();")
-      gen.println("\t\t\t\tend")
+      @@gen.println("\t\t\t\tNextCh();")
+      @@gen.println("\t\t\t\tif (#{ChCond(com.stop[1])}) then")
+      @@gen.println("\t\t\t\t\tlevel -= 1;")
+      @@gen.println("\t\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end")
+      @@gen.println("\t\t\t\t\tNextCh();")
+      @@gen.println("\t\t\t\tend")
     end
 
     if (com.nested) then
-      gen.println("\t\t\telsif (#{ChCond(com.start[0])}) then")
+      @@gen.println("\t\t\telsif (#{ChCond(com.start[0])}) then")
       if (com.start.length()==1) then
-	gen.println("\t\t\t\tlevel += 1; NextCh();")
+	@@gen.println("\t\t\t\tlevel += 1; NextCh();")
       else
-	gen.println("\t\t\t\tNextCh();")
-	gen.println("\t\t\t\tif (#{ChCond(com.start[1])}) then")
-	gen.println("\t\t\t\t\tlevel += 1; NextCh();")
-	gen.println("\t\t\t\tend")
+	@@gen.println("\t\t\t\tNextCh();")
+	@@gen.println("\t\t\t\tif (#{ChCond(com.start[1])}) then")
+	@@gen.println("\t\t\t\t\tlevel += 1; NextCh();")
+	@@gen.println("\t\t\t\tend")
       end
     end
-    gen.println("\t\t\telsif (ch==EOF) then; return false")
-    gen.println("\t\t\telse NextCh();")
-    gen.println("\t\t\tend")
-    gen.println("\t\tend")
+    @@gen.println("\t\t\telsif (ch==EOF) then; return false")
+    @@gen.println("\t\t\telse NextCh();")
+    @@gen.println("\t\t\tend")
+    @@gen.println("\t\tend")
   end
 
   def self.GenComment(com, i)
-    gen.println("private; def self.Comment#{i}()")
-    gen.println("\tlevel = 1; line0 = line; lineStart0 = lineStart; startCh=nil")
+    @@gen.println("private; def self.Comment#{i}()")
+    @@gen.println("\tlevel = 1; line0 = line; lineStart0 = lineStart; startCh=nil")
     if (com.start.length()==1) then
-      gen.println("\tNextCh();")
+      @@gen.println("\tNextCh();")
       GenComBody(com)
     else
-      gen.println("\tNextCh();")
-      gen.println("\tif (#{ChCond(com.start[1])}) then")
-      gen.println("\t\tNextCh();")
+      @@gen.println("\tNextCh();")
+      @@gen.println("\tif (#{ChCond(com.start[1])}) then")
+      @@gen.println("\t\tNextCh();")
       GenComBody(com)
-      gen.println("\telse")
-      gen.println("\t\tif (ch==EOL) then; line -= 1; lineStart = lineStart0; end")
-      gen.println("\t\tpos = pos - 2; Buffer.Set(pos+1); NextCh();")
-      gen.println("\tend")
+      @@gen.println("\telse")
+      @@gen.println("\t\tif (ch==EOL) then; line -= 1; lineStart = lineStart0; end")
+      @@gen.println("\t\tpos = pos - 2; Buffer.Set(pos+1); NextCh();")
+      @@gen.println("\tend")
     end
-    gen.println("\treturn false;")
-    gen.println("end")
+    @@gen.println("\treturn false;")
+    @@gen.println("end")
   end
 
   # REFACTOR: this is duplicate code from ParserGen
@@ -1045,7 +1046,7 @@ class DFA
 
     for i in 1..Tab.maxT do
       sym = Tab.Sym(i)
-      if (sym.struct==Tab.litToken) then
+      if (sym.struct==Tab::LitToken) then
 	j = k-1
 	while (j>=0 && sym.name.compareTo(key[j]) < 0) # FIX compareTo
 	  key[j+1] = key[j]
@@ -1062,173 +1063,199 @@ class DFA
     i = 0
     while (i < k) do
       ch = key[i][1] # key[i, 0] is quote
-      gen.println("\t\t\twhen #{Ch(ch)}")
+      @@gen.println("\t\t\twhen #{Ch(ch)}")
       j = i
       begin
 	if (i==j) then
-	  gen.print("\t\t\t\tif ")
-	else 
-	  gen.print("\t\t\t\telsif ")
+	  @@gen.print("\t\t\t\tif ")
+	else
+	  @@gen.print("\t\t\t\telsif ")
 	end
-	gen.println("(t.val.equals(#{key[i]})) then; t.kind = #{knr[i]};")
+	@@gen.println("(t.val.equals(#{key[i]})) then; t.kind = #{knr[i]};")
 	i+= 1
       end while (i<k && key[i][1]==ch)
-      gen.println("\t\t\t\tend")
+      @@gen.println("\t\t\t\tend")
     end
+  end
+
+  def self.WriteState(state)
+    action = sym = nil
+    ctxEnd = false
+    endOf = state.endOf
+
+    if (endOf > Tab.maxT) then
+      endOf = Tab.maxT + Tab::MaxSymbols - endOf # pragmas have been moved
+    end
+
+    @@gen.println("\t\t\t\twhen #{state.nr}")
+    ctxEnd = state.ctx
+
+    action = state.firstAction
+    until (action.nil?) do
+      if (action==state.firstAction) then
+	@@gen.print("\t\t\t\t\tif (")
+      else
+	@@gen.print("\t\t\t\t\telsif (")
+      end
+
+      if (action.typ==Tab::Chr)
+	@@gen.print(ChCond(action.sym)) # FIX: action.sym might be a char?
+      else
+	PutRange(Tab.Class(action.sym))
+      end
+      @@gen.println(") then; ")
+      if (action.target.state != state) then
+	@@gen.println("state = #{action.target.state.nr}; ")
+      end
+      if (action.tc == Tab::ContextTrans) then
+	@@gen.println("apx += 1; ")
+	ctxEnd = false
+      elsif (state.ctx) then
+	@@gen.println("apx = 0; ")
+      end
+      action = action.next
+    end # while
+
+    # NO @@gen.println("\t\t\t\t\t\tbreak") if (action.next==nil)
+    @@gen.println("\t\t\t\t\telse ;") if (state.firstAction != nil)
+
+    if (endOf==Tab::NoSym) then
+      @@gen.println("t.kind = noSym; break; end")
+    else # final state
+      if (state.firstAction==nil)
+	@@gen.print("\t\t\t\t\t")
+      else
+	@@gen.print("")
+      end
+      sym = Tab.Sym(endOf)
+      if (ctxEnd) then # final context state: cut appendix
+	@@gen.println()
+	@@gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length();")
+	@@gen.println("\t\t\t\t\t\twhile (apx > 0) {")
+	@@gen.println("\t\t\t\t\t\t\tch = buf[--i];")
+	@@gen.println("\t\t\t\t\t\t\tif (ch==EOL) line--;")
+	@@gen.println("\t\t\t\t\t\t\tapx--;")
+	@@gen.println("\t\t\t\t\t\t}")
+	@@gen.println("\t\t\t\t\t\tbuf.setLength(i); NextCh();")
+	@@gen.print(  "\t\t\t\t\t\t")
+      end
+      @@gen.println("t.kind = #{endOf}; ")
+      if (sym.struct==Tab::ClassLitToken) then
+	@@gen.println("t.val = buf.toString(); CheckLiteral(); ")
+      end
+      @@gen.println("break")
+      if (state.firstAction != nil)
+	@@gen.println("end")
+      end
+    end
+  end
+
+  def self.FillStartTab(startTab) # array of ints
+    targetState = max = i = 0
+    s = nil
+    startTab[0] = State.lastNr + 1 # eof
+
+    action = @@firstState.firstAction
+    until (action.nil?) do
+      targetState = action.target.state.nr
+      if (action.typ==Tab::Chr) then
+	startTab[action.sym] = targetState
+      else
+	s = Tab.Class(action.sym)
+	max = s.size()
+	for i in 0..max do
+	  startTab[i] = targetState if (s.get(i))
+	end
+      end
+      action=action.next
+    end
+  end
+
+  def self.WriteScanner
+    i = j = max = 0
+    startTab = Array.new(128, 0)
+    ok = true
+    s = com = nil
+    root = Tab.Sym(Tab.gramSy)
+
+    begin
+      @@fram = File.new(@@srcDir + "/Scanner.frame")
+    rescue
+      Scanner.err.Exception("-- cannot open Scanner.frame. Must be in the same directory as the grammar file.")
+    end
+
+    begin
+      @@gen = File.new(@@srcDir + "/Scanner.rb", "w")
+    rescue
+      Scanner.err.Exception("-- cannot generate scanner file")
+    end
+
+    ok = MakeDeterministic() if @@dirtyDFA
+
+    FillStartTab(startTab)
+    @@gen.println("# This file is generated. DO NOT MODIFY!")
+    @@gen.println()
+    @@gen.println("# HACK: package #{root.name};")
+    CopyFramePart("-->declarations")
+    @@gen.println("\tprivate; @@noSym = #{Tab.maxT}; # FIX: make this a constant")
+    @@gen.println("\tprivate; @@start = [")
+    for i in 0...8 do
+      for j in 0...16 do
+	@@gen.print(Int(startTab[16*i+j], 3) + ",")
+      end
+      @@gen.println()
+    end
+
+    @@gen.println("  0]")
+    CopyFramePart("-->initialization")
+    @@gen.print("\t\t")
+    max = Tab.ignored.size()
+    for i in 0..max do
+      @@gen.println("@@ignore.set(#{i})") if Tab.ignored.get(i)
+    end
+
+    CopyFramePart("-->comment")
+    com = Comment.first
+    i = 0
+    while (com != nil) do
+      GenComment(com, i)
+      com = com.next
+      i+= 1
+    end
+
+    CopyFramePart("-->literals")
+    GenLiterals()
+    CopyFramePart("-->scan1")
+
+    if (Comment.first!=nil) then
+      @@gen.print("\t\tif (")
+      com = Comment.first
+      i = 0
+      while (com != nil) do
+	@@gen.print(ChCond(com.start[0]))
+	@@gen.print(" && Comment#{i}() ")
+	@@gen.print(" || ") unless com.next.nil?
+	com = com.next
+	i += 1
+      end
+      @@gen.print(") then ; return Scan(); end")
+    end
+
+    CopyFramePart("-->scan2")
+    state=@@firstState.next
+    while (state!=nil)
+      WriteState(state)
+      state=state.next
+    end
+    @@gen.println("\t\t\t\twhen #{State.lastNr+1}")
+    @@gen.println("\t\t\t\t\tt.kind = 0; ")
+    CopyFramePart("$$$")
+    @@gen.flush()
+    return ok
   end
 
 end # class DFA
 
 __END__
-
-def self.WriteState(State state) {
-Action action;
-Symbol sym;
-int endOf;
-boolean ctxEnd;
-endOf = state.endOf;
-if (endOf > Tab.maxT)
-endOf = Tab.maxT + Tab.maxSymbols - endOf; # pragmas have been moved
-  gen.println("\t\t\t\twhen #{state.nr}");
-ctxEnd = state.ctx;
-for (action=state.firstAction; action!=nil; action=action.next) {
-if (action==state.firstAction) 
-gen.print("\t\t\t\t\tif (");
-else
-gen.print("\t\t\t\t\telsif (");
-
-if (action.typ==Tab::Chr) 
-gen.print(ChCond((char)action.sym));
-else
-PutRange(Tab.Class(action.sym));
-
-gen.println(") then; ");
-
-if (action.target.state != state)
-gen.println("state = #{action.target.state.nr}; ");
-
-if (action.tc == Tab.contextTrans) {
-gen.println("apx += 1; "); 
-ctxEnd = false;
-} else if (state.ctx)
-gen.println("apx = 0; ");
-
-if (action.next==nil)
-gen.println("\t\t\t\t\t\tbreak");
-}
-
-if (state.firstAction != nil) gen.println("\t\t\t\t\telse ;");
-if (endOf==Tab::NoSym)
-gen.println("t.kind = noSym; break; end");
-else { # final state
-if (state.firstAction==nil)
-gen.print("\t\t\t\t\t");
-else
-gen.print("");
-sym = Tab.Sym(endOf);
-if (ctxEnd) { # final context state: cut appendix
-gen.println();
-gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length();");
-gen.println("\t\t\t\t\t\twhile (apx > 0) {");
-gen.println("\t\t\t\t\t\t\tch = buf[--i];");
-gen.println("\t\t\t\t\t\t\tif (ch==EOL) line--;");
-gen.println("\t\t\t\t\t\t\tapx--;");
-gen.println("\t\t\t\t\t\t}");
-gen.println("\t\t\t\t\t\tbuf.setLength(i); NextCh();");
-gen.print(  "\t\t\t\t\t\t");
-}
-gen.println("t.kind = #{endOf}; ");
-if (sym.struct==Tab::ClassLitToken)
-gen.println("t.val = buf.toString(); CheckLiteral(); ");
-if (state.firstAction != nil) gen.println("end");
-}
-}
-
-def self.FillStartTab(int[] startTab) {
-int targetState, max, i;
-BitSet s;
-startTab[0] = State.lastNr + 1; # eof
-for (Action action= firstState.firstAction; action!=nil; action=action.next) {
-targetState = action.target.state.nr;
-if (action.typ==Tab::Chr) startTab[action.sym] = targetState;
-else {
-s = Tab.Class(action.sym)
-max = s.size();
-for (i=0; i<=max; i+= 1)
-if (s.get(i)) startTab[i] = targetState;
-}
-}
-}
-
-def self.WriteScanner() {
-int i, j, max;
-int[] startTab = new int[128];
-boolean ok = true;
-OutputStream s;
-Comment com;
-Symbol root = Tab.Sym(Tab.gramSy);
-try {fram = BufferedInputStream.new(FileInputStream.new(srcDir + "Scanner.frame"));}
-catch (IOException e) {
-Scanner.err.Exception("-- cannot open Scanner.frame. " +
-"Must be in the same directory as the grammar file.");
-}
-try {
-s = BufferedOutputStream.new(FileOutputStream.new(srcDir + "Scanner.rb"));
-gen = PrintStream.new(s);}
-catch (IOException e) {
-Scanner.err.Exception("-- cannot generate scanner file");
-}
-if (dirtyDFA) ok = MakeDeterministic();
-FillStartTab(startTab);
-gen.println("# This file is generated. DO NOT MODIFY!");
-gen.println();
-gen.println("# HACK: package #{root.name};");
-CopyFramePart("-->declarations");
-gen.println("\tprivate; @@noSym = #{Tab.maxT}; # FIX: make this a constant");
-gen.println("\tprivate; @@start = [");
-for (i=0; i<8; i+= 1) {
-for (j=0; j<16; j+= 1)
-gen.print(Int(startTab[16*i+j], 3) + ",");
-gen.println();
-}
-gen.println("  0]");
-CopyFramePart("-->initialization");
-gen.print("\t\t");
-max = Tab.ignored.size();
-for (i=0; i<=max; i+= 1)
-if (Tab.ignored.get(i)) gen.println("@@ignore.set(#{i})");
-CopyFramePart("-->comment");
-com = Comment.first
-i = 0;
-while (com != nil) {
-GenComment(com, i);
-com = com.next
-i+= 1;
-}
-CopyFramePart("-->literals")
-GenLiterals();
-CopyFramePart("-->scan1");
-if (Comment.first!=nil) {
-gen.print("\t\tif (");
-com = Comment.first
-i = 0;
-while (com != nil) {
-gen.print(ChCond(com.start[0]));
-gen.print(" && Comment#{i}() ");
-if (com.next != nil) gen.print(" || ");
-com = com.next
-i+= 1;
-}
-gen.print(") then ; return Scan(); end");
-}
-CopyFramePart("-->scan2");
-for (State state=firstState.next; state!=nil; state=state.next)
-WriteState(state);
-gen.println("\t\t\t\twhen "+(State.lastNr+1));
-gen.println("\t\t\t\t\tt.kind = 0; ");
-CopyFramePart("$$$");
-gen.flush();
-return ok;
-}
 
 }
