@@ -315,10 +315,10 @@ class ParserGen {
 
 	    gen.println(")");
 	    // if (sym.retVar!=null) gen.println("\t\t" + sym.retType + " " + sym.retVar);
-	    gen.println("\t\t$stderr.puts(\"+ " + sym.name + "\")");
+	    // HACK gen.println("\t\t$stderr.puts(\"+ " + sym.name + "\")");
 	    CopySourcePart(sym.semPos, 2);
 	    GenCode(sym.struct, 2, new BitSet());
-	    gen.println("\t\t$stderr.puts(\"- " + sym.name + "\")");
+	    // HACK gen.println("\t\t$stderr.puts(\"- " + sym.name + "\")");
 	    if (sym.retVar!=null) gen.println("\t\treturn " + sym.retVar);
 	    gen.println("\tend"); gen.println();
 	}

@@ -154,6 +154,7 @@ class Graph
   end
 
   def to_s
+    raise "no"
     "<Graph@#{self.id}: #{@l}, #{@r}>"
   end
   
@@ -236,7 +237,7 @@ class Tab
   @@ignored = nil				# characters ignored by the scanner
   @@ddt = Array.new(10, false)			# debug and test switches
   @@nNodes = nil				# index of last graph node
-  @@gramSy = nil				# root nonterminal filled by ATG
+  @@gramSy = 0					# root nonterminal filled by ATG
 
   @@sy = Array.new(MaxSymbols, :Sym)		# symbol table
   @@gn = Array.new(MaxNodes, :GraphNode)	# grammar graph
@@ -362,7 +363,6 @@ class Tab
       end
       i += 1
     end
-    $stderr.puts "NoSym found"
     return NoSym
   end
 
@@ -380,7 +380,7 @@ class Tab
     n.line = line
     @@gn[@@nNodes] = n
 
-#    puts "Adding a GraphNode, ##{@@nNodes}: type #{@@nTyp[typ]}, p1=#{p1}, line=#{line}"
+#    HACK puts "Adding a GraphNode, ##{@@nNodes}: type #{@@nTyp[typ]}, p1=#{p1}, line=#{line}"
 #    puts "Caller = #{caller.join("\n")}"
 #    self.PrintGraph
 
@@ -392,15 +392,13 @@ class Tab
   end
 
   def self.CompleteGraph(p)
-    puts "CompleteGraph(#{p.inspect})"
-#    self.PrintGraph
+#    HACK self.PrintGraph
     while (p != 0) do
       q = @@gn[p].next
-      puts "q = #{q}"
       @@gn[p].next = 0
       p = q
     end
-#    self.PrintGraph
+#    HACK self.PrintGraph
   end
 
   def self.Alternative(g1, g2)
@@ -460,12 +458,10 @@ class Tab
   end
 
   def self.StrToGraph(s)
-    puts "StrToGraph(#{s.inspect})"
     len = s.length() - 1
     g = Graph.new
     i = 1
     while (i<len) do
-      puts "g.r = #{g.r}, gn[g.r] = #{@@gn[g.r]}"
       @@gn[g.r].next = NewNode(Chr, s[i], 0)
       g.r = @@gn[g.r].next
       i += 1
@@ -476,12 +472,9 @@ class Tab
   end
 
   def self.DelGraph(p)
-    puts "self.DelGraph(#{p.inspect})"
     n = nil
     return true if p == 0 # end of graph found
-    puts "p != 0"
     n = Node(p)
-    puts "n.next = #{n.next}"
     return DelNode(n) && DelGraph(n.next.abs)
   end
 
@@ -494,13 +487,10 @@ class Tab
 
   def self.DelNode(n)
     if (n.typ==Nt) then
-      puts "dn1 (Nt)"
       return @@sy[n.p1].deletable
     elsif (n.typ==Alt) then
-      puts "dn2 (Alt)"
       return DelAlt(n.p1) || n.p2!=0 && DelAlt(n.p2)
     else
-      puts "dn3 (other)"
       return n.typ==Eps || n.typ==Iter || n.typ==Opt || n.typ==Sem || n.typ==Sync
     end
   end
@@ -508,15 +498,12 @@ class Tab
   def self.PrintGraph
     n = nil
     Trace.println("Graph:")
-    s = "  nr typ   next p1   p2   line"
-    Trace.println(s)
-    puts(s)
+    Trace.println("  nr typ   next p1   p2   line")
     i = 0
     while (i <= @@nNodes) do
       n = Node(i)
       s = sprintf("%4d %s %5d %s %s %5d", i, @@nTyp[n.typ], n.next, @@nTyp[n.p1], @@nTyp[n.p2], n.line)
       Trace.println(s)
-      puts(s)
       i += 1
     end
     Trace.println()
@@ -535,7 +522,6 @@ class Tab
       name = "#" + (?A + @@dummyName).chr
       @@dummyName += 1
     end
-    $stderr.puts("Adding new class #{name}")
     c = CharClass.new
     c.name = name
     c.set = NewSet(s)
@@ -879,46 +865,289 @@ class Tab
   end
 
   def self.CompSymbolSets
-    i = self.NewSym(T, "???", 0);
+    i = self.NewSym(T, "???", 0)
     # unknown symbols get code @@maxT
-    MovePragmas();
-    CompDeletableSymbols();
+    MovePragmas()
+    CompDeletableSymbols()
 
     @@first = Array.new(@@lastNt-@@firstNt+1)
     @@follow = Array.new(@@lastNt-@@firstNt+1)
 
-    CompFirstSets();
-    CompFollowSets();
-    CompAnySets();
-    CompSyncSets();
+    CompFirstSets()
+    CompFollowSets()
+    CompAnySets()
+    CompSyncSets()
     if (@@ddt[1]) then
-      Trace.println("First & follow symbols:");
+      Trace.println("First & follow symbols:")
 
-      i = @@firstNt;
+      i = @@firstNt
       while (i<=@@lastNt) do
-	Trace.println(@@sy[i].name);
-	Trace.print("first:   ");
-	PrintSet(@@first[i-@@firstNt].ts, 10);
-	Trace.print("follow:  ");
-	PrintSet(@@follow[i-@@firstNt].ts, 10);
-	Trace.println();
+	Trace.println(@@sy[i].name)
+	Trace.print("first:   ")
+	PrintSet(@@first[i-@@firstNt].ts, 10)
+	Trace.print("follow:  ")
+	PrintSet(@@follow[i-@@firstNt].ts, 10)
+	Trace.println()
 	i += 1
       end
 
       if (@@maxSet >= 0) then
-	Trace.println();
-	Trace.println();
-	Trace.println("List of sets (ANY, SYNC): ");
+	Trace.println()
+	Trace.println()
+	Trace.println("List of sets (ANY, SYNC): ")
 	i = 0
 	while (i<=@@maxSet) do
-	  Trace.print("     set[" + i + "] = ");
-	  PrintSet(@@set[i], 16);
+	  Trace.print("     set[" + i + "] = ")
+	  PrintSet(@@set[i], 16)
 	  i += 1
 	end
-	Trace.println();
-	Trace.println();
+	Trace.println()
+	Trace.println()
       end
     end
+  end
+
+  # ---------------------------------------------------------------------
+  #   Grammar checks
+  # ---------------------------------------------------------------------
+
+  def self.GetSingles(p, singles) # (int p, BitSet singles)
+    n = nil
+
+    return if p <= 0 # end of graph
+
+    n = Node(p)
+
+    if (n.typ==Nt) then
+      if (DelGraph(n.next.abs)) then
+	singles.set(n.p1)
+      end
+    elsif (n.typ==Alt || n.typ==Iter || n.typ==Opt) then
+      if (DelGraph(n.next.abs)) then
+	GetSingles(n.p1, singles)
+	if (n.typ==Alt) then
+	  GetSingles(n.p2, singles)
+	end
+      end
+    end
+
+    if (DelNode(n)) then
+      GetSingles(n.next, singles)
+    end
+  end
+
+  def self.NoCircularProductions
+    ok = changed = onLeftSide = onRightSide = false
+    list = Array.new(150) # FIX: constify
+    x = singles = sym = nil
+    i = j = len = 0
+
+    for i in @@firstNt..@@lastNt do
+      singles = BitSet.new()
+      GetSingles(@@sy[i].struct, singles)
+      # get nts such that i-->j
+      for j in @@firstNt..@@lastNt do
+	if (singles.get(j)) then
+	  x = CNode.new
+	  x.left = i
+	  x.right = j
+	  x.deleted = false
+	  list[len] = x
+	  len += 1
+	end
+      end
+    end
+
+    begin
+      changed = false
+      for i in 0...len do
+	if (!list[i].deleted) then
+	  onLeftSide = false
+	  onRightSide = false
+	  
+	  for j in 0...len do
+	    if (!list[j].deleted) then
+	      onRightSide = true if (list[i].left==list[j].right) 
+	      onLeftSide = true if (list[j].left==list[i].right) 
+	    end
+	  end
+	  
+	  if (!onLeftSide || !onRightSide) then
+	    list[i].deleted = true
+	    changed = true
+	  end
+	end
+      end
+    end while(changed)
+
+    ok = true
+
+    for i in 0...len do
+      if (!list[i].deleted) then
+	ok = false
+	puts("  "+@@sy[list[i].left].name+" --> "+@@sy[list[i].right].name)
+      end
+    end
+
+    return ok
+  end
+
+  def self.LL1Error(cond, ts)
+    print("  LL1 warning in " + @@sy[@@curSy].name + ": ")
+    print(@@sy[ts].name + " is ") if (ts > 0)
+
+    case cond
+    when 1
+      puts " start of several alternatives"
+    when 2
+      puts " start & successor of deletable structure"
+    when 3
+      puts " an ANY node that matches no symbol"
+    end
+  end
+
+  def self.Overlap(s1, s2, cond)
+    overlap = false
+
+    for i in 0..@@maxT do
+      if (s1.get(i) && s2.get(i)) then
+	LL1Error(cond, i)
+	overlap = true
+      end
+    end
+
+    return overlap
+  end
+
+  def self.AltOverlap(p)
+    overlap = false
+    n = a = s1 = s2 = nil
+    q = 0
+
+    while (p > 0) do
+      n = Node(p)
+      if (n.typ==Alt) then
+	q = p
+	s1 = BitSet.new()
+	while (q != 0) do # for all alternatives
+	  a = Node(q)
+	  s2 = Expected(a.p1, @@curSy)
+	  overlap = true if (Overlap(s1, s2, 1)) 
+	  s1.or(s2)
+	  overlap = true if (AltOverlap(a.p1)) 
+	  q = a.p2
+	end
+      elsif (n.typ==Opt || n.typ==Iter) then
+	s1 = Expected(n.p1, @@curSy)
+	s2 = Expected(n.next.abs, @@curSy)
+	overlap = true if (Overlap(s1, s2, 2)) 
+	overlap = true if (AltOverlap(n.p1)) 
+      elsif (n.typ==Any) then
+	if (Sets.Empty(Set(n.p1))) then # e.g. {ANY} ANY or [ANY] ANY
+	  LL1Error(3, 0)
+	  overlap = true
+	end
+
+      end
+      p = n.next
+    end
+
+    return overlap
+  end
+
+  def self.LL1()
+    ll1 = true
+    for @@curSy in @@firstNt..@@lastNt do
+      ll1 = false if (AltOverlap(@@sy[@@curSy].struct)) 
+    end
+    return ll1
+  end
+
+  def self.NtsComplete
+    complete = true
+    
+    for i in @@firstNt..@@lastNt do
+      if (@@sy[i].struct==0) then
+	complete = false
+	puts("  No production for " + @@sy[i].name)
+      end
+    end
+
+    return complete
+  end
+
+  def self.MarkReachedNts(p)
+    n = nil
+
+    while (p > 0) do
+      n = Node(p)
+      if (n.typ==Nt) then
+	if (!@@visited.get(n.p1)) then # new nt reached
+	  @@visited.set(n.p1)
+	  MarkReachedNts(@@sy[n.p1].struct)
+	end
+      elsif (n.typ==Alt || n.typ==Iter || n.typ==Opt) then
+	MarkReachedNts(n.p1)
+	MarkReachedNts(n.p2) if (n.typ==Alt)
+      end
+      p = n.next
+    end
+  end
+
+  def self.AllNtReached
+    n = nil
+    ok = true
+    @@visited = BitSet.new()
+    @@visited.set(@@gramSy)
+
+    MarkReachedNts(Sym(@@gramSy).struct)
+
+    for i in @@firstNt..@@lastNt do
+      if (!@@visited.get(i)) then
+	ok = false
+	puts("  " + @@sy[i].name + " cannot be reached")
+      end
+    end
+    return ok
+  end
+
+  def self.Term(p) # true if graph can be derived to terminals
+    n = nil
+
+    while (p > 0) do
+      n = Node(p)
+      return false if (n.typ==Nt && !@@termNt.get(n.p1))
+      return false if (n.typ==Alt && !Term(n.p1) && (n.p2==0 || !Term(n.p2)))
+      p = n.next
+    end
+
+    return true
+  end
+
+  def self.AllNtToTerm
+    changed = false
+    ok = true
+    i = 0
+    @@termNt = BitSet.new
+
+    begin
+      changed = false
+      for i in @@firstNt..@@lastNt do
+	if (!@@termNt.get(i) && Term(@@sy[i].struct)) then
+	  @@termNt.set(i)
+	  changed = true
+	end
+      end
+    end while changed
+
+    for i in @@firstNt..@@lastNt do
+      if (!@@termNt.get(i)) then
+	ok = false
+	puts "  " + @@sy[i].name + "cannot be derived to terminals"
+      end
+    end
+
+    return ok
   end
 
   ############################################################
@@ -933,211 +1162,6 @@ end
 __END__
 
 class Tab {
-# ---------------------------------------------------------------------
-#   Grammar checks
-# ---------------------------------------------------------------------
-
-static private void GetSingles(int p, BitSet singles) {
-GraphNode n;
-if (p <= 0) return;
-# end of graph
-n = Node(p);
-if (n.typ==nt) {
-if (DelGraph(n.next.abs)) singles.set(n.p1);
-} else if (n.typ==alt || n.typ==iter || n.typ==opt) {
-if (DelGraph(n.next.abs)) {
-GetSingles(n.p1, singles);
-if (n.typ==alt) GetSingles(n.p2, singles);
-}
-}
-if (DelNode(n)) GetSingles(n.next, singles);
-}
-
-static boolean NoCircularProductions() {
-boolean ok, changed, onLeftSide, onRightSide;
-CNode[] list = new CNode[150];
-CNode x;
-BitSet singles;
-Sym sym;
-int i, j, len = 0;
-for (i=@@firstNt; i<=@@lastNt; i++) {
-singles = BitSet.new();
-GetSingles(sy[i].struct, singles);
-# get nts such that i-->j
-for (j=@@firstNt; j<=@@lastNt; j++) {
-if (singles.get(j)) {
-x = CNode.new();
-x.left = i;
-x.right = j;
-x.deleted = false;
-list[len++] = x;
-}
-}
-}
-do {
-changed = false;
-for (i=0; i<len; i++) {
-if (!list[i].deleted) {
-onLeftSide = false;
-onRightSide = false;
-for (j=0; j<len; j++) {
-if (!list[j].deleted) {
-if (list[i].left==list[j].right) onRightSide = true;
-if (list[j].left==list[i].right) onLeftSide = true;
-}
-}
-if (!onLeftSide || !onRightSide) {
-list[i].deleted = true;
-changed = true;
-}
-}
-}
-} while(changed);
-ok = true;
-for (i=0; i<len; i++) {
-if (!list[i].deleted) {
-ok = false;
-System.out.println("  "+sy[list[i].left].name+" --> "+sy[list[i].right].name);
-}
-}
-return ok;
-}
-
-static private void LL1Error(int cond, int ts) {
-System.out.print("  LL1 warning in " + sy[curSy].name + ": ");
-if (ts > 0) System.out.print(sy[ts].name + " is ");
-case (cond) {
-when 1: {System.out.println(" start of several alternatives");
-break;}
-when 2: {System.out.println(" start & successor of deletable structure");
-break;}
-when 3: {System.out.println(" an ANY node that matches no symbol");
-break;}
-}
-}
-
-static private boolean Overlap(BitSet s1, BitSet s2, int cond) {
-boolean overlap = false;
-for (int i=0; i<=@@maxT; i++) {
-if (s1.get(i) && s2.get(i)) {LL1Error(cond, i);
-overlap = true;}
-}
-return overlap;
-}
-
-static private boolean AltOverlap(int p) {
-boolean overlap = false;
-GraphNode n, a;
-BitSet s1, s2;
-int q;
-while (p > 0) {
-n = Node(p);
-if (n.typ==alt) {
-q = p;
-s1 = BitSet.new();
-while (q != 0) { # for all alternatives
-a = Node(q);
-s2 = Expected(a.p1, curSy);
-if (Overlap(s1, s2, 1)) overlap = true;
-s1.or(s2);
-if (AltOverlap(a.p1)) overlap = true;
-q = a.p2;
-}
-} else if (n.typ==opt || n.typ==iter) {
-s1 = Expected(n.p1, curSy);
-s2 = Expected(n.next.abs, curSy);
-if (Overlap(s1, s2, 2)) overlap = true;
-if (AltOverlap(n.p1)) overlap = true;
-} else if (n.typ==any) {
-if (Sets.Empty(Set(n.p1))) {LL1Error(3, 0);
-overlap = true;}
-# e.g. {ANY} ANY or [ANY] ANY
-}
-p = n.next;
-}
-return overlap;
-}
-
-static boolean LL1() {
-boolean ll1 = true;
-for (curSy=@@firstNt; curSy<=@@lastNt; curSy++)
-if (AltOverlap(sy[curSy].struct)) ll1 = false;
-return ll1;
-}
-
-static boolean NtsComplete() {
-boolean complete = true;
-for (int i=@@firstNt; i<=@@lastNt; i++) {
-if (sy[i].struct==0) {
-complete = false;
-System.out.println("  No production for " + sy[i].name);
-}
-}
-return complete;
-}
-
-static private void MarkReachedNts(int p) {
-GraphNode n;
-while (p > 0) {
-n = Node(p);
-if (n.typ==nt) {
-if (!@@visited.get(n.p1)) { # new nt reached
-@@visited.set(n.p1);
-MarkReachedNts(sy[n.p1].struct);
-}
-} else if (n.typ==alt || n.typ==iter || n.typ==opt) {
-MarkReachedNts(n.p1);
-if (n.typ==alt) MarkReachedNts(n.p2);
-}
-p = n.next;
-}
-}
-
-static boolean AllNtReached() {
-GraphNode n;
-boolean ok = true;
-@@visited = BitSet.new();
-@@visited.set(@@gramSy);
-MarkReachedNts(Sym(@@gramSy).struct);
-for (int i=@@firstNt; i<=@@lastNt; i++) {
-if (!@@visited.get(i)) {
-ok = false;
-System.out.println("  " + sy[i].name + " cannot be reached");
-}
-}
-return ok;
-}
-
-static private boolean Term(int p) { # true if graph can be derived to terminals
-GraphNode n;
-while (p > 0) {
-n = Node(p);
-if (n.typ==nt && !termNt.get(n.p1)) return false;
-if (n.typ==alt && !Term(n.p1) && (n.p2==0 || !Term(n.p2))) return false;
-p = n.next;
-}
-return true;
-}
-
-static boolean AllNtToTerm() {
-boolean changed, ok = true;
-int i;
-termNt = BitSet.new();
-do {
-changed = false;
-for (i=@@firstNt; i<=@@lastNt; i++)
-if (!termNt.get(i) && Term(sy[i].struct)) {
-termNt.set(i);
-changed = true;
-}
-} while (changed);
-for (i=@@firstNt; i<=@@lastNt; i++)
-if (!termNt.get(i)) {
-ok = false;
-System.out.println("  " + sy[i].name + "cannot be derived to terminals");
-}
-return ok;
-}
 
 # ---------------------------------------------------------------------
 #   Utility functions

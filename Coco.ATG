@@ -303,13 +303,11 @@ TokenDecl <int typ>             (. s = pos = g = nil
                                      sp = Tab.NewSym(typ, s.name, @token.line)
                                      Tab.Sym(sp).struct = Tab::ClassToken
                                    end
-				   puts "## symbol = #{s.name}"
 				 .)
   SYNC
   ( "=" TokenExpr <^g> "."      (. if (s.kind != @@ident) then
 				     SemErr(13)
 				   end
-				   p g
                                    Tab.CompleteGraph(g.r)
                                    DFA.ConvertToStates(g.l, sp)
 				 .)
@@ -421,8 +419,7 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				 .)
 ( [ "WEAK"                      (. weak = true .)
   ]
-  Symbol <^s>                   (. puts "symbol name = #{s.name}"
-  	 			   sp = Tab.FindSym(s.name)
+  Symbol <^s>                   (. sp = Tab.FindSym(s.name)
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then

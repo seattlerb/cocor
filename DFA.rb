@@ -796,7 +796,6 @@ class DFA
       b = a.next
       while (b != nil) do
 	if (Overlap(a, b)) then
-	  puts "still overlap"
 	  SplitActions(state, a, b)
 	  changed = true
 	end
@@ -855,8 +854,6 @@ class DFA
 	    
   def self.MakeDeterministic()
 
-    puts "MakeDeterministic"
-
     state = nil
     changed = correct = true
     @@lastSimState = @@lastState.nr
@@ -866,14 +863,11 @@ class DFA
     state = @@firstState
     until (state.nil?) do
       while changed do
-	$stderr.puts "md: state=#{state}"
 	changed = MakeUnique(state)
       end
-      puts "state.id = #{state.id}, state.next.id = #{state.next.id}"
       state=state.next
     end
     correct = true
-    puts "MakeDeterministic: Phase 2"
 
     state=@@firstState 
     while (state!=nil) do
