@@ -427,10 +427,6 @@ class DFA
     Scanner.err.SemErr(n, 0, 0)
   end
 
-  def self.Int(n, len)
-    return n.to_s[0..len]
-  end
-
   def self.Ch(ch)
     if (ch<?\ || ch >= 127 || ch==?' || ch==?\\) then
       return ch.to_s
@@ -562,7 +558,7 @@ class DFA
       if (used.get(s1.nr) && s1.endOf != Tab::NoSym && s1.firstAction.nil? && !s1.ctx) then
 	s2=s1.next
 	until (s2.nil?) do
-	  if (used.get(s2.nr) && s1.endOf == s2.endOf && s2.firstAction.nil? & !s2.ctx) then
+	  if (used.get(s2.nr) && s1.endOf == s2.endOf && s2.firstAction.nil? && !s2.ctx) then
 	    used.clear(s2.nr)
 	    newState[s2.nr] = s1
 	  end
@@ -915,10 +911,10 @@ class DFA
       if (state.endOf == Tab::NoSym) then
 	Trace.print("     ")
       else
-	Trace.print("E(" + Int(state.endOf, 2) + ")")
+	Trace.print("E(#{sprintf('%2d', state.endOf)[0..1]})")
       end
 
-      Trace.print(Int(state.nr, 3) + ":")
+      Trace.print(sprintf("%3d:", state.nr))
 
       if (state.firstAction == nil) then
 	Trace.println()

@@ -141,8 +141,8 @@ Coco                            (. gramLine = sp = eofSy = 0
 					   end
                                        else
 					 SemErr(8)
-                                         sym.line = @token.line
 				       end
+                                       sym.line = @token.line
                                    end
                                    noAttrs = sym.attrPos.nil?
 				   sym.attrPos = nil

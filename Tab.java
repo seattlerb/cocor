@@ -337,10 +337,6 @@ class Tab {
 		for (i=0; i<=maxT; i++) {
 			if (s.get(i)) {
 				len = sy[i].name.length();
-				if (col + len + 1 > 80) {
-					Trace.println();
-					for (col=1; col<indent; col++) Trace.print(" ");
-				}
 				Trace.print(sy[i].name + "  ");
 				col += len + 1;
 			}

@@ -48,8 +48,7 @@ class Sym
   attr_accessor :line			# source text line number of item in this node
 
   def initialize # symbol
-    @typ = @struct = @line = 0
-    @struct = -1
+    @typ = @struct = @line = @struct = 0
     @deletable = @attrPos = @semPos = @line = nil
     @name = @retType = @retVar = ""
   end
@@ -214,9 +213,9 @@ class Tab
   Iter = 12
   Opt  = 13
 
-  ClassToken    = 1		# token kinds
-  LitToken      = 2
-  ClassLitToken = 3
+  ClassToken    = 0		# token kinds
+  LitToken      = 1
+  ClassLitToken = 2
 
   NormTrans    = 0		# transition codes
   ContextTrans = 1
@@ -560,18 +559,12 @@ class Tab
   def self.PrintSet(s, indent)
     i = len = 0
     col = indent
-    while (i <= @@maxT) do
+    for i in 0..@@maxT do
       if (s.get(i)) then
 	len = @@sy[i].name.length
-	if (col + len + 1 > 80) then
-	  Trace.println()
-	  Trace.print(" " * indent)
-	  col = indent
-	end
 	Trace.print(@@sy[i].name + "  ")
 	col += len + 1
       end
-      i += 1
     end
 
     if (col==indent) then
@@ -1160,7 +1153,7 @@ class Tab
     Trace.println()
     i = 0
     while (i < MaxSymbols) do
-      Trace.print(sprintf("%3d %-10s %s", i, @@sy[i].name, @@nTyp[@@sy[i].typ]))
+      Trace.print(sprintf("%3d %-10.10s %s", i, @@sy[i].name, @@nTyp[@@sy[i].typ]))
       if (@@sy[i].attrPos==nil) then
 	Trace.print(" false ")
       else
