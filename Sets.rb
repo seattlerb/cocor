@@ -1,7 +1,5 @@
 
-class BitSet < Array
-  # nothing for now...
-end
+require 'BitSet'
 
 class Sets
 
@@ -31,8 +29,8 @@ class Sets
   def Sets.FullSet(max)
     s = BitSet.new
     for i in 0..(max-1)
-      s[i] = true
-      end
+      s.set(i)
+    end
     return s
   end
 	
@@ -56,7 +54,7 @@ class Sets
   def Sets.Differ(s, s1)
     max = s.size
     for i in 0..(max-1)
-      s[i] = false if (s1[i])
+      s.clear(i) if (s1[i])
     end
   end
 end

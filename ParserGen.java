@@ -281,9 +281,9 @@ class ParserGen {
 	    sym = Tab.Sym(curSy);
 	    gen.print("\tprivate; ");
 	    // if (sym.retType==null) gen.print("void "); else gen.print(sym.retType + " ");
-	    gen.print("def Parser."); // HACK - remove Parser.
+	    gen.print("def self.");
 	    gen.print(sym.name + "(");
-	    // CopySourcePart(sym.attrPos, 0); // HACK: need to only copy the varname
+	    CopySourcePart(sym.attrPos, 0); // HACK: need to only copy the varname
 	    gen.println(")");
 	    // if (sym.retVar!=null) gen.println("\t\t" + sym.retType + " " + sym.retVar);
 	    CopySourcePart(sym.semPos, 2);

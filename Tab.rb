@@ -143,6 +143,8 @@ class Tab
   @@first = nil # FirstSet[]			# first[i] = start symbols of sy[i+@@firstNt]
   @@follow = nil #  FollowSet[] 		# follow[i] = followers of sy[i+@@firstNt]
   @@chClass = nil # new CharClass[MaxClasses]	# character classes
+  @@chClass = Array.new(MaxClasses) # HACK
+
   @@set = Array.new(128) # new BitSet[128]	# set[0] = union of all synchr. sets
 
   @@err = nil					# error messages
@@ -323,7 +325,7 @@ class Tab
     g = Graph.new
     i = 1
     while (i<len) do
-      @@gn[g.r].next = NewNode(chr, (int) s.charAt(i), 0)
+      @@gn[g.r].next = NewNode(chr, s[i], 0)
       g.r = @@gn[g.r].next
       i += 1
     end
@@ -337,7 +339,7 @@ class Tab
     return true if p == 0
     # end of graph found
     n = Node(p)
-    return DelNode(n) && DelGraph(Math.abs(n.next))
+    return DelNode(n) && DelGraph(n.next.abs)
   end
 
   def self.DelAlt(p)
@@ -368,6 +370,154 @@ class Tab
     Trace.println()
   end
 
+
+  # ---------------------------------------------------------------------
+  #   Character class management
+  # ---------------------------------------------------------------------
+
+  def self.NewClass(name, s)
+    c = nil
+    @@maxC += 1
+    Assert(@@maxC < MaxClasses, 7)
+    if (name == "#") then
+      name = "#" + (?A + @@dummyName).chr
+      @@dummyName += 1
+    end
+    c = CharClass.new
+    c.name = name
+    c.set = NewSet(s)
+    @@chClass[@@maxC] = c
+    return @@maxC
+  end
+
+  # TODO: these aren't necessary in ruby
+  def self.ClassWithName(name)
+    i=@@maxC
+    while (i>=0 && name != @@chClass[i].name) do
+      i -= 1
+    end
+    return i
+  end
+
+  # TODO: these aren't necessary in ruby
+  def self.ClassWithSet(s)
+    i = @@maxC
+    while (i>=0 && !s.equals(@@set[@@chClass[i].set])) do
+      i -= 1
+    end
+    return i
+  end
+
+  def self.Class(i)
+    return @@set[@@chClass[i].set]
+  end
+
+  def self.ClassName(i)
+    return @@chClass[i].name
+  end
+
+  # ---------------------------------------------------------------------
+  #   Symbol set computations
+  # ---------------------------------------------------------------------
+
+  def self.PrintSet(s, indent)
+    i = len = 0
+    col = indent
+    while (i <= @@maxT) do
+      if (s.get(i)) then
+	len = @@sy[i].name.length
+	if (col + len + 1 > 80) then
+	  Trace.println()
+	  Trace.print(" " * indent)
+	  col = indent
+	end
+	Trace.print(@@sy[i].name + "  ")
+	col += len + 1
+      end
+      i += 1
+    end
+
+    if (col==indent) then
+      Trace.print("-- empty set --")
+    end
+
+    Trace.println()
+  end
+    
+  def self.NewSet(s)
+    @@maxSet += 1
+    Assert(@@maxSet <= MaxSetNr, 4)
+    @@set[@@maxSet] = s
+    return @@maxSet
+  end
+
+  def self.Set(i)
+    return @@set[i]
+  end
+
+  def self.First0(p, mark)
+    n = nil
+    s1 = s2 = nil
+    fs = BitSet.new
+
+    while (p!=0 && !mark.get(p)) do
+      n = self.Node(p)
+      mark.set(p)
+		 
+      case (n.typ)
+      when Nt then
+	if (@@first[n.p1-@@firstNt].ready) then
+	  fs.or(@@first[n.p1-@@firstNt].ts)
+	else 
+	  fs.or(self.First0(sy[n.p1].struct, mark))
+	end
+      when T, Wt then
+	fs.set(n.p1)
+      when Any then
+	fs.or(set[n.p1])
+      when Alt, Iter, Opt then
+	fs.or(self.First0(n.p1, mark))
+	if (n.typ==Alt) then
+	  fs.or(self.First0(n.p2, mark))
+	end
+      end
+      if (!self.DelNode(n)) then
+	break
+      end
+      p = n.next.abs
+    end
+    return fs
+  end
+  
+  def self.First(p)
+    fs = First0(p, BitSet.new(@@nNodes+1))
+    if (@@ddt[3]) then
+      Trace.println()
+      Trace.println("First: gp = " + p)
+      PrintSet(fs, 0)
+    end
+    return fs
+  end
+
+  def self.CompFirstSets
+    s = nil
+    i = @@firstNt
+    while (i<=@@lastNt) do
+      s = FirstSet.new();
+      s.ts = BitSet.new();
+      s.ready = false;
+      @@first[i-@@firstNt] = s;
+      i += 1
+    end
+
+    i = @@firstNt
+    while (i <= @@lastNt) do
+      @@first[i-@@firstNt].ts = self.First(@@sy[i].struct);
+      @@first[i-@@firstNt].ready = true;
+      i += 1
+    end
+  end
+  
   ############################################################
   # START OF HACKS
 
@@ -391,7 +541,7 @@ class Tab
   end
 
   def self.ddt
-    $stderr.puts "ddt"
+#    $stderr.puts "ddt"
     return @@ddt
   end
 
@@ -401,351 +551,227 @@ __END__
 
 class Tab {
 
-	# ---------------------------------------------------------------------
-	#   Character class management
-	# ---------------------------------------------------------------------
+  static private void CompFollow(int p) {
+    GraphNode n;
+    BitSet s;
+    while (p>0 && !visited.get(p)) {
+	n = Node(p);
+	visited.set(p);
+	if (n.typ==nt) {
+	    s = First(n.next.abs);
+	    follow[n.p1-@@firstNt].ts.or(s);
+	    if (DelGraph(n.next.abs))
+	      follow[n.p1-@@firstNt].nts.set(curSy-@@firstNt);
+	    } else if (n.typ==opt || n.typ==iter) {
+		CompFollow(n.p1);
+	      } else if (n.typ==alt) {
+		  CompFollow(n.p1); CompFollow(n.p2);
+		}
+		       p = n.next;
+		     }
+		   }
 
-	static int NewClass(String name, BitSet s) {
-		CharClass c;
-		@@maxC++;
-Assert(@@maxC < MaxClasses, 7);
-		if (name.equals("#")) name = new String("#" + (char)((int)'A' + dummyName++));
-		c = new CharClass();
-c.name = name;
-c.set = NewSet(s);
-		chClass[@@maxC] = c;
-		return @@maxC;
-	}
-
-	static int ClassWithName(String name) {
-		int i;
-		for (i=@@maxC; i>=0 && !name.equals(chClass[i].name); i--);
-		return i;
-	}
-
-	static int ClassWithSet(BitSet s) {
-		int i;
-		for (i=@@maxC; i>=0 && !s.equals(set[chClass[i].set]); i--);
-		return i;
-	}
-
-	static BitSet Class(int i) {
-		return set[chClass[i].set];
-	}
-
-	static String ClassName(int i) {
-		return chClass[i].name;
-	}
-
-	# ---------------------------------------------------------------------
-	#   Symbol set computations
-	# ---------------------------------------------------------------------
-
-	static void PrintSet(BitSet s, int indent) {
-		int col, i, len;
-		col = indent;
-		for (i=0; i<=@@maxT; i++) {
-			if (s.get(i)) {
-				len = sy[i].name.length();
-				if (col + len + 1 > 80) {
-					Trace.println();
-					for (col=1; col<indent; col++) Trace.print(" ");
-				}
-				Trace.print(sy[i].name + "  ");
-				col += len + 1;
+	    static private void Complete(int i) {
+	      if (!visited.get(i)) {
+		  visited.set(i);
+		  for (int j=0;
+		       j<=@@lastNt-@@firstNt;
+		       j++) { # for all nonterminals
+		      if (follow[i].nts.get(j)) {
+			  Complete(j);
+			  follow[i].ts.or(follow[j].ts);
+			  if (i == curSy) follow[i].nts.clear(j);
+			  }
 			}
-		}
-		if (col==indent) Trace.print("-- empty set --");
-		Trace.println();
-	}
+		      }
+		    }
 
-	static int NewSet(BitSet s) {
-		@@maxSet++;
-Assert(@@maxSet <= MaxSetNr, 4);
-		set[@@maxSet] = s;
-		return @@maxSet;
-	}
-
-	static BitSet Set(int i) {
-		return set[i];
-	}
-
-	static private BitSet First0(int p, BitSet mark) {
-		GraphNode n;
-		BitSet s1, s2, fs = new BitSet();
-		while (p!=0 && !mark.get(p)) {
-			n = Node(p);
-mark.set(p);
-			switch (n.typ) {
-				case nt: {
-					if (first[n.p1-@@firstNt].ready) fs.or(first[n.p1-@@firstNt].ts);
-					else fs.or(First0(sy[n.p1].struct, mark));
-					break;
-				}
-				case t: case wt: {
-					fs.set(n.p1);
-break;
-				}
-				case any: {
-					fs.or(set[n.p1]);
-break;
-				}
-				case alt: case iter: case opt: {
-					fs.or(First0(n.p1, mark));
-					if (n.typ==alt)
-						fs.or(First0(n.p2, mark));
-					break;
-				}
+		    static private void CompFollowSets() {
+		      FollowSet s;
+		      for (curSy=@@firstNt;
+			   curSy<=@@lastNt;
+			   curSy++) {
+			  s = new FollowSet();
+			  s.ts = new BitSet();
+			  s.nts = new BitSet();
+			  follow[curSy-@@firstNt] = s;
 			}
-			if (!DelNode(n)) break;
-			p = Math.abs(n.next);
-		}
-		return fs;
-	}
-
-	static BitSet First(int p) {
-		BitSet fs = First0(p, new BitSet(nNodes+1));
-		if (ddt[3]) {Trace.println();
-Trace.println("First: gp = " + p);
-PrintSet(fs, 0);}
-		return fs;
-	}
-
-	static private void CompFirstSets() {
-		FirstSet s;
-		int i;
-		for (i=@@firstNt; i<=@@lastNt; i++) {
-			s = new FirstSet();
-			s.ts = new BitSet();
-s.ready = false;
-			first[i-@@firstNt] = s;
-		}
-		for (i=@@firstNt; i<=@@lastNt; i++) {
-			first[i-@@firstNt].ts = First(sy[i].struct);
-			first[i-@@firstNt].ready = true;
-		}
-	}
-
-	static private void CompFollow(int p) {
-		GraphNode n;
-		BitSet s;
-		while (p>0 && !visited.get(p)) {
-			n = Node(p);
-visited.set(p);
-			if (n.typ==nt) {
-				s = First(Math.abs(n.next));
-				follow[n.p1-@@firstNt].ts.or(s);
-				if (DelGraph(Math.abs(n.next)))
-					follow[n.p1-@@firstNt].nts.set(curSy-@@firstNt);
-			} else if (n.typ==opt || n.typ==iter) {
-				CompFollow(n.p1);
-			} else if (n.typ==alt) {
-				CompFollow(n.p1); CompFollow(n.p2);
-			}
-			p = n.next;
-		}
-	}
-
-	static private void Complete(int i) {
-		if (!visited.get(i)) {
-			visited.set(i);
-			for (int j=0;
-j<=@@lastNt-@@firstNt;
-j++) { # for all nonterminals
-				if (follow[i].nts.get(j)) {
-					Complete(j);
-					follow[i].ts.or(follow[j].ts);
-					if (i == curSy) follow[i].nts.clear(j);
-				}
-			}
-		}
-	}
-
-	static private void CompFollowSets() {
-		FollowSet s;
-		for (curSy=@@firstNt;
-curSy<=@@lastNt;
-curSy++) {
-			s = new FollowSet();
-			s.ts = new BitSet();
-s.nts = new BitSet();
-			follow[curSy-@@firstNt] = s;
-		}
-		visited = new BitSet();
-		for (curSy=@@firstNt;
-curSy<=@@lastNt;
-curSy++) # get direct successors of nonterminals
-			CompFollow(sy[curSy].struct);
-		# CompFollow(root);
-# curSy = @@lastNt+1
-		for (curSy=0;
-curSy<=@@lastNt-@@firstNt;
-curSy++) { # add indirect successors to follow.ts
 			visited = new BitSet();
-			Complete(curSy);
-		}
-	}
+			for (curSy=@@firstNt;
+			     curSy<=@@lastNt;
+			     curSy++) # get direct successors of nonterminals
+			  CompFollow(sy[curSy].struct);
+			  # CompFollow(root);
+			  # curSy = @@lastNt+1
+			  for (curSy=0;
+			       curSy<=@@lastNt-@@firstNt;
+			       curSy++) { # add indirect successors to follow.ts
+			      visited = new BitSet();
+			      Complete(curSy);
+			    }
+			  }
 
-	static private GraphNode LeadingAny(int p) {
-		GraphNode n, a = null;
-		if (p <= 0) return null;
-		n = Node(p);
-		if (n.typ==any) a = n;
-		else if (n.typ==alt) {
-			a = LeadingAny(n.p1);
-			if (a==null) a = LeadingAny(n.p2);
-		}
-		else if (n.typ==opt || n.typ==iter) a = LeadingAny(n.p1);
-		else if (DelNode(n)) a = LeadingAny(n.next);
-		return a;
-	}
+			  static private GraphNode LeadingAny(int p) {
+			    GraphNode n, a = null;
+			    if (p <= 0) return null;
+			      n = Node(p);
+			      if (n.typ==any) a = n;
+			      else if (n.typ==alt) {
+				    a = LeadingAny(n.p1);
+				    if (a==null) a = LeadingAny(n.p2);
+				    }
+				  else if (n.typ==opt || n.typ==iter) a = LeadingAny(n.p1);
+				       else if (DelNode(n)) a = LeadingAny(n.next);
+					      return a;
+					    }
 
-	static private void FindAS(int p) {
-		GraphNode n, nod, a;
-		BitSet s1, s2;
-		int q;
-		while (p > 0) {
-			n = Node(p);
-			if (n.typ==opt || n.typ==iter) {
-				FindAS(n.p1);
-				a = LeadingAny(n.p1);
-				if (a!=null) {
-					s1 = First(Math.abs(n.next));
-					Sets.Differ(set[a.p1], s1);
-				}
-			} else if (n.typ==alt) {
-				s1 = new BitSet();
-				q = p;
-				while (q != 0) {
-					nod = Node(q);
-FindAS(nod.p1);
-					a = LeadingAny(nod.p1);
-					if (a!=null) {
-						s2 = First(nod.p2);
-						s2.or(s1);
-						Sets.Differ(set[a.p1], s2);
-					} else {
-						s1.or(First(nod.p1));
-					}
-					q = nod.p2;
-				}
-			}
-			p = n.next;
-		}
-	}
+					 static private void FindAS(int p) {
+					GraphNode n, nod, a;
+					BitSet s1, s2;
+					int q;
+					while (p > 0) {
+					    n = Node(p);
+					    if (n.typ==opt || n.typ==iter) {
+						FindAS(n.p1);
+						a = LeadingAny(n.p1);
+						if (a!=null) {
+						    s1 = First(n.next.abs);
+						    Sets.Differ(set[a.p1], s1);
+						  }
+						} else if (n.typ==alt) {
+						    s1 = new BitSet();
+						    q = p;
+						    while (q != 0) {
+							nod = Node(q);
+							FindAS(nod.p1);
+							a = LeadingAny(nod.p1);
+							if (a!=null) {
+							    s2 = First(nod.p2);
+							    s2.or(s1);
+							    Sets.Differ(set[a.p1], s2);
+							  } else {
+							    s1.or(First(nod.p1));
+							  }
+							  q = nod.p2;
+							}
+						      }
+						      p = n.next;
+						    }
+						  }
 
-	static private void CompAnySets() {
-		for (curSy=@@firstNt;
-curSy<=@@lastNt;
-curSy++)
-			FindAS(sy[curSy].struct);
-	}
+							 static private void CompAnySets() {
+						    for (curSy=@@firstNt;
+							 curSy<=@@lastNt;
+							 curSy++)
+						      FindAS(sy[curSy].struct);
+						    }
 
-	static BitSet Expected(int p, int sp) {
-		BitSet s = First(p);
-		if (DelGraph(p)) s.or(follow[sp-@@firstNt].ts);
-		return s;
-	}
+						    static BitSet Expected(int p, int sp) {
+						      BitSet s = First(p);
+						      if (DelGraph(p)) s.or(follow[sp-@@firstNt].ts);
+							return s;
+						      }
 
-	static private void CompSync(int p) {
-		GraphNode n;
-		BitSet s;
-		while (p > 0 && !visited.get(p)) {
-			n = Node(p);
-visited.set(p);
-			if (n.typ==sync) {
-				s = Expected(Math.abs(n.next), curSy);
-				s.set(eofSy);
-				set[0].or(s);
-				n.p1 = NewSet(s);
-			} else if (n.typ==alt) {
-				CompSync(n.p1);
-CompSync(n.p2);
-			} else if (n.typ==opt || n.typ==iter)
-				CompSync(n.p1);
-			p = n.next;
-		}
-	}
+						      static private void CompSync(int p) {
+							GraphNode n;
+							BitSet s;
+							while (p > 0 && !visited.get(p)) {
+							    n = Node(p);
+							    visited.set(p);
+							    if (n.typ==sync) {
+								s = Expected(n.next.abs, curSy);
+								s.set(eofSy);
+								set[0].or(s);
+								n.p1 = NewSet(s);
+							      } else if (n.typ==alt) {
+								  CompSync(n.p1);
+								  CompSync(n.p2);
+								} else if (n.typ==opt || n.typ==iter)
+									 CompSync(n.p1);
+									 p = n.next;
+								       }
+								     }
 
-	static private void CompSyncSets() {
-		visited = new BitSet();
-		for (curSy=@@firstNt;
-curSy<=@@lastNt;
-curSy++)
-			CompSync(sy[curSy].struct);
-	}
+							      static private void CompSyncSets() {
+								visited = new BitSet();
+								for (curSy=@@firstNt;
+								     curSy<=@@lastNt;
+								     curSy++)
+								  CompSync(sy[curSy].struct);
+								}
 
-	static void CompDeletableSymbols() {
-		int i;
-		boolean changed;
-		do {
-			changed = false;
-			for (i=@@firstNt;
-i<=@@lastNt;
-i++)
-				if (!sy[i].deletable && DelGraph(sy[i].struct)) {
-					sy[i].deletable = true;
-changed = true;
-				}
-		} while (changed);
-		for (i=@@firstNt;
-i<=@@lastNt;
-i++)
-			if (sy[i].deletable) System.out.println("  " + sy[i].name + " deletable");
-	}
+								static void CompDeletableSymbols() {
+								  int i;
+								  boolean changed;
+								  do {
+								      changed = false;
+								      for (i=@@firstNt;
+									   i<=@@lastNt;
+									   i++)
+									if (!sy[i].deletable && DelGraph(sy[i].struct)) {
+									    sy[i].deletable = true;
+									    changed = true;
+									  }
+									} while (changed);
+									for (i=@@firstNt;
+									     i<=@@lastNt;
+									     i++)
+									  if (sy[i].deletable) System.out.println("  " + sy[i].name + " deletable");
+									  }
 
-	static private void MovePragmas() {
-		if (@@maxP > @@firstNt) {
-			@@maxP = @@maxT;
-			for (int i=MaxSymbols-1;
-i>@@lastNt;
-i--) {
-				@@maxP++;
-Assert(@@maxP < @@firstNt, 6);
-				sy[@@maxP] = sy[i];
-			}
-		}
-	}
+									  static private void MovePragmas() {
+									    if (@@maxP > @@firstNt) {
+										@@maxP = @@maxT;
+										for (int i=MaxSymbols-1;
+										     i>@@lastNt;
+										     i--) {
+										    @@maxP++;
+										    Assert(@@maxP < @@firstNt, 6);
+										    sy[@@maxP] = sy[i];
+										  }
+										}
+									      }
 
-	static void CompSymbolSets() {
-		int i;
-		i = self.NewSym(t, "???", 0);
-# unknown symbols get code @@maxT
-		MovePragmas();
-		CompDeletableSymbols();
-		first = new FirstSet[@@lastNt-@@firstNt+1];
-		follow = new FollowSet[@@lastNt-@@firstNt+1];
-		CompFirstSets();
-		CompFollowSets();
-		CompAnySets();
-		CompSyncSets();
-		if (ddt[1]) {
-			Trace.println("First & follow symbols:");
-			for (i=@@firstNt;
-i<=@@lastNt;
-i++) {
-				Trace.println(sy[i].name);
-				Trace.print("first:   ");
-PrintSet(first[i-@@firstNt].ts, 10);
-				Trace.print("follow:  ");
-PrintSet(follow[i-@@firstNt].ts, 10);
-				Trace.println();
-			}
-			if (@@maxSet >= 0) {
-				Trace.println();
-Trace.println();
-				Trace.println("List of sets (ANY, SYNC): ");
-				for (i=0;
-i<=@@maxSet;
-i++) {
-					Trace.print("     set[" + i + "] = ");
-					PrintSet(set[i], 16);
-				}
-				Trace.println();
-Trace.println();
-			}
-		}
-	}
+									      static void CompSymbolSets() {
+										int i;
+										i = self.NewSym(t, "???", 0);
+										# unknown symbols get code @@maxT
+										MovePragmas();
+										CompDeletableSymbols();
+										first = new FirstSet[@@lastNt-@@firstNt+1];
+										follow = new FollowSet[@@lastNt-@@firstNt+1];
+										CompFirstSets();
+										CompFollowSets();
+										CompAnySets();
+										CompSyncSets();
+										if (ddt[1]) {
+										    Trace.println("First & follow symbols:");
+										    for (i=@@firstNt;
+											 i<=@@lastNt;
+											 i++) {
+											Trace.println(sy[i].name);
+											Trace.print("first:   ");
+											PrintSet(first[i-@@firstNt].ts, 10);
+											Trace.print("follow:  ");
+											PrintSet(follow[i-@@firstNt].ts, 10);
+											Trace.println();
+										      }
+										      if (@@maxSet >= 0) {
+											  Trace.println();
+											  Trace.println();
+											  Trace.println("List of sets (ANY, SYNC): ");
+											  for (i=0;
+											       i<=@@maxSet;
+											       i++) {
+											      Trace.print("     set[" + i + "] = ");
+											      PrintSet(set[i], 16);
+											    }
+											    Trace.println();
+											    Trace.println();
+											  }
+											}
+										      }
+
 
 	# ---------------------------------------------------------------------
 	#   Grammar checks
@@ -757,9 +783,9 @@ Trace.println();
  # end of graph
 		n = Node(p);
 		if (n.typ==nt) {
-			if (DelGraph(Math.abs(n.next))) singles.set(n.p1);
+			if (DelGraph(n.next.abs)) singles.set(n.p1);
 		} else if (n.typ==alt || n.typ==iter || n.typ==opt) {
-			if (DelGraph(Math.abs(n.next))) {
+			if (DelGraph(n.next.abs)) {
 				GetSingles(n.p1, singles);
 				if (n.typ==alt) GetSingles(n.p2, singles);
 			}
@@ -830,12 +856,12 @@ i++) {
 	static private void LL1Error(int cond, int ts) {
 		System.out.print("  LL1 warning in " + sy[curSy].name + ": ");
 		if (ts > 0) System.out.print(sy[ts].name + " is ");
-		switch (cond) {
-			case 1: {System.out.println(" start of several alternatives");
+		case (cond) {
+			when 1: {System.out.println(" start of several alternatives");
 break;}
-			case 2: {System.out.println(" start & successor of deletable structure");
+			when 2: {System.out.println(" start & successor of deletable structure");
 break;}
-			case 3: {System.out.println(" an ANY node that matches no symbol");
+			when 3: {System.out.println(" an ANY node that matches no symbol");
 break;}
 		}
 	}
@@ -871,7 +897,7 @@ s2 = Expected(a.p1, curSy);
 				}
 			} else if (n.typ==opt || n.typ==iter) {
 				s1 = Expected(n.p1, curSy);
-				s2 = Expected(Math.abs(n.next), curSy);
+				s2 = Expected(n.next.abs, curSy);
 				if (Overlap(s1, s2, 2)) overlap = true;
 				if (AltOverlap(n.p1)) overlap = true;
 			} else if (n.typ==any) {

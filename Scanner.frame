@@ -41,7 +41,7 @@ class Scanner
   @@err = nil					# error messages
 
   EOF = -1
-  EOL = '\r'[0]
+  EOL = '\n'[0]
   MAXASCII = 127				# FIX: this is dumb
   MAXCHR = '\uffff'				# FIX: not ruby compatible
   SPACE = ' '[0]
@@ -80,7 +80,7 @@ class Scanner
       @@oldEols -= 1
     else
       @@ch = Buffer.read
-      @@pos
+      @@pos += 1
       if (@@ch==EOL) then
 	@@line += 1
 	@@lineStart = @@pos + 1
@@ -120,7 +120,7 @@ class Scanner
     while true
       buf += @@ch.chr
       self.NextCh
-      $stderr.puts "state = #{state}, ch = #{@@ch} / '#{@@ch.chr}'"
+#      $stderr.puts "state = #{state}, ch = #{@@ch} / '#{@@ch.chr}'"
       case state
       when 0				# NextCh already done
 	@@t.kind = @@noSym
@@ -128,6 +128,7 @@ class Scanner
 -->scan2
       end
     end
+    puts "buf = '#{buf}' state = #{state}"
     @@t.val = buf.to_s
 
     raise "kind not set for Token" unless @@t.kind and @@t.kind != "FIX"

@@ -14,6 +14,7 @@ class BitSet
   def get(i)
     @bits[i]
   end 
+  alias :[] :get
   # Returns the value of the bit with the specified index. 
 
   def set(i)
@@ -26,8 +27,10 @@ class BitSet
   end
   # Performs a logical AND of this target bit set with the argument bit set. 
 
-  def or(set)
-    raise "something"
+  def or(s)
+    s.size.times do |i|
+      self.set(i) if s[i] && !self[i]
+    end
   end 
   # Performs a logical OR of this bit set with the bit set   argument. 
 
@@ -47,7 +50,7 @@ class BitSet
   # Returns the "logical size" of this BitSet : the index of  the highest set bit in the BitSet plus one. 
 
   def size
-    raise "something"
+    return @size
   end 
   # Returns the number of bits of space actually in use by this BitSet to represent bit values. 
 
