@@ -4,9 +4,9 @@ require 'BitSet'
 class Sets
 
   def Sets.Empty(s)
-    return true if s == 0
+    raise "um... you passed a FixNum" if s.kind_of? Fixnum
     s.each do |x| 
-      return false if (x) 
+      return false if x
     end
     return true
   end
@@ -27,6 +27,9 @@ class Sets
   end
   
   def Sets.FullSet(max)
+    warn_usage if $DEBUG
+    
+    # TODO: this is dumb: return BitSet.new(max, true)
     s = BitSet.new
     for i in 0..max
       s.set(i)
@@ -36,13 +39,6 @@ class Sets
 	
   def Sets.Size(s)
     return s.trueCount
-
-#    size = 0
-#    max = s.size
-#    for i in 0..(max-1)
-#      size += 1 if (s[i]) 
-#    end
-#    return size
   end
 	
   def Sets.First(s)
