@@ -306,7 +306,6 @@ end
 				         (!n.retVar.nil? &&  sym.retVar.nil?) ||
 					 ( n.pos.nil?    && !sym.attrPos.nil?) ||
 					 ( n.retVar.nil? && !sym.retVar.nil?)) then
-					 STDERR.puts "Attribs"
 				       SemErr(5)
 				     end
                                    end
@@ -702,12 +701,6 @@ end
 				         (noRet    && !sym.retVar.nil?) || 
 					 (!noAttrs && sym.attrPos.nil?) || 
 					 (!noRet   && sym.retVar .nil?)) then
-					 STDERR.puts "AttrDecl #{noAttrs}, #{noRet} #{sym.attrPos.inspect} #{sym.retVar.inspect}"
-
-                                     	 STDERR.puts "1" if (noAttrs  && !sym.attrPos.nil?)
-					 STDERR.puts "2" if (noRet    && !sym.retVar.nil?)
-					 STDERR.puts "3" if (!noAttrs && sym.attrPos.nil?)
-					 STDERR.puts "4" if (!noRet   && sym.retVar .nil?)
 				       SemErr(5)
 				     end
 				   end

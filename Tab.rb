@@ -94,6 +94,11 @@ class Sym
   attr_accessor :line			# source text line number of item in this node
   attr_accessor :n			# index in the array, currently @sy, but soon to be the actual array it is stored in
 
+  attr_accessor :first
+  attr_accessor :firstReady
+  attr_accessor :follow
+  attr_accessor :nts
+
   def initialize(typ=0, name="", line=0)
     @typ  = typ
     @name = name
@@ -135,6 +140,16 @@ class Sym
       
       return @typ == o.typ && @name == o.name && @line == o.line && @n == o.n && @graph == o.graph && @deletable == o.deletable && @attrPos == o.attrPos && @semPos == o.semPos && @retType = o.retType && @retVar == o.retVar
     end
+  end
+
+  def resetFirstSet
+    @firstReady = false
+    @first = BitSet.new
+  end
+
+  def resetFollowSet
+    @follow = BitSet.new
+    @nts = BitSet.new
   end
 
   def self.terminal_count
@@ -363,37 +378,6 @@ class Node
     Trace.println()
   end
 
-end
-
-# REFACTOR: merge into Sym per C# design
-class FirstSet
-    attr_accessor :ts			# terminal symbols
-    attr_accessor :ready		# if true, ts is complete
-
-  def initialize
-    @ts = nil
-    @ready = false
-  end
-
-  def ==(o)
-    raise "Not implemented yet"
-  end
-  
-end
-
-# REFACTOR: merge into Sym per C# design
-class FollowSet
-    attr_accessor :ts			# terminal symbols
-    attr_accessor :nts			# nonterminals whose start set is to be included into ts
-
-  def initialize
-    @ts = @nts = nil # BitSet
-  end
-
-  def ==(o)
-    raise "Not implemented yet"
-  end
-  
 end
 
 class CharClass
@@ -635,8 +619,6 @@ class Tab
   @@ignored = nil			# characters ignored by the scanner
   @@ddt = Array.new(10, false)		# debug and test switches
   @@gramSy = 0				# root nonterminal filled by ATG # FIX - nil
-  @@first = nil				# first[i] = start symbols of sy[i+Sym.firstNt]
-  @@follow = nil	 		# follow[i] = followers of sy[i+Sym.firstNt]
 
   # REFACTOR: NUKE ME
   @@set = Array.new(128)		# set[0] = union of all synchr. sets
@@ -709,8 +691,8 @@ class Tab
 		 
       case (p.typ)
       when Node::Nt then
-	if (@@first[p.sym.n-Sym.firstNt].ready) then
-	  fs.or(@@first[p.sym.n-Sym.firstNt].ts)
+	if (p.sym.firstReady) then
+	  fs.or(p.sym.first)
 	else 
 	  fs.or(self.First0(p.sym.graph, mark))
 	end
@@ -744,18 +726,13 @@ class Tab
 
   def self.CompFirstSets
 
-    # FIX: this whole thing seems stupid... why are we iterating twice?
-
     Sym.each_nonterminal do |sym|
-      s = FirstSet.new() # FIX: use a constructor for real damnit
-      s.ts = BitSet.new()
-      s.ready = false
-      @@first[sym.n-Sym.firstNt] = s
+      sym.resetFirstSet
     end
 
     Sym.each_nonterminal do |sym|
-      @@first[sym.n-Sym.firstNt].ts = self.First(sym.graph)
-      @@first[sym.n-Sym.firstNt].ready = true
+      sym.first = self.First(sym.graph)
+      sym.firstReady = true
     end
   end
   
@@ -765,9 +742,9 @@ class Tab
       @@visited.set(p.n)
       if (p.typ==Node::Nt) then
 	s = First(p.nxt)
-	@@follow[p.sym.n-Sym.firstNt].ts.or(s)
+	p.sym.follow.or(s)
 	if (Node.DelGraph(p.nxt)) then
-	  @@follow[p.sym.n-Sym.firstNt].nts.set(@@curSy.n-Sym.firstNt)
+	  p.sym.nts.set(@@curSy.n)
 	end
       elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
 	CompFollow(p.sub)
@@ -780,19 +757,14 @@ class Tab
   end
 
   def self.Complete(i)
-    if (!@@visited.get(i)) then
-      @@visited.set(i)
-      j = 0
-      max = Sym.nonterminal_count - 1
-      while (j <= max) do # for all nonterminals
-	if (@@follow[i].nts.get(j)) then
-	  Complete(j)
-	  @@follow[i].ts.or(@@follow[j].ts)
-	  if (i == @@curSy) then
-	    @@follow[i].nts.clear(j)
-	  end
+    if (!@@visited.get(i.n)) then
+      @@visited.set(i.n)
+      Sym.each_nonterminal do | r |
+	if (i.nts.get(r.n)) then
+	  Complete(r)
+	  i.follow.or(r.follow)
+	  i.nts.clear(r.n) if i == @@curSy
 	end
-	j += 1
       end
     end
   end
@@ -801,10 +773,7 @@ class Tab
     s = nil
     Sym.each_nonterminal do |sym|
       @@curSy = sym # FIX: bad use of globals
-      s = FollowSet.new()
-      s.ts = BitSet.new()
-      s.nts = BitSet.new()
-      @@follow[@@curSy.n-Sym.firstNt] = s
+      sym.resetFollowSet
     end
 
     @@visited = BitSet.new()
@@ -815,11 +784,10 @@ class Tab
     end
 
     @@curSy = 0
-    max = Sym.nonterminal_count - 1 # FIX: this is still terrible
-    while (@@curSy<=max) do # add indirect successors to follow.ts
+    Sym.each_nonterminal do |sym|
+      @@curSy = sym
       @@visited = BitSet.new()
       Complete(@@curSy) # FIX
-      @@curSy += 1
     end
   end
 
@@ -887,7 +855,7 @@ class Tab
   def self.Expected(p, sp)
     s = First(p)
     if (Node.DelGraph(p)) then
-      s.or(@@follow[sp.n-Sym.firstNt].ts)
+      s.or(sp.follow)
     end
     return s
   end
@@ -944,26 +912,24 @@ class Tab
 
   def self.CompSymbolSets
     i = Sym.new(Node::T, "???", 0)
+
     # unknown symbols get code Sym.maxT
     Sym.MovePragmas()
     CompDeletableSymbols()
-
-    @@first  = Array.new(Sym.nonterminal_count)
-    @@follow = Array.new(Sym.nonterminal_count)
-
     CompFirstSets()
     CompFollowSets()
     CompAnySets()
     CompSyncSets()
+
     if (@@ddt[1]) then
       Trace.println("First & follow symbols:")
 
       Sym.each_nonterminal do |sym|
 	Trace.println(sym.name)
 	Trace.print("first:   ")
-	PrintSet(@@first[sym.n-Sym.firstNt].ts, 10)
+	PrintSet(sym.first, 10)
 	Trace.print("follow:  ")
-	PrintSet(@@follow[sym.n-Sym.firstNt].ts, 10)
+	PrintSet(sym.follow, 10)
 	Trace.println()
       end
 
