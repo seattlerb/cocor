@@ -50,7 +50,7 @@ class ParserGen
     i = 0
     until (p.nil?) do
       i += 1
-      p = Node.Node(p).p2
+      p = p.down
     end
     return i
   end
@@ -197,45 +197,44 @@ class ParserGen
   end
 
   def self.GenCode(p, indent, checked)
-    n = n2 = s1 = s2 = sym = nil
+    n2 = s1 = s2 = sym = nil
     alts = p2 = 0
     equal = false
 
     until (p.nil?) do
-      n = Node.Node(p);
-      case (n.typ)
+      case (p.typ)
       when Node::Nt then
 	Indent(indent);
-	sym = Sym.Sym(n.sym);
-	if (n.retVar != nil && n.retVar != "") then
-	  @@gen.print(n.retVar + " = ");
+	sym = Sym.Sym(p.sym);
+	if (p.retVar != nil && p.retVar != "") then
+	  @@gen.print(p.retVar + " = ");
 	end
 	@@gen.print("self.#{sym.name}(");
-	CopySourcePart(n.pos, 0);
+	CopySourcePart(p.pos, 0);
 	@@gen.println(")");
       when Node::T then
 	Indent(indent);
-	if (checked.get(n.sym)) then
+	if (checked.get(p.sym)) then
 	  @@gen.println("Get()");
 	else
-	  @@gen.println("Expect(" + n.sym.to_s + ")");
+	  @@gen.println("Expect(" + p.sym.to_s + ")");
 	end
       when Node::Wt then
 	Indent(indent);
-	s1 = Tab.Expected(n.nxt, @@curSy);
+	s1 = Tab.Expected(p.nxt, @@curSy);
 	s1.or(Tab.Set(0));
-	@@gen.println("ExpectWeak(" + n.sym.to_s + ", " + NewCondSet(s1).to_s + ")");
+	@@gen.println("ExpectWeak(" + p.sym.to_s + ", " + NewCondSet(s1).to_s + ")");
       when Node::Any then
 	Indent(indent);
 	@@gen.println("Get()");
       when Node::Eps then
 	# nothing
       when Node::Sem then
-	CopySourcePart(n.pos, indent);
+	CopySourcePart(p.pos, indent);
       when Node::Sync then
 	Indent(indent);
 	GenErrorMsg(SyncErr, @@curSy);
-	s1 = Tab.Set(n.set).clone();
+	s1 = Tab.Set(p.set).clone();
 	@@gen.print("while (!(");
 	GenCond(s1);
 	@@gen.println(")); Error(" + @@errorNr.to_s + "); Get(); end");
@@ -249,7 +248,7 @@ class ParserGen
 	end
 	p2 = p;
 	until (p2.nil?) do
-	  n2 = Node.Node(p2);
+	  n2 = p2
 	  s1 = Tab.Expected(n2.sub, @@curSy);
 	  Indent(indent);
 
@@ -260,7 +259,7 @@ class ParserGen
 	    @@gen.print("if (");
 	    GenCond(s1);
 	    @@gen.println(") then");
-	  elsif (n2.p2.nil? && equal) then
+	  elsif (n2.down.nil? && equal) then
 	    @@gen.println("else");
 	  else
 	    @@gen.print("elsif (");
@@ -271,7 +270,7 @@ class ParserGen
 	  s1.or(checked);
 	  GenCode(n2.sub, indent + 1, s1);
 
-	  p2 = n2.p2;
+	  p2 = n2.down;
 	end
 
 	Indent(indent);
@@ -292,11 +291,11 @@ class ParserGen
 	end
       when Node::Iter then
 	Indent(indent);
-	n2 = Node.Node(n.sub);
+	n2 = p.sub
 	@@gen.print("while (");
 	if (n2.typ==Node::Wt) 
 	  s1 = Tab.Expected(n2.nxt, @@curSy);
-	  s2 = Tab.Expected(n.nxt, @@curSy);
+	  s2 = Tab.Expected(p.nxt, @@curSy);
 	  @@gen.print("WeakSeparator(" + n2.sym.to_s + "," + NewCondSet(s1).to_s + "," + NewCondSet(s2).to_s + ") ");
 	  s1 = BitSet.new # for inner structure
 	  unless (n2.nxt.nil?) then
@@ -305,7 +304,7 @@ class ParserGen
 	    p2 = nil;
 	  end
 	else
-	  p2 = n.sub;
+	  p2 = p.sub;
 	  s1 = Tab.First(p2);
 	  GenCond(s1);
 	end
@@ -314,26 +313,26 @@ class ParserGen
 	Indent(indent);
 	@@gen.println("end");
       when Node::Opt then
-	s1 = Tab.First(n.sub);
+	s1 = Tab.First(p.sub);
 	if (checked != s1) then
 	  Indent(indent);
 	  @@gen.print("if (");
 	  GenCond(s1);
 	  @@gen.println(") then");
-	  GenCode(n.sub, indent+1, s1);
+	  GenCode(p.sub, indent+1, s1);
 	  Indent(indent);
 	  @@gen.println("end");
 	else
-	  GenCode(n.sub, indent, checked);
+	  GenCode(p.sub, indent, checked);
 	end
       end
 
-      if (n.typ!=Node::Eps && n.typ!=Node::Sem && n.typ!=Node::Sync) then
+      if (p.typ!=Node::Eps && p.typ!=Node::Sem && p.typ!=Node::Sync) then
 	checked = BitSet.new;
       end
 
-      break if n.up
-      p = n.nxt;
+      break if p.up
+      p = p.nxt;
 
     end # while loop?
   end

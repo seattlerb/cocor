@@ -36,17 +36,17 @@ class Parser
 	
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		until (p.nil?)
-			n = Node.Node(p)
-			if (n.typ==Node::Chr || n.typ==Node::Clas) then
-				n.p2 = Tab::ContextTrans
-			elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
-				SetCtx(n.sub)
-			elsif (n.typ==Node::Alt) then
-				SetCtx(n.sub)
-				SetCtx(n.p2)
+			# TODO: make a case statement or refactor better
+			if (p.typ==Node::Chr || p.typ==Node::Clas) then
+				p.code = Tab::ContextTrans
+			elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
+				SetCtx(p.sub)
+			elsif (p.typ==Node::Alt) then
+				SetCtx(p.sub)
+				SetCtx(p.down)
 			end
-			break if n.up
-			p = n.nxt
+			break if p.up
+			p = p.nxt
 		end
 	end
 	
@@ -322,7 +322,7 @@ end
 				   end
                                    g.l = Node.new(typ, sp, @token.line)
 				   g.r = g.l
-                                   n = Node.Node(g.l)
+                                   n = g.l
 				 
 			if (@t.kind==24 || @t.kind==30) then
 				self.Attribs(n)
@@ -365,7 +365,7 @@ end
 			pos = self.SemText()
 			g.l = Node.new(Node::Sem, 0, 0)
                                    g.r = g.l
-                                   n = Node.Node(g.l)
+                                   n = g.l
 				   n.pos = pos
 				 
 		when 23 then

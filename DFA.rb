@@ -380,16 +380,13 @@ class Comment				# info about comment syntax
   # private maybe??
   def self.Str(p)
     s = ""
-    n = nil
     set = nil
 
     until (p.nil?) do
-      n = Node.Node(p)
-
-      if (n.typ==Node::Chr) then
-	s << n.val.chr
-      elsif (n.typ==Node::Clas) then
-	set = CharClass.Class(n.val)
+      if (p.typ==Node::Chr) then
+	s << p.val.chr
+      elsif (p.typ==Node::Clas) then
+	set = CharClass.Class(p.val)
 	if (Sets.Size(set) != 1) then
 	  DFA.SemErr(26)
 	end
@@ -397,7 +394,7 @@ class Comment				# info about comment syntax
       else
 	DFA.SemErr(22)
       end
-      p = n.nxt
+      p = p.nxt
     end
 
     if (s.length() > 2) then
@@ -626,29 +623,27 @@ class DFA
       state = self.NewState()
       state.endOf = @@curSy
     else
-      state = Node.Node(p).state
+      state = p.state
     end
     return state
   end
 
   def self.Step(from, p, stepped)
-    n = nil
     return if p.nil?
 
     stepped.set(p.n)
-    n = Node.Node(p)
 
-    case (n.typ)
+    case (p.typ)
     when Node::Clas, Node::Chr then
-      NewTransition(from, TheState(n.nxt), n.typ, n.val, n.p2)
+      NewTransition(from, TheState(p.nxt), p.typ, p.val, p.code)
     when Node::Alt then
-      Step(from, n.sub, stepped)
-      Step(from, n.p2, stepped)
+      Step(from, p.sub, stepped)
+      Step(from, p.down, stepped)
     when Node::Iter, Node::Opt then
-      if (!n.nxt.nil? && !stepped[n.nxt.n]) then
-	Step(from, n.nxt, stepped)
+      if (!p.nxt.nil? && !stepped[p.nxt.n]) then
+	Step(from, p.nxt, stepped)
       end
-      Step(from, n.sub, stepped)
+      Step(from, p.sub, stepped)
     end
   end
 
@@ -659,56 +654,53 @@ class DFA
 
     return if p.nil?
 
-    n = Node.Node(p)
-
-    return unless n.state.nil? # already visited
+    return unless p.state.nil? # already visited
 
     if (state.nil?) then
       state = NewState()
     end
 
-    n.state = state
+    p.state = state
 
     if (Node.DelGraph(p)) then
       state.endOf = @@curSy
     end
 
-    case (n.typ)
+    case (p.typ)
     when Node::Clas, Node::Chr then
-      NumberNodes(n.nxt, nil)
+      NumberNodes(p.nxt, nil)
     when Node::Opt then
-      NumberNodes(n.nxt, nil)
-      NumberNodes(n.sub, state)
+      NumberNodes(p.nxt, nil)
+      NumberNodes(p.sub, state)
     when Node::Iter then
-      NumberNodes(n.nxt, state)
-      NumberNodes(n.sub, state)
+      NumberNodes(p.nxt, state)
+      NumberNodes(p.sub, state)
     when Node::Alt then
-      NumberNodes(n.sub, state)
-      NumberNodes(n.p2, state)
+      NumberNodes(p.sub, state)
+      NumberNodes(p.down, state)
     end
   end
 
   def self.FindTrans (p, start, mark)
     return if p.nil? || mark[p.n]
     mark.set(p.n)
-    n = Node.Node(p)
 
     if (start) then
-      Step(n.state, p, BitSet.new(512)) # start of group of equally numbered nodes
+      Step(p.state, p, BitSet.new(512)) # start of group of equally numbered nodes
     end
 
-    case (n.typ)
+    case (p.typ)
     when Node::Clas, Node::Chr then
-      FindTrans(n.nxt, true, mark)
+      FindTrans(p.nxt, true, mark)
     when Node::Opt then
-      FindTrans(n.nxt, true, mark)
-      FindTrans(n.sub, false, mark)
+      FindTrans(p.nxt, true, mark)
+      FindTrans(p.sub, false, mark)
     when Node::Iter then
-      FindTrans(n.nxt, false, mark)
-      FindTrans(n.sub, false, mark)
+      FindTrans(p.nxt, false, mark)
+      FindTrans(p.sub, false, mark)
     when Node::Alt then
-      FindTrans(n.sub, false, mark)
-      FindTrans(n.p2, false, mark)
+      FindTrans(p.sub, false, mark)
+      FindTrans(p.down, false, mark)
     end
   end
 

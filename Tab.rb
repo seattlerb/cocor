@@ -201,16 +201,16 @@ class Node
   attr_accessor :typ			# t, nt, wt, chr, clas, any, eps, sem, sync, alt, iter, opt
   attr_reader :nxt			# successor node
 					# nxt<0: to successor in enclosing structure
-  attr_accessor :up			# successor in enclosing structure
   attr_accessor :down			# alt: next alterative Node
   attr_accessor :sub			# alt, iter, opt: first node of substructure
+  attr_accessor :up			# successor in enclosing structure
   attr_accessor :sym			# nt, t, wt: symbol of this node
-  attr_accessor :chr			# chr: ordinal character value
+  # FIX: this is probably our current val accourding to C# version
+  attr_accessor :val			# chr: ordinal character value
 					# cls: index of character class
+  # FIX: this should be code according to C# version
+  attr_accessor :code			# chr, clas: transition code
   attr_accessor :set			# any, sync: set represented by node
-  attr_accessor :val			# chr, clas: transition code
-  attr_accessor :p2			# alt:       index of 1st node of next alternative
-					# chr, clas: transition code
   attr_accessor :pos			# nt, t, wt: pos of actual attributes
 					# sem:       pos of semantic action in source text
   attr_accessor :retVar			# nt: name of output attribute (or null)
@@ -218,30 +218,27 @@ class Node
   attr_accessor :state			# DFA state corresponding to this node
 					# (only used in Sgen.ConvertToStates)
 
-  def initialize(typ, p1, line)
+  def initialize(typ, val, line)
 
     assert(@@gn.length <= Node::MaxNodes, 3)
 
     @typ = typ
     @line = line
-    @nxt = @p2 = nil
-    @pos = nil
-    @retVar = nil			# string
-    @state = nil
-    @up = false
     @n = @@gn.length
-    @sub = @set = @sym = nil
-    @val = -1
+
+    @up = false
+    @nxt = @pos = @retVar = @state = @down = @sub = @set = @sym = nil
+    @code = @val = -1
 
     case @typ
     when Nt, T, Wt then
-      @sym = p1
+      @sym = val
     when Any, Sync then
-      @set = p1
+      @set = val
     when Alt, Iter, Opt then
-      @sub = p1
+      @sub = val
     when Chr, Clas then
-      @val = p1
+      @val = val
     end
 
     @@gn.push self
@@ -256,79 +253,20 @@ class Node
   end
 
   def nxt=(o)
-    if o.kind_of? Fixnum then
-      $stderr.puts "WARNING: Node#nxt= called with int from " + caller[0]
-      o = Node.Node(o)
-    end
-
+    raise "Node#nxt= called with int" if o.kind_of? Fixnum
     @nxt = o
   end
 
-  def p1
-    r = nil
-    case @typ
-    when Nt, T, Wt then
-      $stderr.puts "WARNING: use .sym from " + caller[0]
-      r = @sym
-    when Any, Sync then
-      $stderr.puts "WARNING: use .set from " + caller[0]
-      r = @set
-    when Alt, Iter, Opt then
-      $stderr.puts "WARNING: use .sub from " + caller[0]
-      r = @sub
-    when Chr, Clas then
-      $stderr.puts "WARNING: use .val from " + caller[0]
-      r = @val
-    when Pr, Eps, Sem then
-      # Say nothing.
-    else
-      raise "typ is not set (#{@typ}) in call to p1"
-    end
-    return r
-  end
-
-  def p1=(o)
-#    $stderr.puts "#{self.node_type}: #{o.class}"
-    case @typ
-    when Nt, T, Wt then
-#      raise "p1 does not take an int for #{@@nTyp[@typ]} from " + caller[0] if o.kind_of? Fixnum
-      $stderr.puts "WARNING: use .sym= from " + caller[0]
-      @sym = o
-    when Any, Sync then
-      $stderr.puts "WARNING: use .set= from " + caller[0]
-      @set = o
-    when Alt, Iter, Opt then
-      raise "p1 does not take an int for #{@@nTyp[@typ]} from " + caller[0] if o.kind_of? Fixnum
-      $stderr.puts "WARNING: use .sub= from " + caller[0]
-      @sub = o
-    when Chr, Clas then
-      $stderr.puts "WARNING: use .val= from " + caller[0]
-      @val = o
-    when Pr, Eps, Sem then
-      # Say nothing.
-    else
-      raise "typ is not set (#{@typ}) in call to p1="
-    end
-    return o
-  end
-
-  def abs
-    $stderr.puts "WARNING: Node#abs called from " + caller[0]
-    return self
-  end
+  # TODO: NUKE THESE!
+  def p1; raise "Node#p1 should not be used anymore"; end
+  def p1=(o); raise "Node#p1= should not be used anymore"; end
+  def p2; raise "Node#p2 should not be used anymore"; end
+  def p2=(o); raise "Node#p2= should not be used anymore"; end
+  def abs; raise "WARNING: Node#abs"; end
 
   def ==(o)
 
-    if o.kind_of? Fixnum then
-      if  o == 0 then
-	$stderr.puts "WARNING: Node#== called with ZERO from " + caller[0]
-	return false
-      else
-	$stderr.puts "WARNING: Node#== called with int from " + caller[0]
-	o = Node.Node(o)
-      end
-    end
-
+    raise "Node.== called with Fixnum" if o.kind_of? Fixnum
     return true if self.id == o.id
     return false unless @typ == o.typ
 
@@ -345,26 +283,12 @@ class Node
       r = @val == o.val
     when Eps, Pr, Sem then
     else
-      raise "typ is not set (#{@typ}) in call to p1"
+      raise "typ is not set (#{@typ}) in call to Node#=="
     end
 
-    return r && @typ == o.typ && @line == o.line && @nxt.equal?(o.nxt) && @p2 == o.p2 && @pos == o.pos && @retVar == o.retVar && @state == o.state
+    return r && @typ == o.typ && @line == o.line && @nxt.equal?(o.nxt) && @down.equal?(o.down) && @code == o.code && @pos == o.pos && @retVar == o.retVar && @state == o.state
   end
   
-  def self.Node(i)
-    if i.kind_of? Node then
-      return i
-    elsif !i.kind_of?(Fixnum) && i.nil?
-      $stderr.puts "WARNING: Node.Node returning nil from " + caller[0]
-      return nil
-    else
-      $stderr.puts "WARNING: Node.Node called with int from " + caller[0]
-      o = @@gn[i]
-      raise "Node ##{i} is nil!" if o.nil?
-      return o
-    end
-  end
-
   def self.NodeCount
     return @@gn.length - 1
   end
@@ -376,52 +300,55 @@ class Node
   end
 
   def self.DelGraph(p)
-    n = nil
     return true if p.nil? # end of graph found
-    n = self.Node(p)
-    return DelNode(n) && DelGraph(n.nxt)
+    return DelNode(p) && DelGraph(p.nxt)
   end
 
   def self.DelAlt(p)
-    n = nil
     return true if p.nil?
-    n = self.Node(p)
-    return DelNode(n) && DelAlt(n.nxt)
+    return DelNode(p) && DelAlt(p.nxt)
   end
 
   def self.DelNode(n)
     if (n.typ==Node::Nt) then
       return Sym.Sym(n.sym).deletable
     elsif (n.typ==Node::Alt) then
-      return DelAlt(n.sub) || !n.p2.nil? && DelAlt(n.p2)
+      return DelAlt(n.sub) || !n.down.nil? && DelAlt(n.down)
     else
       return n.typ==Node::Eps || n.typ==Node::Iter || n.typ==Node::Opt || n.typ==Node::Sem || n.typ==Node::Sync
     end
   end
 
   def to_s
-    val = case @typ
-	  when Nt, T, Wt then
-	    @sym
-	  when Any, Sync then
-	    @set
-	  when Alt, Iter, Opt then
-	    @sub.n
-	  when Chr, Clas then
-	    @val
-	  else
-	    0
-	  end
+    v1 = case @typ
+	 when Nt, T, Wt then
+	   @sym
+	 when Any, Sync then
+	   @set
+	 when Alt, Iter, Opt then
+	   @sub.n
+	 when Chr, Clas then
+	   @val
+	 else
+	   0
+	 end
+    v2 = case @typ
+	 when Opt then
+	   @down.nil? ? 0 : @down.n
+	 when Chr, Clas then
+	   @code
+	 else
+	   0
+	 end
 
     nxt = @nxt.nil? ? 0 : @nxt.n
-    p2  = @p2.nil?  ? 0 : @p2.n
-    return sprintf("%4d %s%5d%5d%5d%5d", @n, Node.nTyp[@typ], nxt, val, p2, @line)
+    return sprintf("%4d %s%5d%5d%5d%5d", @n, node_type, nxt, v1, v2, @line)
   end
 
   def self.PrintGraph
     n = nil
     Trace.println("Graph:")
-    Trace.println("  nr typ  next   p1   p2 line")
+    Trace.println("  nr typ  next   v1   v2 line")
 
     Node.each do |n|
       Trace.println(n)
@@ -550,25 +477,12 @@ class Graph
   end
 
   def l=(o)
-    if o.kind_of? Fixnum then
-      if o == 0 then
-	$stderr.puts "WARNING: Graph#l= setting to 0/nil from " + caller[0]
-	o = nil
-      else
-	$stderr.puts "WARNING: Graph#l= called with int from " + caller[0]
-	o = Node.Node(o)
-      end
-    end
-
+    raise "Graph.l= called with Fixnum" if o.kind_of? Fixnum
     @l = o
   end
 
   def r=(o)
-    if o.kind_of? Fixnum then
-      $stderr.puts "WARNING: Graph#l= called with int from " + caller[0]
-      o = Node.Node(o)
-    end
-
+    raise "Graph.r= called with Fixnum" if o.kind_of? Fixnum
     @r = o
   end
 
@@ -580,7 +494,7 @@ class Graph
   def self.FirstAlt(g)
 #    $stderr.puts "g.l = #{g.l}"
     g.l = Node.new(Node::Alt, g.l, 0)
-    Node.Node(g.l).nxt = g.r
+    g.l.nxt = g.r
     g.r = g.l
     return g
   end
@@ -589,26 +503,26 @@ class Graph
     p = 0
     g2.l = Node.new(Node::Alt, g2.l, 0)
     p = g1.l
-    until (Node.Node(p).p2.nil?) do
-      p = Node.Node(p).p2
+    until (p.down.nil?) do
+      p = p.down
     end
-    Node.Node(p).p2 = g2.l
+    p.down = g2.l
     p = g1.r 
-    until (Node.Node(p).nxt.nil?) do
-      p = Node.Node(p).nxt
+    until (p.nxt.nil?) do
+      p = p.nxt
     end
-    Node.Node(p).nxt = g2.r
+    p.nxt = g2.r
     return g1
   end
 
   def self.Sequence(g1, g2)
     q = nil
-    p = Node.Node(g1.r).nxt
-    Node.Node(g1.r).nxt = g2.l # head node
+    p = g1.r.nxt
+    g1.r.nxt = g2.l # head node
     until (p.nil?) do # substructure
-      q = Node.Node(p).nxt
-      Node.Node(p).nxt = g2.l
-      Node.Node(p).up = true
+      q = p.nxt
+      p.nxt = g2.l
+      p.up = true
       p = q
     end
     g1.r = g2.r
@@ -631,15 +545,15 @@ class Graph
 
   def self.Option(g)
     g.l = Node.new(Node::Opt, g.l, 0)
-    Node.Node(g.l).nxt = g.r
+    g.l.nxt = g.r
     g.r = g.l
     return g
   end
 
   def self.CompleteGraph(p)
     until (p.nil?) do
-      q = Node.Node(p).nxt
-      Node.Node(p).nxt = nil
+      q = p.nxt
+      p.nxt = nil
       p = q
     end
   end
@@ -792,35 +706,33 @@ class Tab
   end
 
   def self.First0(p, mark)
-    n = nil
     s1 = s2 = nil
     fs = BitSet.new
 
     while (!p.nil? && !mark.get(p.n)) do
-      n = Node.Node(p)
       mark.set(p.n)
 		 
-      case (n.typ)
+      case (p.typ)
       when Node::Nt then
-	if (@@first[n.sym-Sym.firstNt].ready) then
-	  fs.or(@@first[n.sym-Sym.firstNt].ts)
+	if (@@first[p.sym-Sym.firstNt].ready) then
+	  fs.or(@@first[p.sym-Sym.firstNt].ts)
 	else 
-	  fs.or(self.First0(Sym.Sym(n.sym).struct, mark))
+	  fs.or(self.First0(Sym.Sym(p.sym).struct, mark))
 	end
       when Node::T, Node::Wt then
-	fs.set(n.sym)
+	fs.set(p.sym)
       when Node::Any then
-	fs.or(@@set[n.set])
+	fs.or(@@set[p.set])
       when Node::Alt, Node::Iter, Node::Opt then
-	fs.or(self.First0(n.sub, mark))
-	if (n.typ==Node::Alt) then
-	  fs.or(self.First0(n.p2, mark))
+	fs.or(self.First0(p.sub, mark))
+	if (p.typ==Node::Alt) then
+	  fs.or(self.First0(p.down, mark))
 	end
       end
-      if (!Node.DelNode(n)) then
+      if (!Node.DelNode(p)) then
 	break
       end
-      p = n.nxt
+      p = p.nxt
     end
     return fs
   end
@@ -855,23 +767,22 @@ class Tab
   end
   
   def self.CompFollow(p)
-    n = s = nil
+    s = nil
     while (!p.nil? && !@@visited.get(p.n)) do
-      n = Node.Node(p)
       @@visited.set(p.n)
-      if (n.typ==Node::Nt) then
-	s = First(n.nxt)
-	@@follow[n.sym-Sym.firstNt].ts.or(s)
-	if (Node.DelGraph(n.nxt)) then
-	  @@follow[n.sym-Sym.firstNt].nts.set(@@curSy-Sym.firstNt)
+      if (p.typ==Node::Nt) then
+	s = First(p.nxt)
+	@@follow[p.sym-Sym.firstNt].ts.or(s)
+	if (Node.DelGraph(p.nxt)) then
+	  @@follow[p.sym-Sym.firstNt].nts.set(@@curSy-Sym.firstNt)
 	end
-      elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
-	CompFollow(n.sub)
-      elsif (n.typ==Node::Alt) then
-	CompFollow(n.sub)
-	CompFollow(n.p2)
+      elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
+	CompFollow(p.sub)
+      elsif (p.typ==Node::Alt) then
+	CompFollow(p.sub)
+	CompFollow(p.down)
       end
-      p = n.nxt
+      p = p.nxt
     end
   end
 
@@ -920,61 +831,56 @@ class Tab
   end
 
   def self.LeadingAny(p)
-    n = a = nil
+    a = nil
 
     return nil if p.nil?
 
-    n = Node.Node(p)
-
-    if (n.typ==Node::Any) then
-      a = n
-    elsif (n.typ==Node::Alt) then
-      a = LeadingAny(n.sub)
+    if (p.typ==Node::Any) then
+      a = p
+    elsif (p.typ==Node::Alt) then
+      a = LeadingAny(p.sub)
       if (a.nil?) then
-	a = LeadingAny(n.p2)
+	a = LeadingAny(p.down)
       end
-    elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
-      a = LeadingAny(n.sub)
-    elsif (Node.DelNode(n)) then
-      a = LeadingAny(n.nxt)
+    elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
+      a = LeadingAny(p.sub)
+    elsif (Node.DelNode(p)) then
+      a = LeadingAny(p.nxt)
     end
 
     return a
   end
 
   def self.FindAS(p)
-    n = nod = a = s1 = s2 = nil
+    nod = a = s1 = s2 = nil
     q = nil
 
     until (p.nil?) do
-#      $stderr.puts "FindAS(#{p.n})"
-      n = Node.Node(p)
-      if (n.typ==Node::Opt || n.typ==Node::Iter) then
-	FindAS(n.sub)
-	a = LeadingAny(n.sub)
+      if (p.typ==Node::Opt || p.typ==Node::Iter) then
+	FindAS(p.sub)
+	a = LeadingAny(p.sub)
 	unless (a.nil?) then
-	  s1 = First(n.nxt)
+	  s1 = First(p.nxt)
 	  Sets.Differ(@@set[a.set], s1)
 	end
-      elsif (n.typ==Node::Alt) then
+      elsif (p.typ==Node::Alt) then
 	s1 = BitSet.new()
 	q = p
 	until (q.nil?) do
-	  nod = Node.Node(q)
-	  FindAS(nod.sub)
-	  a = LeadingAny(nod.sub)
+	  FindAS(q.sub)
+	  a = LeadingAny(q.sub)
 	  unless (a.nil?) then
-	    s2 = First(nod.p2)
+	    s2 = First(q.down)
 	    s2.or(s1)
 	    Sets.Differ(@@set[a.set], s2)
 	  else
-	    s1.or(First(nod.sub))
+	    s1.or(First(q.sub))
 	  end
-	  q = nod.p2
+	  q = q.down
 	end
       end
-      break if n.up
-      p = n.nxt
+      break if p.up
+      p = p.nxt
     end
   end
 
@@ -995,22 +901,21 @@ class Tab
   end
 
   def self.CompSync(p)
-    n = s = nil
+    s = nil
     while (!p.nil? && !@@visited.get(p.n)) do
-      n = Node.Node(p)
       @@visited.set(p.n)
-      if (n.typ==Node::Sync) then
-	s = Expected(n.nxt, @@curSy)
+      if (p.typ==Node::Sync) then
+	s = Expected(p.nxt, @@curSy)
 	s.set(EofSy)
 	@@set[0].or(s)
-	n.set = NewSet(s)
-      elsif (n.typ==Node::Alt) then
-	CompSync(n.sub)
-	CompSync(n.p2)
-      elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
-	CompSync(n.sub)
+	p.set = NewSet(s)
+      elsif (p.typ==Node::Alt) then
+	CompSync(p.sub)
+	CompSync(p.down)
+      elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
+	CompSync(p.sub)
       end
-      p = n.nxt
+      p = p.nxt
     end
   end
 
@@ -1109,27 +1014,23 @@ class Tab
   # ---------------------------------------------------------------------
 
   def self.GetSingles(p, singles) # (int p, BitSet singles)
-    n = nil
-
     return if p.nil? # end of graph
 
-    n = Node.Node(p)
-
-    if (n.typ==Node::Nt) then
-      if (Node.DelGraph(n.nxt)) then
-	singles.set(n.sym)
+    if (p.typ==Node::Nt) then
+      if (Node.DelGraph(p.nxt)) then
+	singles.set(p.sym)
       end
-    elsif (n.typ==Node::Alt || n.typ==Node::Iter || n.typ==Node::Opt) then
-      if (Node.DelGraph(n.nxt)) then
-	GetSingles(n.sub, singles)
-	if (n.typ==Node::Alt) then
-	  GetSingles(n.p2, singles)
+    elsif (p.typ==Node::Alt || p.typ==Node::Iter || p.typ==Node::Opt) then
+      if (Node.DelGraph(p.nxt)) then
+	GetSingles(p.sub, singles)
+	if (p.typ==Node::Alt) then
+	  GetSingles(p.down, singles)
 	end
       end
     end
 
-    if (Node.DelNode(n)) then
-      GetSingles(n.nxt, singles)
+    if (Node.DelNode(p)) then
+      GetSingles(p.nxt, singles)
     end
   end
 
@@ -1219,36 +1120,34 @@ class Tab
 
   def self.AltOverlap(p)
     overlap = false
-    n = a = s1 = s2 = nil
+    s1 = s2 = nil
     q = nil
 
     until (p.nil?) do
-      n = Node.Node(p)
-      if (n.typ==Node::Alt) then
+      if (p.typ==Node::Alt) then
 	q = p
 	s1 = BitSet.new()
 	until (q.nil?) do # for all alternatives
-	  a = Node.Node(q)
-	  s2 = Expected(a.sub, @@curSy)
+	  s2 = Expected(q.sub, @@curSy)
 	  overlap = true if (Overlap(s1, s2, 1)) 
 	  s1.or(s2)
-	  overlap = true if (AltOverlap(a.sub)) 
-	  q = a.p2
+	  overlap = true if (AltOverlap(q.sub)) 
+	  q = q.down
 	end
-      elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
-	s1 = Expected(n.sub, @@curSy)
-	s2 = Expected(n.nxt, @@curSy)
+      elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
+	s1 = Expected(p.sub, @@curSy)
+	s2 = Expected(p.nxt, @@curSy)
 	overlap = true if (Overlap(s1, s2, 2)) 
-	overlap = true if (AltOverlap(n.sub)) 
-      elsif (n.typ==Node::Any) then
-	if (Sets.Empty(Set(n.set))) then # e.g. {ANY} ANY or [ANY] ANY
+	overlap = true if (AltOverlap(p.sub)) 
+      elsif (p.typ==Node::Any) then
+	if (Sets.Empty(Set(p.set))) then # e.g. {ANY} ANY or [ANY] ANY
 	  LL1Error(3, 0)
 	  overlap = true
 	end
 
       end
-      break if n.up
-      p = n.nxt
+      break if p.up
+      p = p.nxt
     end
 
     return overlap
@@ -1276,21 +1175,18 @@ class Tab
   end
 
   def self.MarkReachedNts(p)
-    n = nil
-
     until (p.nil?) do
-      n = Node.Node(p)
-      if (n.typ==Node::Nt) then
-	if (!@@visited.get(n.sym)) then # new nt reached
-	  @@visited.set(n.sym)
-	  MarkReachedNts(Sym.Sym(n.sym).struct)
+      if (p.typ==Node::Nt) then
+	if (!@@visited.get(p.sym)) then # new nt reached
+	  @@visited.set(p.sym)
+	  MarkReachedNts(Sym.Sym(p.sym).struct)
 	end
-      elsif (n.typ==Node::Alt || n.typ==Node::Iter || n.typ==Node::Opt) then
-	MarkReachedNts(n.sub)
-	MarkReachedNts(n.p2) if (n.typ==Node::Alt)
+      elsif (p.typ==Node::Alt || p.typ==Node::Iter || p.typ==Node::Opt) then
+	MarkReachedNts(p.sub)
+	MarkReachedNts(p.down) if (p.typ==Node::Alt)
       end
-      break if n.up
-      p = n.nxt
+      break if p.up
+      p = p.nxt
     end
   end
 
@@ -1315,11 +1211,10 @@ class Tab
     n = nil
 
     until (p.nil?) do
-      n = Node.Node(p)
-      return false if (n.typ==Node::Nt  && !@@termNt.get(n.sym))
-      return false if (n.typ==Node::Alt && !Term(n.sub) && (n.p2.nil? || !Term(n.p2)))
-      break if n.up
-      p = n.nxt
+      return false if (p.typ==Node::Nt  && !@@termNt.get(p.sym))
+      return false if (p.typ==Node::Alt && !Term(p.sub) && (p.down.nil? || !Term(p.down)))
+      break if p.up
+      p = p.nxt
     end
 
     return true
@@ -1486,12 +1381,4 @@ class Tab
     Trace.println();
 
   end
-
-  ############################################################
-  # START OF HACKS
-
-  def self.t # HACK
-    raise "Um. no"
-  end
-
 end
