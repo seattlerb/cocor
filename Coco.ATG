@@ -461,6 +461,7 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				     end
                                    end
 				 .)
+/* TODO - it would be really nice to support ()* and ()+ */
 | "(" Expression <^g> ")"
 | "[" Expression <^g> "]"       (. g = Tab.Option(g) .)
 | "{" Expression <^g> "}"       (. g = Tab.Iteration(g) .)

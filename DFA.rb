@@ -234,7 +234,7 @@ class Action			# action of finite automaton
 	if (states.endOf==Tab::NoSym || states.endOf==t.state.endOf) then
 	  states.endOf = t.state.endOf
 	else
-	  System.out.println("Tokens #{states.endOf} and #{t.state.endOf} cannot be distinguished")
+	  $stderr.puts("Tokens #{states.endOf} and #{t.state.endOf} cannot be distinguished")
 	  states.correct = false
 	end
       end
@@ -246,7 +246,7 @@ class Action			# action of finite automaton
 	# s2 = "a" CONTEXT("b").
 	# But this is ok.
 	# if (t.state.endOf!=Tab::NoSym) {
-	# System.out.println("Ambiguous context clause")
+	# $stderr.puts("Ambiguous context clause")
 	# states.correct = false
       end
       t=t.next

@@ -197,7 +197,7 @@ class Tab
   MaxTerminals =  256	# max. no. of terminals
   MaxNodes     = 1500	# max. no. of graph nodes
   MaxSetNr     =  128	# max. no. of symbol sets
-  MaxClasses   =   50	# max. no. of character classes
+  MaxClasses   =  150	# max. no. of character classes
 
   T    = 1				# node kinds
   Pr   = 2
