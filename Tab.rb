@@ -410,7 +410,7 @@ class Tab
   # TODO: these aren't necessary in ruby
   def self.ClassWithSet(s)
     i = @@maxC
-    while (i>=0 && !s.equals(@@set[@@chClass[i].set])) do
+    while (i>=0 && s != @@set[@@chClass[i].set]) do # FIX: maybe ! .eql instead of !=
       i -= 1
     end
     return i

@@ -143,15 +143,15 @@ class Action						# action of finite automaton
       p=p.next
     end
 
-    if (a.tc==Tab.contextTrans) then
-      @tc = Tab.contextTrans
+    if (a.tc==Tab::ContextTrans) then
+      @tc = Tab::ContextTrans
     end
   end
 
   def Symbols()
     s = nil
 
-    if (@typ==Tab.clas) then
+    if (@typ==Tab::Clas) then
       s = Tab.Class(@sym).clone()
     else 
       s = BitSet.new() 
@@ -172,7 +172,7 @@ class Action						# action of finite automaton
       if (i < 0) then # class with dummy name
 	i = Tab.NewClass("#", s)
       end
-      @typ = Tab.clas
+      @typ = Tab::Clas
       @sym = i
     end
   end
@@ -181,7 +181,7 @@ class Action						# action of finite automaton
     stateNr=0
     states = StateSet.new
     states.set = BitSet.new		# FIX: violation of encapsulation
-    states.endOf = Tab.noSym
+    states.endOf = Tab::NoSym
     states.ctx = false
     states.correct = true
 
@@ -194,8 +194,8 @@ class Action						# action of finite automaton
       else
 	states.set.or(Melted.Set(stateNr))
       end
-      if (t.state.endOf!=Tab.noSym) then
-	if (states.endOf==Tab.noSym || states.endOf==t.state.endOf) then
+      if (t.state.endOf!=Tab::NoSym) then
+	if (states.endOf==Tab::NoSym || states.endOf==t.state.endOf) then
 	  states.endOf = t.state.endOf
 	else
 	  System.out.println("Tokens " + states.endOf + " and " + t.state.endOf + " cannot be distinguished")
@@ -209,7 +209,7 @@ class Action						# action of finite automaton
 	# s1 = "a" "b" "c".
 	# s2 = "a" CONTEXT("b").
 	# But this is ok.
-	# if (t.state.endOf!=Tab.noSym) {
+	# if (t.state.endOf!=Tab::NoSym) {
 	# System.out.println("Ambiguous context clause")
 	# states.correct = false
       end
@@ -297,9 +297,9 @@ class Comment				# info about comment syntax
     while (p != 0) do
       n = Tab.Node(p)
 
-      if (n.typ==Tab.chr) then
+      if (n.typ==Tab::Chr) then
 	s << n.p1.chr
-      elsif (n.typ==Tab.clas) then
+      elsif (n.typ==Tab::Clas) then
 	set = Tab.Class(n.p1)
 	if (Sets.Size(set) != 1) then
 	  DFA.SemErr(26)
@@ -319,8 +319,8 @@ class Comment				# info about comment syntax
   end
   
   def initialize(from, to, nested)
-    @start = Str(from)
-    @stop = Str(to)
+    @start = self.class.Str(from)
+    @stop = self.class.Str(to)
     @nested = nested
     @next = @@first
     @@first = self
@@ -637,131 +637,197 @@ class DFA
     FindTrans(@@curGraph, true, BitSet.new(512))
   end
 
+  def self.MatchedDFA(s, sp)
+    state = to = a = nil
+    i = matchedSp = 0
+    len = s.length - 1
+    weakMatch = false
+
+    # s has quotes
+    state = firstState
+
+    1.upto(len-1) do |i| # try to match s against existing DFA
+      a = state.TheAction(s[i])
+      break if (a == nil)
+
+      if (a.typ == Tab::Clas) then
+	weakMatch = true			# TODO: check and see if this should break
+      end
+      state = a.target.state
+    end
+
+    if (weakMatch && i < len) then
+      state = firstState
+      i = 1
+      dirtyDFA = true
+    end
+
+    while (i<len) do # make new DFA for s[i..len-1]
+      to = NewState()
+      NewTransition(state, to, Tab.chr, s.charAt(i), Tab.normTrans)
+      state = to
+      i += 1
+    end
+
+    matchedSp = state.endOf
+    if (state.endOf==Tab::NoSym) then
+      state.endOf = sp
+    end
+
+    return matchedSp
+  end
+
+  def self.SplitActions(state, a, b)
+    c = setc = nil
+    seta = a.Symbols()
+    setb = b.Symbols()
+
+    if (seta == setb) then
+      a.AddTargets(b)
+      state.DetachAction(b)
+    elsif (Sets.Includes(seta, setb)) then
+      setc = seta.clone()
+      Sets.Differ(setc, setb)
+      b.AddTargets(a)
+      a.ShiftWith(setc)
+    elsif (Sets.Includes(setb, seta)) then
+      setc = setb.clone()
+      Sets.Differ(setc, seta)
+      a.AddTargets(b)
+      b.ShiftWith(setc)
+    else 
+      setc = seta.clone()
+      setc.and(setb)
+      Sets.Differ(seta, setc)
+      Sets.Differ(setb, setc)
+      a.ShiftWith(seta)
+      b.ShiftWith(setb)
+      c = Action.new(0, 0, 0)
+      c.AddTargets(a)
+      c.AddTargets(b)
+      c.ShiftWith(setc)
+      state.AddAction(c)
+    end
+  end
+
+  def self.Overlap(a, b)
+    seta = setb = nil
+
+    if (a.typ==Tab::Chr) then
+      if (b.typ==Tab::Chr) then
+	return a.sym==b.sym
+      else 
+	setb = Tab.Class(b.sym)
+	return setb.get(a.sym)
+      end
+    else
+      seta = Tab.Class(a.sym)
+      if (b.typ==Tab::Chr) then
+	return seta.get(b.sym)
+      else 
+	setb = Tab.Class(b.sym)
+	return ! Sets.Different(seta, setb)
+      end
+    end
+  end
+			  
+  def self.MakeUnique(state) # return true if actions were split
+    changed = false
+
+    a = state.firstAction
+    while (a!=nil) do
+      b = a.next
+      while (b!=nil) do
+	if (Overlap(a, b)) then
+	  SplitActions(state, a, b)
+	  changed = true
+	end
+	b = b.next
+      end
+      a = a.next
+    end
+    return changed
+  end
+	
+  def self.MeltStates(state)
+    changed = correct = true
+    states = s = targ = melt = nil
+
+    action=state.firstAction
+    while (action!=nil) do
+      if (action.target.next != nil) then
+	states = action.GetTargetStates()
+	correct = correct && states.correct
+	melt = Melted.StateWithSet(states.set)
+	if (melt==nil) then
+	  s = NewState()
+	  s.endOf = states.endOf
+	  s.ctx = states.ctx
+	  targ = action.target
+	  while (targ!=nil) do
+	    s.MeltWith(targ.state)
+	    while true do			# TODO: I thought there was a loopy thing
+	      changed = MakeUnique(s)
+	      break unless changed
+	    end
+	    melt = Melted.new(states.set, s)
+	    targ=targ.next
+	  end
+	end
+	action.target.next = nil
+	action.target.state = melt.state
+      end
+      action=action.next
+    end
+    return correct
+  end
+
+  def self.FindCtxStates()
+    state = @@firstState
+    while (state!=nil) do
+      a = state.firstAction; 
+      while (a != nil) do
+	if a.tc == Tab::ContextTrans then
+	  a.target.state.ctx = true 
+	end
+	a=a.next
+      end
+      state=state.next
+    end
+  end
+	    
+  def self.MakeDeterministic()
+    state = nil
+    changed = correct = true
+    lastSimState = @@lastState.nr
+
+    FindCtxStates()
+
+    state = @@firstState
+    while (state!=nil) do
+      while true do
+	changed = MakeUnique(state)
+	break unless changed
+      end
+      state=state.next
+    end
+    correct = true
+
+    state=firstState    
+    while (state!=nil) do
+      correct = MeltStates(state) && correct
+      state=state.next
+    end
+    
+    DeleteRedundantStates()
+    CombineShifts()
+    return correct
+  end
+	
 end # class DFA
 
 __END__
   
-  static int MatchedDFA(String s, int sp) {
-    State state, to;
-    Action a;
-    int i, matchedSp, len = s.length() - 1;
-    boolean weakMatch = false;
-    # s has quotes
-    state = firstState;
-    for (i=1; i<len; i++) { # try to match s against existing DFA
-	a = state.TheAction(s.charAt(i));
-	if (a==nil) break;
-	  if (a.typ == Tab.clas) weakMatch = true;
-	    state = a.target.state;
-	  }
-	  if (weakMatch && i < len) {
-	      state = firstState; i = 1;
-	      dirtyDFA = true;
-	    }
-	    for (;i<len; i++) { # make new DFA for s[i..len-1]
-		to = NewState();
-		NewTransition(state, to, Tab.chr, s.charAt(i), Tab.normTrans);
-		state = to;
-	      }
-	      matchedSp = state.endOf;
-	      if (state.endOf==Tab.noSym) state.endOf = sp;
-		return matchedSp;
-	      }
-	      
-	      private static void SplitActions(State state, Action a, Action b) {
-		Action c; BitSet seta, setb, setc;
-		seta = a.Symbols(); setb = b.Symbols();
-		if (seta.equals(setb)) {
-		    a.AddTargets(b);
-		    state.DetachAction(b);
-		  } else if (Sets.Includes(seta, setb)) {
-		      setc = (BitSet) seta.clone(); Sets.Differ(setc, setb);
-		      b.AddTargets(a);
-		      a.ShiftWith(setc);
-		    } else if (Sets.Includes(setb, seta)) {
-			setc = (BitSet) setb.clone(); Sets.Differ(setc, seta);
-			a.AddTargets(b);
-			b.ShiftWith(setc);
-		      } else {
-			setc = (BitSet) seta.clone(); setc.and(setb);
-			Sets.Differ(seta, setc);
-			Sets.Differ(setb, setc);
-			a.ShiftWith(seta);
-			b.ShiftWith(setb);
-			c = Action.new(0, 0, 0);
-			c.AddTargets(a);
-			c.AddTargets(b);
-			c.ShiftWith(setc);
-			state.AddAction(c);
-		      }
-			   }
-			   
-			   private static boolean Overlap(Action a, Action b) {
-		      BitSet seta, setb;
-		      if (a.typ==Tab.chr)
-			if (b.typ==Tab.chr) return a.sym==b.sym;
-			else {setb = Tab.Class(b.sym); return setb.get(a.sym);}
-			else {
-			    seta = Tab.Class(a.sym);
-			    if (b.typ==Tab.chr) return seta.get(b.sym);
-			    else {setb = Tab.Class(b.sym); return !Sets.Different(seta, setb);}
-			    }
-			  }
-			  
-			  private static boolean MakeUnique(State state) { # return true if actions were split
-			    boolean changed = false;
-			    for (Action a=state.firstAction; a!=nil; a=a.next)
-			      for (Action b=a.next; b!=nil; b=b.next)
-				if (Overlap(a, b)) {SplitActions(state, a, b); changed = true;}
-				  return changed;
-				}
-				
-				private static boolean MeltStates(State state) {
-				  boolean changed, correct = true;
-				  StateSet states;
-				  State s;
-				  Target targ;
-				  Melted melt;
-				  for (Action action=state.firstAction; action!=nil; action=action.next) {
-				      if (action.target.next != nil) {
-					  states = action.GetTargetStates();
-					  correct = correct && states.correct;
-					  melt = Melted.StateWithSet(states.set);
-					  if (melt==nil) {
-					      s = NewState(); s.endOf = states.endOf; s.ctx = states.ctx;
-					      for (targ=action.target; targ!=nil; targ=targ.next)
-						s.MeltWith(targ.state);
-						do {changed = MakeUnique(s);} while (changed);
-						  melt = Melted.new(states.set, s);
-						}
-						action.target.next = nil;
-						action.target.state = melt.state;
-					      }
-					    }
-					    return correct;
-					  }
-					  
-					  private static void FindCtxStates() {
-					    for (State state=firstState; state!=nil; state=state.next)
-					      for (Action a=state.firstAction; a!=nil; a=a.next)
-						if (a.tc==Tab.contextTrans) a.target.state.ctx = true;
-						}
-						
-						static boolean MakeDeterministic() {
-						  State state;
-						  boolean changed, correct;
-						  lastSimState = lastState.nr;
-						  FindCtxStates();
-						  for (state=firstState; state!=nil; state=state.next)
-						    do {changed = MakeUnique(state);} while (changed);
-						      correct = true;
-						      for (state=firstState; state!=nil; state=state.next)
-							correct = MeltStates(state) && correct;
-							DeleteRedundantStates();
-							CombineShifts();
-							return correct;
-						      }
-						      
 						      static void PrintStates() {
 							Action action; Target targ;
 							BitSet set;
@@ -769,7 +835,7 @@ __END__
 							Trace.println("\n---------- states ----------");
 							for (State state=firstState; state!=nil; state=state.next) {
 							    first = true;
-							    if (state.endOf==Tab.noSym) Trace.print("     ");
+							    if (state.endOf==Tab::NoSym) Trace.print("     ");
 							    else Trace.print("E(" + Int(state.endOf, 2) + ")");
 							      Trace.print(Int(state.nr, 3) + ":");
 							      if (state.firstAction==nil) Trace.println();
@@ -935,7 +1001,7 @@ __END__
 																 }
 
 																 if (state.firstAction != nil) gen.println("\t\t\t\t\telse ;");
-																   if (endOf==Tab.noSym)
+																   if (endOf==Tab::NoSym)
 																     gen.println("t.kind = noSym; break; end");
 																   else { # final state
 																if (state.firstAction==nil)
