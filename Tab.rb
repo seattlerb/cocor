@@ -960,15 +960,11 @@ CNode x;
 BitSet singles;
 Sym sym;
 int i, j, len = 0;
-for (i=@@firstNt;
-i<=@@lastNt;
-i++) {
+for (i=@@firstNt; i<=@@lastNt; i++) {
 singles = BitSet.new();
 GetSingles(sy[i].struct, singles);
 # get nts such that i-->j
-for (j=@@firstNt;
-j<=@@lastNt;
-j++) {
+for (j=@@firstNt; j<=@@lastNt; j++) {
 if (singles.get(j)) {
 x = CNode.new();
 x.left = i;
@@ -980,15 +976,11 @@ list[len++] = x;
 }
 do {
 changed = false;
-for (i=0;
-i<len;
-i++) {
+for (i=0; i<len; i++) {
 if (!list[i].deleted) {
 onLeftSide = false;
 onRightSide = false;
-for (j=0;
-j<len;
-j++) {
+for (j=0; j<len; j++) {
 if (!list[j].deleted) {
 if (list[i].left==list[j].right) onRightSide = true;
 if (list[j].left==list[i].right) onLeftSide = true;
@@ -1002,9 +994,7 @@ changed = true;
 }
 } while(changed);
 ok = true;
-for (i=0;
-i<len;
-i++) {
+for (i=0; i<len; i++) {
 if (!list[i].deleted) {
 ok = false;
 System.out.println("  "+sy[list[i].left].name+" --> "+sy[list[i].right].name);
@@ -1028,9 +1018,7 @@ break;}
 
 static private boolean Overlap(BitSet s1, BitSet s2, int cond) {
 boolean overlap = false;
-for (int i=0;
-i<=@@maxT;
-i++) {
+for (int i=0; i<=@@maxT; i++) {
 if (s1.get(i) && s2.get(i)) {LL1Error(cond, i);
 overlap = true;}
 }
@@ -1072,18 +1060,14 @@ return overlap;
 
 static boolean LL1() {
 boolean ll1 = true;
-for (curSy=@@firstNt;
-curSy<=@@lastNt;
-curSy++)
+for (curSy=@@firstNt; curSy<=@@lastNt; curSy++)
 if (AltOverlap(sy[curSy].struct)) ll1 = false;
 return ll1;
 }
 
 static boolean NtsComplete() {
 boolean complete = true;
-for (int i=@@firstNt;
-i<=@@lastNt;
-i++) {
+for (int i=@@firstNt; i<=@@lastNt; i++) {
 if (sy[i].struct==0) {
 complete = false;
 System.out.println("  No production for " + sy[i].name);
@@ -1115,9 +1099,7 @@ boolean ok = true;
 @@visited = BitSet.new();
 @@visited.set(@@gramSy);
 MarkReachedNts(Sym(@@gramSy).struct);
-for (int i=@@firstNt;
-i<=@@lastNt;
-i++) {
+for (int i=@@firstNt; i<=@@lastNt; i++) {
 if (!@@visited.get(i)) {
 ok = false;
 System.out.println("  " + sy[i].name + " cannot be reached");
@@ -1143,17 +1125,13 @@ int i;
 termNt = BitSet.new();
 do {
 changed = false;
-for (i=@@firstNt;
-i<=@@lastNt;
-i++)
+for (i=@@firstNt; i<=@@lastNt; i++)
 if (!termNt.get(i) && Term(sy[i].struct)) {
 termNt.set(i);
 changed = true;
 }
 } while (changed);
-for (i=@@firstNt;
-i<=@@lastNt;
-i++)
+for (i=@@firstNt; i<=@@lastNt; i++)
 if (!termNt.get(i)) {
 ok = false;
 System.out.println("  " + sy[i].name + "cannot be derived to terminals");
@@ -1169,9 +1147,7 @@ static private String Str(String s, int len) {
 char[] a = new char[64];
 int i = s.length();
 s.getChars(0, i, a, 0);
-for (;
-i<len;
-i++) a[i] = ' ';
+for (; i<len; i++) a[i] = ' ';
 return String.new(a, 0, len);
 }
 
@@ -1216,9 +1192,7 @@ int i, col;
 if (@@maxT <= 0) return;
 MovePragmas();
 # search lines where symbol has been referenced
-for (i=@@nNodes;
-i>=1;
-i--) {
+for (i=@@nNodes; i>=1; i--) {
 n = Node(i);
 if (n.typ==t || n.typ==wt || n.typ==nt) {
 p = XNode.new();
@@ -1257,9 +1231,7 @@ col = 25;
 while (p != null) {
 if (col + 5 > 80) {
 Trace.println();
-for (col=0;
-col<25;
-col++) Trace.print(" ");
+for (col=0; col<25; col++) Trace.print(" ");
 }
 if (p.line==0) Trace.print("undef  ");
 else Trace.print(p.line + "  ");
