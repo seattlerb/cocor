@@ -28,21 +28,22 @@ COMPILER Coco
 		while (p > 0)
 			n = Tab.Node(p)
 			if (n.typ==Tab.Chr || n.typ==Tab.Clas) then
-				n.p2 = Tab.ContextTrans;
+				n.p2 = Tab.ContextTrans
 			elsif (n.typ==Tab.Opt || n.typ==Tab.Iter) then
-				SetCtx(n.p1);
+				SetCtx(n.p1)
 			elsif (n.typ==Tab.Alt) then
-				SetCtx(n.p1); SetCtx(n.p2);
+				SetCtx(n.p1)
+				SetCtx(n.p2)
 			end
-			p = n.next;
+			p = n.next
 		end
 	end
 	
 	private; def Parser.SetDDT(s)
 		for i in 1..(s.length-1)
-			ch = s.charAt(i);
-			if (Character.isDigit(ch)) then
-			  Tab.ddt[Character.digit(ch, 10)] = true
+			ch = s[i].chr
+			if (ch =~ /\d/) then
+			  Tab.ddt[ch[0]] = true
 			end
 		end
 	end
@@ -66,7 +67,7 @@ COMPILER Coco
 		  a[len-1] = '"'
 		end
 
-		return String.new(a, 0, len);
+		return String.new(a, 0, len)
 	end
 	
 # -------------------------------------------------------------------------
@@ -91,7 +92,7 @@ TOKENS
 
 
 PRAGMAS
-  ddtSym   = "$" {digit}.		(. SetDDT(@t.val); .)
+  ddtSym   = "$" {digit}.		(. SetDDT(@t.val) .)
 
 
 COMMENTS FROM "/*" TO "*/" NESTED
@@ -111,91 +112,121 @@ Coco                            (. gramLine = sp = eofSy = 0
                                    eofSy = Tab.NewSym(Tab::T, "EOF", 0)
                                    genScanner = true
                                    ok = true
-                                   Tab.ignored = BitSet.new() .) 
+                                   Tab.ignored = BitSet.new()
+				.) 
   ident                         (. gramName = @token.val
-                                   Tab.semDeclPos = Position.new();
-                                   Tab.semDeclPos.beg = @t.pos; .)
-  {ANY}                         (. Tab.semDeclPos.len = @t.pos - Tab.semDeclPos.beg;
-                                   Tab.semDeclPos.col = 0; .)
+                                   Tab.semDeclPos = Position.new()
+                                   Tab.semDeclPos.beg = @t.pos
+				.)
+  {ANY}                         (. Tab.semDeclPos.len = @t.pos - Tab.semDeclPos.beg
+                                   Tab.semDeclPos.col = 0
+				.)
   { Declaration }
                                 SYNC 
-  "PRODUCTIONS"                 (. Tab.ignored.set(32); #' ' is always ignored
-                                   if (genScanner) then; ok = DFA.MakeDeterministic(); end
-                                   Tab.nNodes = 0; .)
-  { ident                       (. sp = Tab.FindSym(@token.val);
-                                   undefined = sp == Tab.noSym;
+  "PRODUCTIONS"                 (. Tab.ignored.set(32)	#' ' is always ignored
+                                   if (genScanner) then
+					ok = DFA.MakeDeterministic()
+				   end
+                                   Tab.nNodes = 0
+				.)
+  { ident                       (. sp = Tab.FindSym(@token.val)
+                                   undefined = sp == Tab.noSym
                                    if (undefined) then
-                                       sp = Tab.NewSym(Tab::Nt, @token.val, @token.line);
-                                       sym = Tab.Sym(sp);
+                                       sp = Tab.NewSym(Tab::Nt, @token.val, @token.line)
+                                       sym = Tab.Sym(sp)
                                    else 
-                                       sym = Tab.Sym(sp);
+                                       sym = Tab.Sym(sp)
                                        if (sym.typ==Tab::Nt) then
-                                           if (sym.struct > 0) then; SemErr(7); end
-                                       else SemErr(8);
-                                         sym.line = @token.line;
+                                           if (sym.struct > 0) then
+						SemErr(7)
+					   end
+                                       else
+					 SemErr(8)
+                                         sym.line = @token.line
 				       end
                                    end
-                                   noAttrs = sym.attrPos==nil; sym.attrPos = nil;
-                                   noRet = sym.retVar==nil; sym.retVar = nil; .)
+                                   noAttrs = sym.attrPos==nil
+				   sym.attrPos = nil
+                                   noRet = sym.retVar==nil
+				   sym.retVar = nil
+				.)
     [ AttrDecl <sym> ]          (. if (!undefined) then
                                        if ((noAttrs && sym.attrPos!=nil) || (noRet && sym.retVar!=nil) || (!noAttrs && sym.attrPos==nil) || (!noRet && sym.retVar==nil)) then
-				         SemErr(5);
+				         SemErr(5)
 				       end
 				   end
                                    .)
     [ SemText <^sym.semPos> ] 
     WEAK "="
-    Expression <^g>             (. sym.struct = g.l;
-                                   Tab.CompleteGraph(g.r); .) 
+    Expression <^g>             (. sym.struct = g.l
+                                   Tab.CompleteGraph(g.r)
+				.) 
     WEAK "."
-  }                             (. if (Tab.ddt[2]) then; Tab.PrintGraph(); end
-                                   Tab.gramSy = Tab.FindSym(gramName);
+  }                             (. if (Tab.ddt[2]) then
+				     Tab.PrintGraph()
+				   end
+                                   Tab.gramSy = Tab.FindSym(gramName)
                                    if (Tab.gramSy==Tab.noSym) then
 				       SemErr(11)
                                    else
-                                       sym = Tab.Sym(Tab.gramSy);
+                                       sym = Tab.Sym(Tab.gramSy)
                                        if (sym.attrPos != nil) then
-				         SemErr(12);
+				         SemErr(12)
 				       end
                                    end
 				.)
-  "END" ident                   (. if (!gramName.equals(@token.val)) then; SemErr(17); end
+  "END" ident                   (. if (!gramName.equals(@token.val)) then
+					 SemErr(17)
+				   end
                                    if (Scanner.err.count == 0) then
-                                       System.out.println("checking");
-                                       Tab.CompSymbolSets();
-                                       if (ok) then; ok = Tab.NtsComplete(); end
+                                       puts("checking")
+                                       Tab.CompSymbolSets()
                                        if (ok) then
-                                           ok1 = Tab.AllNtReached();
-                                           ok = Tab.NoCircularProductions();
+					 ok = Tab.NtsComplete()
+				       end
+                                       if (ok) then
+                                           ok1 = Tab.AllNtReached()
+                                           ok = Tab.NoCircularProductions()
                                        end
-                                       if (ok) then; ok = Tab.AllNtToTerm(); end
-                                       if (ok) then; ok1 = Tab.LL1(); end
-                                       if (Tab.ddt[7]) then; Tab.XRef(); end
                                        if (ok) then
-                                           print("parser"); $stderr.flush();
-                                           ParserGen.WriteParser();
+					 ok = Tab.AllNtToTerm()
+				       end
+                                       if (ok) then
+					 ok1 = Tab.LL1()
+				       end
+                                       if (Tab.ddt[7]) then
+					 Tab.XRef()
+				       end
+                                       if (ok) then
+                                           puts("parser")
+					   $stdout.flush()
+                                           ParserGen.WriteParser()
                                            if (genScanner) then
-                                               print(" + scanner");
-                                               $stdout.flush();
-                                               ok = DFA.WriteScanner();
+                                               puts(" + scanner")
+                                               $stdout.flush()
+                                               ok = DFA.WriteScanner()
                                                if (Tab.ddt[0]) then
-					         DFA.PrintStates();
+					         DFA.PrintStates()
 					       end
                                            end
-                                           puts(" generated");
+                                           puts(" generated")
                                            if (Tab.ddt[8]) then
-					     ParserGen.WriteStatistics();
+					     ParserGen.WriteStatistics()
 					   end
                                        end
                                    else
-				     ok = false;
+				     ok = false
 				   end
-                                   if (Tab.ddt[6]) then Tab.PrintSymbolTable(); end
+                                   if (Tab.ddt[6]) then
+					Tab.PrintSymbolTable()
+				   end
                                    puts
 				.)
   ".".
 /*------------------------------------------------------------------------------------*/
-Declaration                     (. Graph g1, g2; boolean nested = false; .)
+Declaration                     (. g1 = g2 = nil
+				   nested = false
+				.)
 =
   "CHARACTERS" { SetDecl }
 | "TOKENS"     { TokenDecl <Tab::T> }
@@ -203,41 +234,58 @@ Declaration                     (. Graph g1, g2; boolean nested = false; .)
 | "COMMENTS"
   "FROM" TokenExpr <^g1>
   "TO" TokenExpr <^g2>
-  ( "NESTED"                    (. nested = true; .)
-  |                             (. nested = false; .)
-  )                             (. Comment.new(g1.l, g2.l, nested); .)
+  ( "NESTED"                    (. nested = true .)
+  |                             (. nested = false .)
+  )                             (. Comment.new(g1.l, g2.l, nested) .)
 | "IGNORE" Set <^Tab.ignored>
 .
 
 /*------------------------------------------------------------------------------------*/
-SetDecl                         (. int c; BitSet s; String name; .)
+SetDecl                         (. c = 0
+				   s = nil
+				   name = ""
+				.)
 =
-  ident                         (. name = @token.val;
-                                   c = Tab.ClassWithName(name);
-                                   if (c > 0) then; SemErr(7); end .)
-  "=" Set <^s>                  (. c = Tab.NewClass(name, s); .)
+  ident                         (. name = @token.val
+                                   c = Tab.ClassWithName(name)
+                                   if (c > 0) then
+				     SemErr(7)
+				   end
+				.)
+  "=" Set <^s>                  (. c = Tab.NewClass(name, s) .)
   ".".
 /*------------------------------------------------------------------------------------*/
-Set <^BitSet s>                 (. BitSet s2; .)
+Set <^BitSet s>                 (. s2 = nil .)
 =
   SimSet <^s>
-  { "+" SimSet <^s2>            (. s.or(s2); .)
-  | "-" SimSet <^s2>            (. Sets.Differ(s, s2); .)
+  { "+" SimSet <^s2>            (. s.or(s2) .)
+  | "-" SimSet <^s2>            (. Sets.Differ(s, s2) .)
   }.
 /*------------------------------------------------------------------------------------*/
-SimSet <^BitSet s>              (. String name; int c, n; .)
+SimSet <^BitSet s>              (. name = ""
+				   c = n = 0
+				.)
 =
-                                (. s = BitSet.new(128); .)
-( ident                         (. c = Tab.ClassWithName(@token.val);
-                                   if (c < 0) then; SemErr(15); else s.or(Tab.Class(c)); end .)
+                                (. s = BitSet.new(128) .)
+( ident                         (. c = Tab.ClassWithName(@token.val)
+                                   if (c < 0) then
+				     SemErr(15)
+				   else
+				     s.or(Tab.Class(c))
+				   end
+				.)
 | string                        (. name = @token.val
 				   i=1
-                                   while (name.charAt(i)!=name.charAt(0))
-                                       s.set(name.charAt(i)); i += 1; end .)
-| "CHR" "(" number              (. n = Integer.parseInt(@token.val, 10);
-                                   s.set(n); .)
+                                   while (name[i] != name[0]) do
+                                     s.set(name[i])
+				     i += 1
+				   end
+				.)
+| "CHR" "(" number              (. n = Integer.parseInt(@token.val, 10)
+                                   s.set(n)
+				.)
   ")"
-| "ANY"                         (. s = Sets.FullSet(127); .)
+| "ANY"                         (. s = Sets.FullSet(127) .)
 )
 .
 /*------------------------------------------------------------------------------------*/

@@ -617,13 +617,13 @@ class DFA {
 		gen.println(    "\t\t\tif (" + ChCond(com.stop.charAt(0)) + ") then");
 		if (com.stop.length()==1) {
 			gen.println("\t\t\t\tlevel -= 1;");
-			gen.println("\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
+			gen.println("\t\t\t\tif (level==0) then ; oldEols=@@line-line0; NextCh(); return true; end");
 			gen.println("\t\t\t\tNextCh();");
 		} else {
 			gen.println("\t\t\t\tNextCh();");
 			gen.println("\t\t\t\tif (" + ChCond(com.stop.charAt(1)) + ") then");
 			gen.println("\t\t\t\t\tlevel -= 1;");
-			gen.println("\t\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
+			gen.println("\t\t\t\t\tif (level==0) then ; oldEols=@@line-line0; NextCh(); return true; end");
 			gen.println("\t\t\t\t\tNextCh();");
 			gen.println("\t\t\t\tend");
 		}
@@ -638,7 +638,7 @@ class DFA {
 				gen.println("\t\t\t\tend");
 			}
 		}
-		gen.println("\t\t\telsif (ch==EOF) then; return false");
+		gen.println("\t\t\telsif (@@ch==EOF) then; return false");
 		gen.println("\t\t\telse NextCh();");
 		gen.println("\t\t\tend");
 		gen.println("\t\tend");
@@ -646,7 +646,7 @@ class DFA {
 	
 	private static void GenComment(Comment com, int i) {
 		gen.println("private; def self.Comment" + i + "()");
-		gen.println("\tlevel = 1; line0 = line; lineStart0 = lineStart; startCh=nil");
+		gen.println("\tlevel = 1; line0 = @@line; lineStart0 = @@lineStart; startCh=nil");
 		if (com.start.length()==1) {
 			gen.println("\tNextCh();");
 			GenComBody(com);
@@ -656,8 +656,8 @@ class DFA {
 			gen.println("\t\tNextCh();");
 			GenComBody(com);
 			gen.println("\telse");
-			gen.println("\t\tif (ch==EOL) then; line -= 1; lineStart = lineStart0; end");
-			gen.println("\t\tpos = pos - 2; Buffer.Set(pos+1); NextCh();");
+			gen.println("\t\tif (@@ch==EOL) then; @@line -= 1; @@lineStart = lineStart0; end");
+			gen.println("\t\t@@pos -= 2; Buffer.Set(@@pos+1); NextCh();");
 			gen.println("\tend");
 		}
 		gen.println("\treturn false;");
