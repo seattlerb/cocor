@@ -41,6 +41,10 @@ end
 # NOTE: renamed from Symbol
 class Sym
 
+  class << self
+    include Enumerable
+  end
+
   @@terminals = []
   @@pragmas = []
   @@nonterminals = []
@@ -69,7 +73,7 @@ class Sym
   attr_accessor :semPos			# pr: pos of semantic action in source text (or null)
 					# nt: pos of local declarations in source text (or null)
   # TODO: retVar and retType don't occur in C# version at all
-  attr_accessor :retVar			# nt: Name of output attribute (or null)
+  attr_accessor_warn :retVar			# nt: Name of output attribute (or null)
   attr_accessor :retType		# nt: Type of output attribute (or null)
 
   def initialize(typ=0, name="", line=0)
@@ -129,10 +133,6 @@ class Sym
     return @@terminals.size + @@nonterminals.size + @@pragmas.size
   end
 
-  class << self
-    include Enumerable
-  end
-
   # not actually used, but required for enumerable
   def self.each(&b)
     each_terminal(&b)
@@ -185,9 +185,10 @@ class Node
     include Enumerable
   end
 
-  NormTrans    = 0		# transition codes
-  ContextTrans = 1
-  MaxNodes     = 1500		# max. no. of graph nodes # TODO : remove me
+  @@nodes = Array.new(0, :Node)	# grammar graph
+
+  NodeTypes = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
+                "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
 
   T    = 1			# node kinds
   Pr   = 2
@@ -203,13 +204,12 @@ class Node
   Iter = 12
   Opt  = 13
 
-  NodeTypes = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
-                "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
-  @@gn = Array.new(0, :Node)		# grammar graph # TODO: rename nodes
+  NormTrans    = 0		# transition codes
+  ContextTrans = 1
 
   attr_accessor :n			# node number
   attr_accessor :typ			# t, nt, wt, chr, clas, any, eps, sem, sync, alt, iter, opt
-  attr_reader :nxt			# successor node
+  attr_accessor :nxt			# successor node
 					# nxt<0: to successor in enclosing structure
   attr_accessor :down			# alt: next alterative Node
   attr_accessor :sub			# alt, iter, opt: first node of substructure
@@ -221,18 +221,18 @@ class Node
   attr_accessor :set			# any, sync: set represented by node
   attr_accessor :pos			# nt, t, wt: pos of actual attributes
 					# sem:       pos of semantic action in source text
-  attr_accessor :retVar			# nt: name of output attribute (or null) # TODO: remove
   attr_accessor :line			# source text line number of item in this node
   attr_accessor :state			# DFA state corresponding to this node
 					# (only used in Sgen.ConvertToStates)
 
-  def initialize(typ, val, line)
+  # TODO: C# doesn't have retVar... check it out.
+  attr_accessor_warn :retVar		# nt: name of output attribute (or null)
 
-    assert(@@gn.length <= Node::MaxNodes, 3)
+  def initialize(typ, val, line=0)
 
     @typ = typ
     @line = line
-    @n = @@gn.length
+    @n = @@nodes.length
 
     @up = false
     @nxt = @pos = @retVar = @state = @down = @sub = @set = @sym = nil
@@ -242,31 +242,23 @@ class Node
     when Nt, T, Wt then
       @sym = val
     when Any, Sync then
-      if val == 0 then # HACK
-	@set = 0
-      else
-	self.set = val
-      end
+      @set = val
     when Alt, Iter, Opt then
       @sub = val
     when Chr, Clas then
       @val = val
     end
 
-    @@gn.push self
+    @@nodes << self
   end
 
+  # Not actually used, but required for enumerable
   def self.each(&b)
-    @@gn.each(&b)
+    @@nodes.each(&b)
   end
 
   def node_type
     return NodeTypes[@typ]
-  end
-
-  def nxt=(o)
-    raise "Node#nxt= called with int" if o.kind_of? Fixnum
-    @nxt = o
   end
 
   def ==(o)
@@ -295,12 +287,12 @@ class Node
   end
   
   def self.NodeCount
-    return @@gn.length - 1
+    return @@nodes.length - 1
   end
 
   def self.EraseNodes
-    @@gn = Array.new(0, :Node)		# grammar graph
-    @@gn.pop
+    @@nodes = Array.new(0, :Node)		# grammar graph
+    # @@nodes.pop
   end
 
   def self.DelGraph(p)
@@ -349,7 +341,7 @@ class Node
     return sprintf("%4d %s%5d%5d%5d%5d", @n, node_type, nxt, v1, v2, @line)
   end
 
-  def self.PrintGraph
+  def self.PrintNodes
     n = nil
     Trace.println("Graph:")
     Trace.println("  nr typ  next   v1   v2 line")
@@ -358,6 +350,106 @@ class Node
       Trace.println(n)
     end
     Trace.println()
+  end
+
+end
+
+class Graph
+
+  attr_accessor :l			# left end of graph = head
+  attr_accessor :r			# right end of graph = list of nodes to be linked to successor graph
+
+  def initialize(l=nil, r=l)
+    @l = l
+    @r = r
+  end
+
+  def self.FirstAlt(g)
+    g.l = Node.new(Node::Alt, g.l)
+    g.l.nxt = g.r
+    g.r = g.l
+    return g
+  end
+
+  def self.Alternative(g1, g2)
+    g2.l = Node.new(Node::Alt, g2.l)
+    p = g1.l
+    until (p.down.nil?) do
+      p = p.down
+    end
+    p.down = g2.l
+    p = g1.r 
+    until (p.nxt.nil?) do
+      p = p.nxt
+    end
+    p.nxt = g2.r
+    return g1
+  end
+
+  def self.Sequence(g1, g2)
+    q = nil
+    p = g1.r.nxt
+    g1.r.nxt = g2.l # head node
+    until (p.nil?) do # substructure
+      q = p.nxt
+      p.nxt = g2.l
+      p.up = true
+      p = q
+    end
+    g1.r = g2.r
+    return g1
+  end
+
+  def self.Iteration(g)
+    g.l = Node.new(Node::Iter, g.l, 0)
+    p = g.r
+    g.r = g.l
+    until (p.nil?) do
+      q = p.nxt
+      p.nxt = g.l
+      p.up = true
+      p = q
+    end
+    return g
+  end
+
+  def self.Option(g)
+    g.l = Node.new(Node::Opt, g.l, 0)
+    g.l.nxt = g.r
+    g.r = g.l
+    return g
+  end
+
+  def self.CompleteGraph(p)
+    until (p.nil?) do
+      q = p.nxt
+      p.nxt = nil
+      p = q
+    end
+  end
+
+  # ---------------------------------------------------------------------
+  #   topdown graph management
+  # ---------------------------------------------------------------------
+
+  def self.StrToGraph(s)
+    g = Graph.new
+    temp = Node.new(Node::Eps, nil, 0)
+    g.r = temp
+
+    raise "g.r is messed up" if g.r.nil?
+    raise "s is messed up" if s.length <= 2
+
+    s[1..-2].each_byte do | c |
+      p = Node.new(Node::Chr, c, 0)
+      g.r.nxt = p
+      g.r = p
+    end
+    
+    g.l = temp.nxt
+    temp.nxt = nil
+
+    return g
   end
 
 end
@@ -427,125 +519,6 @@ class CharClass
     @@classes.each do |c|
       Trace.println("#{c.name}: #{c.set}")
     end
-  end
-
-end
-
-class Graph
-
-  attr_reader :l			# left end of graph = head
-  attr_reader :r			# right end of graph = list of nodes to be linked to successor graph
-
-  def initialize
-    @l = @r = nil
-  end
-
-  def ==(o)
-    raise "Not implemented yet"
-  end
-
-  def l=(o)
-    raise "Graph.l= called with Fixnum" if o.kind_of? Fixnum
-    @l = o
-  end
-
-  def r=(o)
-    raise "Graph.r= called with Fixnum" if o.kind_of? Fixnum
-    @r = o
-  end
-
-  def to_s
-    raise "no"
-    "<Graph@#{self.id}: #{@l}, #{@r}>"
-  end
-  
-  def self.FirstAlt(g)
-    g.l = Node.new(Node::Alt, g.l, 0)
-    g.l.nxt = g.r
-    g.r = g.l
-    return g
-  end
-
-  def self.Alternative(g1, g2)
-    g2.l = Node.new(Node::Alt, g2.l, 0)
-    p = g1.l
-    until (p.down.nil?) do
-      p = p.down
-    end
-    p.down = g2.l
-    p = g1.r 
-    until (p.nxt.nil?) do
-      p = p.nxt
-    end
-    p.nxt = g2.r
-    return g1
-  end
-
-  def self.Sequence(g1, g2)
-    q = nil
-    p = g1.r.nxt
-    g1.r.nxt = g2.l # head node
-    until (p.nil?) do # substructure
-      q = p.nxt
-      p.nxt = g2.l
-      p.up = true
-      p = q
-    end
-    g1.r = g2.r
-    return g1
-  end
-
-  def self.Iteration(g)
-#    $stderr.puts "Iteration(#{g.inspect})"
-    g.l = Node.new(Node::Iter, g.l, 0)
-    p = g.r
-    g.r = g.l
-    until (p.nil?) do
-      q = p.nxt
-      p.nxt = g.l
-      p.up = true
-      p = q
-    end
-    return g
-  end
-
-  def self.Option(g)
-    g.l = Node.new(Node::Opt, g.l, 0)
-    g.l.nxt = g.r
-    g.r = g.l
-    return g
-  end
-
-  def self.CompleteGraph(p)
-    until (p.nil?) do
-      q = p.nxt
-      p.nxt = nil
-      p = q
-    end
-  end
-
-  # ---------------------------------------------------------------------
-  #   topdown graph management
-  # ---------------------------------------------------------------------
-
-  def self.StrToGraph(s)
-    g = Graph.new
-    temp = Node.new(Node::Eps, nil, 0)
-    g.r = temp
-
-    raise "g.r is messed up" if g.r.nil?
-    raise "s is messed up" if s.length <= 2
-
-    s[1..-2].each_byte do | c |
-      p = Node.new(Node::Chr, c, 0)
-      g.r.nxt = p
-      g.r = p
-    end
-    
-    g.l = temp.nxt
-    temp.nxt = nil
-
-    return g
   end
 
 end

@@ -668,8 +668,8 @@ end
                                        sym = Sym.new(Node::Nt, @token.val, @token.line)
                                    else 
                                        if (sym.typ==Node::Nt) then
-					    if !sym.graph.nil? then
-						SemErr(7)
+					   unless sym.graph.nil? then
+					      SemErr(7)
 					   end
                                        else
 					 SemErr(8)
@@ -704,7 +704,7 @@ end
 			ExpectWeak(9, 18)
 		end
 		if (Tab.ddt[2]) then
-				     Node.PrintGraph()
+				     Node.PrintNodes()
 				   end
                                    Tab.gramSy = Sym.Find(gramName)
                                    if (Tab.gramSy==Sym::NoSym) then

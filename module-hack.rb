@@ -27,6 +27,20 @@ class Module
       EOS
     }
   end
+  def attr_accessor_warn (*attrs)
+    attrs.each {|attr|
+      module_eval(<<-EOS)
+        def #{attr};
+	  $stderr.puts "WARNING: \#\{self.class}.#{attr} called from \#\{caller[0]}" if $DEBUG
+	  @#{attr};
+	end
+        def #{attr}=(v);
+	  $stderr.puts "WARNING: \#\{self.class}.#{attr}=(o) called from \#\{caller[0]}" if $DEBUG
+	  @#{attr} = v; 
+	end
+      EOS
+    }
+  end
   def move_class_methods (cls, *attrs)
     attrs.each {|attr|
       module_eval(<<-EOS)
