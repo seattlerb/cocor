@@ -735,9 +735,10 @@ class DFA
     changed = false
 
     a = state.firstAction
-    while (a!=nil) do
+
+    while (a != nil) do
       b = a.next
-      while (b!=nil) do
+      while (b != nil) do
 	if (Overlap(a, b)) then
 	  SplitActions(state, a, b)
 	  changed = true
@@ -766,9 +767,8 @@ class DFA
 	  targ = action.target
 	  while (targ!=nil) do
 	    s.MeltWith(targ.state)
-	    while true do			# TODO: I thought there was a loopy thing
+	    while changed do
 	      changed = MakeUnique(s)
-	      break unless changed
 	    end
 	    melt = Melted.new(states.set, s)
 	    targ=targ.next
@@ -805,9 +805,9 @@ class DFA
 
     state = @@firstState
     while (state!=nil) do
-      while true do
+      while changed do
+	$stderr.puts "md: state=#{state}"
 	changed = MakeUnique(state)
-	break unless changed
       end
       state=state.next
     end
@@ -823,297 +823,328 @@ class DFA
     CombineShifts()
     return correct
   end
-	
+
+  def self.PrintStates()
+    action = targ = set = nil
+    first = true
+    Trace.println("\n---------- states ----------");
+
+    state = @@firstState
+    while (state!=nil) do
+      first = true;
+
+      if (state.endOf == Tab::NoSym) then
+	Trace.print("     ");
+      else 
+	Trace.print("E(" + Int(state.endOf, 2) + ")");
+      end
+
+      Trace.print(Int(state.nr, 3) + ":");
+
+      if (state.firstAction == nil) then
+	Trace.println();
+      end
+
+      action = state.firstAction
+      while (action!=nil) do
+	if (first) then
+	  Trace.print(" ");
+	  first = false;
+	else
+	  Trace.print("          ");
+	end
+	if (action.typ==Tab.clas) then
+	  Trace.print(Tab.ClassName(action.sym));
+	else
+	  Trace.print(Ch(action.sym));
+	end
+
+	targ=action.target
+	while (targ!=nil) do
+	  Trace.print(" " + targ.state.nr);
+	  if (action.tc==Tab.contextTrans) then
+	    Trace.println(" context"); 
+	  else
+	    Trace.println();
+	  end
+	  targ=targ.next
+	end
+	action=action.next
+      end
+      state=state.next 
+    end
+    Trace.println("\n---------- character classes ----------");
+    i = 0
+    while (i<=Tab.maxC) do
+      set = Tab.Class(i);
+      Trace.println(Tab.ClassName(i) + ": " + set.toString());
+      i += 1
+    end
+  end
+
 end # class DFA
 
 __END__
-  
-						      static void PrintStates() {
-							Action action; Target targ;
-							BitSet set;
-							boolean first;
-							Trace.println("\n---------- states ----------");
-							for (State state=firstState; state!=nil; state=state.next) {
-							    first = true;
-							    if (state.endOf==Tab::NoSym) Trace.print("     ");
-							    else Trace.print("E(" + Int(state.endOf, 2) + ")");
-							      Trace.print(Int(state.nr, 3) + ":");
-							      if (state.firstAction==nil) Trace.println();
-								for (action=state.firstAction; action!=nil; action=action.next) {
-								    if (first) {Trace.print(" "); first = false;} else Trace.print("          ");
-								      if (action.typ==Tab.clas) Trace.print(Tab.ClassName(action.sym));
-								      else Trace.print(Ch((char)action.sym));
-									for (targ=action.target; targ!=nil; targ=targ.next)
-									  Trace.print(" " + targ.state.nr);
-									  if (action.tc==Tab.contextTrans) Trace.println(" context"); else Trace.println();
-									  }
+
+private static void GenComBody(Comment com) {
+  gen.println(    "\t\tloop do");
+  gen.println(    "\t\t\tif (" + ChCond(com.stop.charAt(0)) + ") then");
+  if (com.stop.length()==1) {
+      gen.println("\t\t\t\tlevel -= 1;");
+      gen.println("\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
+      gen.println("\t\t\t\tNextCh();");
+    } else {
+      gen.println("\t\t\t\tNextCh();");
+      gen.println("\t\t\t\tif (" + ChCond(com.stop.charAt(1)) + ") then");
+      gen.println("\t\t\t\t\tlevel -= 1;");
+      gen.println("\t\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
+      gen.println("\t\t\t\t\tNextCh();");
+      gen.println("\t\t\t\tend");
+    }
+    if (com.nested) {
+	gen.println("\t\t\telsif (" + ChCond(com.start.charAt(0)) + ") then");
+	if (com.start.length()==1)
+	  gen.println("\t\t\t\tlevel += 1; NextCh();");
+	else {
+	    gen.println("\t\t\t\tNextCh();");
+	    gen.println("\t\t\t\tif (" + ChCond(com.start.charAt(1)) + ") then");
+	    gen.println("\t\t\t\t\tlevel += 1; NextCh();");
+	    gen.println("\t\t\t\tend");
+	  }
+	}
+	gen.println("\t\t\telsif (ch==EOF) then; return false");
+	gen.println("\t\t\telse NextCh();");
+	gen.println("\t\t\tend");
+	gen.println("\t\tend");
+      }
+      
+      private static void GenComment(Comment com, int i) {
+	gen.println("private; def self.Comment" + i + "()");
+	gen.println("\tlevel = 1; line0 = line; lineStart0 = lineStart; startCh=nil");
+	if (com.start.length()==1) {
+	    gen.println("\tNextCh();");
+	    GenComBody(com);
+	  } else {
+	    gen.println("\tNextCh();");
+	    gen.println("\tif (" + ChCond(com.start.charAt(1)) + ") then");
+	    gen.println("\t\tNextCh();");
+	    GenComBody(com);
+	    gen.println("\telse");
+	    gen.println("\t\tif (ch==EOL) then; line -= 1; lineStart = lineStart0; end");
+	    gen.println("\t\tpos = pos - 2; Buffer.Set(pos+1); NextCh();");
+	    gen.println("\tend");
+	  }
+	  gen.println("\treturn false;");
+	  gen.println("end");
+	}
+	
+	private static void CopyFramePart(String stop) {
+	  int startCh, ch; int high, i, j;
+	  startCh = stop.charAt(0); high = stop.length() - 1;
+	  try {
+	    ch = fram.read();
+	    while (ch!=EOF)
+	      if (ch==startCh) {
+		  i = 0;
+		  do {
+		      if (i==high) return; # stop[0..i] found
+			ch = fram.read(); i++;
+		      } while (ch==stop.charAt(i));
+		      # stop[0..i-1] found; continue with last read character
+		      gen.print(stop.substring(0, i));
+		    } else if (ch==CR) {gen.println(); ch = fram.read();
+		      } else if (ch==LF) {gen.println(); ch = fram.read();
+			} else {
+			  gen.print((char)ch); ch = fram.read();
+			}
+			     } catch (IOException e) {
+			Scanner.err.Exception("-- error reading Scanner.frame");
+		      }
+			   }
+		    
+		    private static void GenLiterals() {
+		      int i, j, k, l;
+		      char ch;
+		      Symbol sym;
+		      String[] key = new String[128];
+		      int[] knr = new int[128];
+		      # sort literal list (don't consider eofSy)
+		      k = 0;
+		      for (i=1; i<=Tab.maxT; i++) {
+			  sym = Tab.Sym(i);
+			  if (sym.struct==Tab.litToken) {
+			      for (j=k-1; j>=0 && sym.name.compareTo(key[j]) < 0; j--) {
+				  key[j+1] = key[j]; knr[j+1] = knr[j];
+				}
+				key[j+1] = sym.name; knr[j+1] = i; k++;
+			      }
+			    }
+			    # print switch statement
+			    i = 0;
+			    while (i < k) {
+				ch = key[i].charAt(1); # key[i, 0] is quote
+				gen.println("\t\t\twhen " + Ch(ch));
+				j = i;
+				do {
+				    if (i==j) gen.print("\t\t\t\tif ");
+				    else gen.print("\t\t\t\telsif ");
+				      gen.println("(t.val.equals(" + key[i] + ")) then; t.kind = " + knr[i] + ";");
+				      i++;
+				    } while (i<k && key[i].charAt(1)==ch);
+				    gen.println("\t\t\t\tend");
+				  }
+				}
+				
+				private static void WriteState(State state) {
+				  Action action;
+				  Symbol sym;
+				  int endOf;
+				  boolean ctxEnd;
+				  endOf = state.endOf;
+				  if (endOf > Tab.maxT)
+				    endOf = Tab.maxT + Tab.maxSymbols - endOf; # pragmas have been moved
+				    gen.println("\t\t\t\twhen " + state.nr);
+				    ctxEnd = state.ctx;
+				    for (action=state.firstAction; action!=nil; action=action.next) {
+					if (action==state.firstAction) 
+					  gen.print("\t\t\t\t\tif (");
+					else
+					  gen.print("\t\t\t\t\telsif (");
+
+					  if (action.typ==Tab.chr) 
+					    gen.print(ChCond((char)action.sym));
+					  else
+					    PutRange(Tab.Class(action.sym));
+
+					    gen.println(") then; ");
+
+					    if (action.target.state != state)
+					      gen.println("state = " + action.target.state.nr + "; ");
+
+					      if (action.tc == Tab.contextTrans) {
+						  gen.println("apx += 1; "); 
+						  ctxEnd = false;
+						} else if (state.ctx)
+							 gen.println("apx = 0; ");
+
+							 if (action.next==nil)
+							   gen.println("\t\t\t\t\t\tbreak");
+							 }
+
+							 if (state.firstAction != nil) gen.println("\t\t\t\t\telse ;");
+							   if (endOf==Tab::NoSym)
+							     gen.println("t.kind = noSym; break; end");
+							   else { # final state
+							if (state.firstAction==nil)
+							  gen.print("\t\t\t\t\t");
+							else
+							  gen.print("");
+							  sym = Tab.Sym(endOf);
+							  if (ctxEnd) { # final context state: cut appendix
+							      gen.println();
+							      gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length();");
+							      gen.println("\t\t\t\t\t\twhile (apx > 0) {");
+							      gen.println("\t\t\t\t\t\t\tch = buf.charAt(--i);");
+							      gen.println("\t\t\t\t\t\t\tif (ch==EOL) line--;");
+							      gen.println("\t\t\t\t\t\t\tapx--;");
+							      gen.println("\t\t\t\t\t\t}");
+							      gen.println("\t\t\t\t\t\tbuf.setLength(i); NextCh();");
+							      gen.print(  "\t\t\t\t\t\t");
+							    }
+							    gen.println("t.kind = " + endOf + "; ");
+							    if (sym.struct==Tab.classLitToken)
+							      gen.println("t.val = buf.toString(); CheckLiteral(); ");
+							      if (state.firstAction != nil) gen.println("end");
+							      }
+							    }
+							    
+							    private static void FillStartTab(int[] startTab) {
+							      int targetState, max, i;
+							      BitSet s;
+							      startTab[0] = State.lastNr + 1; # eof
+							      for (Action action= firstState.firstAction; action!=nil; action=action.next) {
+								  targetState = action.target.state.nr;
+								  if (action.typ==Tab.chr) startTab[action.sym] = targetState;
+								  else {
+								      s = Tab.Class(action.sym); max = s.size();
+								      for (i=0; i<=max; i++)
+									if (s.get(i)) startTab[i] = targetState;
 									}
-									Trace.println("\n---------- character classes ----------");
-									for (int i=0; i<=Tab.maxC; i++) {
-									    set = Tab.Class(i);
-									    Trace.println(Tab.ClassName(i) + ": " + set.toString());
-									  }
-									}
-									
-									private static void GenComBody(Comment com) {
-									  gen.println(    "\t\tloop do");
-									  gen.println(    "\t\t\tif (" + ChCond(com.stop.charAt(0)) + ") then");
-									  if (com.stop.length()==1) {
-									      gen.println("\t\t\t\tlevel -= 1;");
-									      gen.println("\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
-									      gen.println("\t\t\t\tNextCh();");
-									    } else {
-									      gen.println("\t\t\t\tNextCh();");
-									      gen.println("\t\t\t\tif (" + ChCond(com.stop.charAt(1)) + ") then");
-									      gen.println("\t\t\t\t\tlevel -= 1;");
-									      gen.println("\t\t\t\t\tif (level==0) then ; oldEols=line-line0; NextCh(); return true; end");
-									      gen.println("\t\t\t\t\tNextCh();");
-									      gen.println("\t\t\t\tend");
+								      }
+								    }
+								    
+								    static boolean WriteScanner() {
+								      int i, j, max;
+								      int[] startTab = new int[128];
+								      boolean ok = true;
+								      OutputStream s;
+								      Comment com;
+								      Symbol root = Tab.Sym(Tab.gramSy);
+								      try {fram = BufferedInputStream.new(FileInputStream.new(srcDir + "Scanner.frame"));}
+								      catch (IOException e) {
+									Scanner.err.Exception("-- cannot open Scanner.frame. " +
+											      "Must be in the same directory as the grammar file.");
+								      }
+								      try {
+									s = BufferedOutputStream.new(FileOutputStream.new(srcDir + "Scanner.rb"));
+									gen = PrintStream.new(s);}
+								      catch (IOException e) {
+									Scanner.err.Exception("-- cannot generate scanner file");
+								      }
+								      if (dirtyDFA) ok = MakeDeterministic();
+									FillStartTab(startTab);
+									gen.println("# This file is generated. DO NOT MODIFY!");
+									gen.println();
+									gen.println("# HACK: package " + root.name + ";");
+									CopyFramePart("-->declarations");
+									gen.println("\tprivate; @@noSym = " + Tab.maxT + "; # FIX: make this a constant");
+									gen.println("\tprivate; @@start = [");
+									for (i=0; i<8; i++) {
+									    for (j=0; j<16; j++)
+									      gen.print(Int(startTab[16*i+j], 3) + ",");
+									      gen.println();
 									    }
-									    if (com.nested) {
-										gen.println("\t\t\telsif (" + ChCond(com.start.charAt(0)) + ") then");
-										if (com.start.length()==1)
-										  gen.println("\t\t\t\tlevel += 1; NextCh();");
-										else {
-										    gen.println("\t\t\t\tNextCh();");
-										    gen.println("\t\t\t\tif (" + ChCond(com.start.charAt(1)) + ") then");
-										    gen.println("\t\t\t\t\tlevel += 1; NextCh();");
-										    gen.println("\t\t\t\tend");
+									    gen.println("  0]");
+									    CopyFramePart("-->initialization");
+									    gen.print("\t\t");
+									    max = Tab.ignored.size();
+									    for (i=0; i<=max; i++)
+									      if (Tab.ignored.get(i)) gen.println("@@ignore.set(" + i + ")");
+										CopyFramePart("-->comment");
+										com = Comment.first; i = 0;
+										while (com != nil) {
+										    GenComment(com, i);
+										    com = com.next; i++;
 										  }
-										}
-										gen.println("\t\t\telsif (ch==EOF) then; return false");
-										gen.println("\t\t\telse NextCh();");
-										gen.println("\t\t\tend");
-										gen.println("\t\tend");
-									      }
-									      
-									      private static void GenComment(Comment com, int i) {
-										gen.println("private; def self.Comment" + i + "()");
-										gen.println("\tlevel = 1; line0 = line; lineStart0 = lineStart; startCh=nil");
-										if (com.start.length()==1) {
-										    gen.println("\tNextCh();");
-										    GenComBody(com);
-										  } else {
-										    gen.println("\tNextCh();");
-										    gen.println("\tif (" + ChCond(com.start.charAt(1)) + ") then");
-										    gen.println("\t\tNextCh();");
-										    GenComBody(com);
-										    gen.println("\telse");
-										    gen.println("\t\tif (ch==EOL) then; line -= 1; lineStart = lineStart0; end");
-										    gen.println("\t\tpos = pos - 2; Buffer.Set(pos+1); NextCh();");
-										    gen.println("\tend");
-										  }
-										  gen.println("\treturn false;");
-										  gen.println("end");
-										}
-										
-										private static void CopyFramePart(String stop) {
-										  int startCh, ch; int high, i, j;
-										  startCh = stop.charAt(0); high = stop.length() - 1;
-										  try {
-										    ch = fram.read();
-										    while (ch!=EOF)
-										      if (ch==startCh) {
-											  i = 0;
-											  do {
-											      if (i==high) return; # stop[0..i] found
-												ch = fram.read(); i++;
-											      } while (ch==stop.charAt(i));
-											      # stop[0..i-1] found; continue with last read character
-											      gen.print(stop.substring(0, i));
-											    } else if (ch==CR) {gen.println(); ch = fram.read();
-											      } else if (ch==LF) {gen.println(); ch = fram.read();
-												} else {
-												  gen.print((char)ch); ch = fram.read();
-												}
-												     } catch (IOException e) {
-												Scanner.err.Exception("-- error reading Scanner.frame");
-											      }
-												   }
-											    
-											    private static void GenLiterals() {
-											      int i, j, k, l;
-											      char ch;
-											      Symbol sym;
-											      String[] key = new String[128];
-											      int[] knr = new int[128];
-											      # sort literal list (don't consider eofSy)
-											      k = 0;
-											      for (i=1; i<=Tab.maxT; i++) {
-												  sym = Tab.Sym(i);
-												  if (sym.struct==Tab.litToken) {
-												      for (j=k-1; j>=0 && sym.name.compareTo(key[j]) < 0; j--) {
-													  key[j+1] = key[j]; knr[j+1] = knr[j];
-													}
-													key[j+1] = sym.name; knr[j+1] = i; k++;
-												      }
-												    }
-												    # print switch statement
-												    i = 0;
-												    while (i < k) {
-													ch = key[i].charAt(1); # key[i, 0] is quote
-													gen.println("\t\t\twhen " + Ch(ch));
-													j = i;
-													do {
-													    if (i==j) gen.print("\t\t\t\tif ");
-													    else gen.print("\t\t\t\telsif ");
-													      gen.println("(t.val.equals(" + key[i] + ")) then; t.kind = " + knr[i] + ";");
-													      i++;
-													    } while (i<k && key[i].charAt(1)==ch);
-													    gen.println("\t\t\t\tend");
-													  }
-													}
-													
-													private static void WriteState(State state) {
-													  Action action;
-													  Symbol sym;
-													  int endOf;
-													  boolean ctxEnd;
-													  endOf = state.endOf;
-													  if (endOf > Tab.maxT)
-													    endOf = Tab.maxT + Tab.maxSymbols - endOf; # pragmas have been moved
-													    gen.println("\t\t\t\twhen " + state.nr);
-													    ctxEnd = state.ctx;
-													    for (action=state.firstAction; action!=nil; action=action.next) {
-														if (action==state.firstAction) 
-														  gen.print("\t\t\t\t\tif (");
-														else
-														  gen.print("\t\t\t\t\telsif (");
-
-														  if (action.typ==Tab.chr) 
-														    gen.print(ChCond((char)action.sym));
-														  else
-														    PutRange(Tab.Class(action.sym));
-
-														    gen.println(") then; ");
-
-														    if (action.target.state != state)
-														      gen.println("state = " + action.target.state.nr + "; ");
-
-														      if (action.tc == Tab.contextTrans) {
-															  gen.println("apx += 1; "); 
-															  ctxEnd = false;
-															} else if (state.ctx)
-																 gen.println("apx = 0; ");
-
-																 if (action.next==nil)
-																   gen.println("\t\t\t\t\t\tbreak");
-																 }
-
-																 if (state.firstAction != nil) gen.println("\t\t\t\t\telse ;");
-																   if (endOf==Tab::NoSym)
-																     gen.println("t.kind = noSym; break; end");
-																   else { # final state
-																if (state.firstAction==nil)
-																  gen.print("\t\t\t\t\t");
-																else
-																  gen.print("");
-																  sym = Tab.Sym(endOf);
-																  if (ctxEnd) { # final context state: cut appendix
-																      gen.println();
-																      gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length();");
-																      gen.println("\t\t\t\t\t\twhile (apx > 0) {");
-																      gen.println("\t\t\t\t\t\t\tch = buf.charAt(--i);");
-																      gen.println("\t\t\t\t\t\t\tif (ch==EOL) line--;");
-																      gen.println("\t\t\t\t\t\t\tapx--;");
-																      gen.println("\t\t\t\t\t\t}");
-																      gen.println("\t\t\t\t\t\tbuf.setLength(i); NextCh();");
-																      gen.print(  "\t\t\t\t\t\t");
-																    }
-																    gen.println("t.kind = " + endOf + "; ");
-																    if (sym.struct==Tab.classLitToken)
-																      gen.println("t.val = buf.toString(); CheckLiteral(); ");
-																      if (state.firstAction != nil) gen.println("end");
-																      }
-																    }
-																    
-																    private static void FillStartTab(int[] startTab) {
-																      int targetState, max, i;
-																      BitSet s;
-																      startTab[0] = State.lastNr + 1; # eof
-																      for (Action action= firstState.firstAction; action!=nil; action=action.next) {
-																	  targetState = action.target.state.nr;
-																	  if (action.typ==Tab.chr) startTab[action.sym] = targetState;
-																	  else {
-																	      s = Tab.Class(action.sym); max = s.size();
-																	      for (i=0; i<=max; i++)
-																		if (s.get(i)) startTab[i] = targetState;
-																		}
-																	      }
-																	    }
-																	    
-																	    static boolean WriteScanner() {
-																	      int i, j, max;
-																	      int[] startTab = new int[128];
-																	      boolean ok = true;
-																	      OutputStream s;
-																	      Comment com;
-																	      Symbol root = Tab.Sym(Tab.gramSy);
-																	      try {fram = BufferedInputStream.new(FileInputStream.new(srcDir + "Scanner.frame"));}
-																	      catch (IOException e) {
-																		Scanner.err.Exception("-- cannot open Scanner.frame. " +
-																				      "Must be in the same directory as the grammar file.");
-																	      }
-																	      try {
-																		s = BufferedOutputStream.new(FileOutputStream.new(srcDir + "Scanner.rb"));
-																		gen = PrintStream.new(s);}
-																	      catch (IOException e) {
-																		Scanner.err.Exception("-- cannot generate scanner file");
-																	      }
-																	      if (dirtyDFA) ok = MakeDeterministic();
-																		FillStartTab(startTab);
-																		gen.println("# This file is generated. DO NOT MODIFY!");
-																		gen.println();
-																		gen.println("# HACK: package " + root.name + ";");
-																		CopyFramePart("-->declarations");
-																		gen.println("\tprivate; @@noSym = " + Tab.maxT + "; # FIX: make this a constant");
-																		gen.println("\tprivate; @@start = [");
-																		for (i=0; i<8; i++) {
-																		    for (j=0; j<16; j++)
-																		      gen.print(Int(startTab[16*i+j], 3) + ",");
-																		      gen.println();
-																		    }
-																		    gen.println("  0]");
-																		    CopyFramePart("-->initialization");
-																		    gen.print("\t\t");
-																		    max = Tab.ignored.size();
-																		    for (i=0; i<=max; i++)
-																		      if (Tab.ignored.get(i)) gen.println("@@ignore.set(" + i + ")");
-																			CopyFramePart("-->comment");
-																			com = Comment.first; i = 0;
-																			while (com != nil) {
-																			    GenComment(com, i);
-																			    com = com.next; i++;
-																			  }
-																			  CopyFramePart("-->literals"); GenLiterals();
-																			  CopyFramePart("-->scan1");
-																			  if (Comment.first!=nil) {
-																			      gen.print("\t\tif (");
-																			      com = Comment.first; i = 0;
-																			      while (com != nil) {
-																				  gen.print(ChCond(com.start.charAt(0)));
-																				  gen.print(" && Comment" + i + "() ");
-																				  if (com.next != nil) gen.print(" || ");
-																				    com = com.next; i++;
-																				  }
-																				  gen.print(") then ; return Scan(); end");
-																				}
-																				CopyFramePart("-->scan2");
-																				for (State state=firstState.next; state!=nil; state=state.next)
-																				  WriteState(state);
-																				  gen.println("\t\t\t\twhen "+(State.lastNr+1));
-																				  gen.println("\t\t\t\t\tt.kind = 0; ");
-																				  CopyFramePart("$$$");
-																				  gen.flush();
-																				  return ok;
-																				}
-																				
-																				static void Init(String dir) {
-																				  srcDir = dir;
-																				  firstState = nil; lastState = nil; State.lastNr = -1;
-																				  firstState = NewState();
-																				  Melted.first = nil; Comment.first = nil;
-																				  dirtyDFA = false;
-																				}
-																				
-																			      }
+										  CopyFramePart("-->literals"); GenLiterals();
+										  CopyFramePart("-->scan1");
+										  if (Comment.first!=nil) {
+										      gen.print("\t\tif (");
+										      com = Comment.first; i = 0;
+										      while (com != nil) {
+											  gen.print(ChCond(com.start.charAt(0)));
+											  gen.print(" && Comment" + i + "() ");
+											  if (com.next != nil) gen.print(" || ");
+											    com = com.next; i++;
+											  }
+											  gen.print(") then ; return Scan(); end");
+											}
+											CopyFramePart("-->scan2");
+											for (State state=firstState.next; state!=nil; state=state.next)
+											  WriteState(state);
+											  gen.println("\t\t\t\twhen "+(State.lastNr+1));
+											  gen.println("\t\t\t\t\tt.kind = 0; ");
+											  CopyFramePart("$$$");
+											  gen.flush();
+											  return ok;
+											}
+											
+											static void Init(String dir) {
+											  srcDir = dir;
+											  firstState = nil; lastState = nil; State.lastNr = -1;
+											  firstState = NewState();
+											  Melted.first = nil; Comment.first = nil;
+											  dirtyDFA = false;
+											}
+											
+										      }

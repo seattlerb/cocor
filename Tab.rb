@@ -180,6 +180,7 @@ class Tab
       when 7
 	  $stderr.puts("-- too many character classes")
       end
+      $stderr.puts("Stack Trace = #{caller.join "\n"}")
       exit(n)
     end
   end
@@ -391,6 +392,7 @@ class Tab
       name = "#" + (?A + @@dummyName).chr
       @@dummyName += 1
     end
+    $stderr.puts("Adding new class #{name}")
     c = CharClass.new
     c.name = name
     c.set = NewSet(s)

@@ -301,13 +301,15 @@ class ParserGen {
 		    }
 		} 
 	    }
-
 	    // HACK CopySourcePart(sym.attrPos, 0); // HACK: need to only copy the varname
+
 	    gen.println(")");
 	    // if (sym.retVar!=null) gen.println("\t\t" + sym.retType + " " + sym.retVar);
+	    gen.println("\t\t$stderr.puts(\"+ " + sym.name + "\")");
 	    CopySourcePart(sym.semPos, 2);
 	    GenCode(sym.struct, 2, new BitSet());
 	    if (sym.retVar!=null) gen.println("\t\treturn " + sym.retVar);
+	    gen.println("\t\t$stderr.puts(\"- " + sym.name + "\")");
 	    gen.println("\tend"); gen.println();
 	}
     }
