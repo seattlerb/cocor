@@ -183,7 +183,7 @@ class Tab
     s = nil
     i = 0
 
-    self.Assert(@@maxT+1 < @@firstNt, 6);
+    self.Assert(@@maxT+1 < @@firstNt, 6)
 
     case typ 
     when T
@@ -199,7 +199,7 @@ class Tab
       i = @@firstNt
     end
 
-    self.Assert(@@maxT+1 < @@firstNt, 6);
+    self.Assert(@@maxT+1 < @@firstNt, 6)
 
     s = Sym.new()
     s.typ = typ
@@ -207,11 +207,11 @@ class Tab
     s.line = line
     @@sy[i] = s
 
-    return i;
+    return i
   end
 
   def self.Sym(i)
-    return @@sy[i];
+    return @@sy[i]
   end
 
   # TODO: this is totally unnecessary in ruby
@@ -219,18 +219,153 @@ class Tab
     i = 0
     while (i <= @@maxT)
       if (name.equals(@@sy[i].name)) 
-	return i;
+	return i
       end
       i += 1
     end
     i = @@firstNt
     while (i < MaxSymbols)
       if (name.equals(@@sy[i].name)) then
-	return i;
+	return i
       end
       i += 1
     end
-    return NoSym;
+    return NoSym
+  end
+
+  # ---------------------------------------------------------------------
+  #   topdown graph management
+  # ---------------------------------------------------------------------
+
+  def self.NewNode(typ, p1, line)
+    n = nil
+    nNodes += 1
+    self.Assert(nNodes <= MaxNodes, 3)
+    n = GraphNode.new
+    n.typ = typ
+    n.p1 = p1
+    n.line = line
+    @@gn[nNodes] = n
+    return nNodes
+  end
+
+  def self.Node(i)
+    return @@gn[i]
+  end
+
+  def self.CompleteGraph(p)
+    q = 0
+    while (p != 0) do
+      q = @@gn[p].next
+      @@gn[p].next = 0
+      p = q
+    end
+  end
+
+  def self.Alternative(g1, g2)
+    p = 0
+    g2.l = NewNode(Alt, g2.l, 0)
+    p = g1.l
+    while (@@gn[p].p2 != 0) do
+      p = @@gn[p].p2
+    end
+    @@gn[p].p2 = g2.l
+    p = g1.r 
+    while (@@gn[p].next != 0) do
+      p = @@gn[p].next
+    end
+    @@gn[p].next = g2.r
+    return g1
+  end
+
+  def self.Sequence(g1, g2)
+    p = q = 0
+    p = @@gn[g1.r].next
+    @@gn[g1.r].next = g2.l # head node
+    while (p != 0) do # substructure
+      q = @@gn[p].next
+      @@gn[p].next = -g2.l
+      p = q
+    end
+    g1.r = g2.r
+    return g1
+  end
+
+  def self.FirstAlt(g)
+    g.l = NewNode(Alt, g.l, 0)
+    @@gn[g.l].next = g.r
+    g.r = g.l
+    return g
+  end
+
+  def self.Iteration(g)
+    p = q = 0
+    g.l = NewNode(Iter, g.l, 0) # TODO: find all NewNode and cap 1st arg
+    p = g.r
+    g.r = g.l
+    while (p != 0) do
+      q = @@gn[p].next
+      @@gn[p].next = -g.l
+      p = q
+    end
+    return g
+  end
+
+  def self.Option(g)
+    g.l = NewNode(Opt, g.l, 0)
+    @@gn[g.l].next = g.r
+    g.r = g.l
+    return g
+  end
+
+  def self.StrToGraph(s)
+    len = s.length() - 1
+    g = Graph.new
+    i = 1
+    while (i<len) do
+      @@gn[g.r].next = NewNode(chr, (int) s.charAt(i), 0)
+      g.r = @@gn[g.r].next
+      i += 1
+    end
+      g.l = @@gn[0].next
+      @@gn[0].next = 0
+    return g
+  end
+
+  def self.DelGraph(p)
+    n = nil
+    return true if p == 0
+    # end of graph found
+    n = Node(p)
+    return DelNode(n) && DelGraph(Math.abs(n.next))
+  end
+
+  def self.DelAlt(p)
+    n = nil
+    return true if p <= 0 # end of graph found
+    n = Node(p)
+    return DelNode(n) && DelAlt(n.next)
+  end
+
+  def self.DelNode(n)
+    if (n.typ==Nt) then
+      return @@sy[n.p1].deletable
+    elsif (n.typ==Alt) then
+      return DelAlt(n.p1) || n.p2!=0 && DelAlt(n.p2)
+    else
+      return n.typ==Eps || n.typ==Iter || n.typ==Opt || n.typ==Sem || n.typ==Sync
+    end
+  end
+
+  def self.PrintGraph
+     n = nil
+    Trace.println("Graph:")
+    Trace.println("  nr typ  next   p1   p2 line")
+    (1..nNodes).each do |i|
+      n = Node(i)
+      Trace.println(Int(i,4) + " " + nTyp[n.typ] + Int(n.next,5) +Int(n.p1,5) + Int(n.p2,5) + Int(n.line,5))
+    end
+    Trace.println()
   end
 
   ############################################################
@@ -242,14 +377,13 @@ class Tab
     @@set[0] = BitSet.new()
     @@set[0].set(EofSy)
 
-    @@maxT = -1;
-    @@maxP = MaxSymbols;
-    @@firstNt = MaxSymbols;
-    @@lastNt = @@maxP - 1;
-    @@dummyName = 0;
-    @@maxC = -1;
-    @@nNodes = -1;
-    # int dummy = NewNode(0, 0, 0); # Uhh... this looks stupid
+    @@maxT = -1
+    @@maxP = MaxSymbols
+    @@firstNt = MaxSymbols
+    @@lastNt = @@maxP - 1
+    @@dummyName = 0
+    @@maxC = -1
+    @@nNodes = -1
   end
 
   def self.t # HACK
@@ -268,121 +402,17 @@ __END__
 class Tab {
 
 	# ---------------------------------------------------------------------
-	#   topdown graph management
-	# ---------------------------------------------------------------------
-
-	static int NewNode(int typ, int p1, int line) {
-		GraphNode n;
-		nNodes++; Assert(nNodes <= MaxNodes, 3);
-		n = new GraphNode();
-		n.typ = typ; n.p1 = p1; n.line = line;
-		gn[nNodes] = n;
-		return nNodes;
-	}
-
-	static GraphNode Node(int i) {
-		return gn[i];
-	}
-
-	static void CompleteGraph(int p) {
-		int q;
-		while (p != 0) {
-			q = gn[p].next; gn[p].next = 0; p = q;
-		}
-	}
-
-	static Graph Alternative(Graph g1, Graph g2) {
-		int p;
-		g2.l = NewNode(alt, g2.l, 0);
-		p = g1.l; while (gn[p].p2 != 0) p = gn[p].p2;
-		gn[p].p2 = g2.l;
-		p = g1.r; while (gn[p].next != 0) p = gn[p].next;
-		gn[p].next = g2.r;
-		return g1;
-	}
-
-	static Graph Sequence(Graph g1, Graph g2) {
-		int p, q;
-		p = gn[g1.r].next; gn[g1.r].next = g2.l; # head node
-		while (p != 0) { # substructure
-			q = gn[p].next; gn[p].next = -g2.l; p = q;
-		}
-		g1.r = g2.r;
-		return g1;
-	}
-
-	static Graph FirstAlt(Graph g) {
-		g.l = NewNode(alt, g.l, 0); gn[g.l].next = g.r; g.r = g.l;
-		return g;
-	}
-
-	static Graph Iteration(Graph g) {
-		int p, q;
-		g.l = NewNode(iter, g.l, 0);
-		p = g.r; g.r = g.l;
-		while (p != 0) {
-			q = gn[p].next; gn[p].next = -g.l; p = q;
-		}
-		return g;
-	}
-
-	static Graph Option(Graph g) {
-		g.l = NewNode(opt, g.l, 0); gn[g.l].next = g.r; g.r = g.l;
-		return g;
-	}
-
-	static Graph StrToGraph(String s) {
-		int len = s.length() - 1;
-		Graph g = new Graph();
-		for (int i=1; i<len; i++) {
-			gn[g.r].next = NewNode(chr, (int) s.charAt(i), 0);
-			g.r = gn[g.r].next;
-		}
-		g.l = gn[0].next; gn[0].next = 0;
-		return g;
-	}
-
-	static boolean DelGraph(int p) {
-		GraphNode n;
-		if (p==0) return true; # end of graph found
-		n = Node(p);
-		return DelNode(n) && DelGraph(Math.abs(n.next));
-	}
-
-	static boolean DelAlt(int p) {
-		GraphNode n;
-		if (p<=0) return true; # end of graph found
-		n = Node(p);
-		return DelNode(n) && DelAlt(n.next);
-	}
-
-	static boolean DelNode(GraphNode n) {
-		if (n.typ==nt) return sy[n.p1].deletable;
-		else if (n.typ==alt) return DelAlt(n.p1) || n.p2!=0 && DelAlt(n.p2);
-		else return n.typ==eps || n.typ==iter || n.typ==opt || n.typ==sem || n.typ==sync;
-	}
-
-	static void PrintGraph() {
-		GraphNode n;
-		Trace.println("Graph:");
-		Trace.println("  nr typ  next   p1   p2 line");
-		for (int i=1; i<=nNodes; i++) {
-			n = Node(i);
-			Trace.println(Int(i,4) + " " + nTyp[n.typ] + Int(n.next,5) +Int(n.p1,5)
-				+ Int(n.p2,5) + Int(n.line,5));
-		}
-		Trace.println();
-	}
-
-	# ---------------------------------------------------------------------
 	#   Character class management
 	# ---------------------------------------------------------------------
 
 	static int NewClass(String name, BitSet s) {
 		CharClass c;
-		@@maxC++; Assert(@@maxC < MaxClasses, 7);
+		@@maxC++;
+Assert(@@maxC < MaxClasses, 7);
 		if (name.equals("#")) name = new String("#" + (char)((int)'A' + dummyName++));
-		c = new CharClass(); c.name = name; c.set = NewSet(s);
+		c = new CharClass();
+c.name = name;
+c.set = NewSet(s);
 		chClass[@@maxC] = c;
 		return @@maxC;
 	}
@@ -430,7 +460,8 @@ class Tab {
 	}
 
 	static int NewSet(BitSet s) {
-		@@maxSet++; Assert(@@maxSet <= MaxSetNr, 4);
+		@@maxSet++;
+Assert(@@maxSet <= MaxSetNr, 4);
 		set[@@maxSet] = s;
 		return @@maxSet;
 	}
@@ -443,7 +474,8 @@ class Tab {
 		GraphNode n;
 		BitSet s1, s2, fs = new BitSet();
 		while (p!=0 && !mark.get(p)) {
-			n = Node(p); mark.set(p);
+			n = Node(p);
+mark.set(p);
 			switch (n.typ) {
 				case nt: {
 					if (first[n.p1-@@firstNt].ready) fs.or(first[n.p1-@@firstNt].ts);
@@ -451,10 +483,12 @@ class Tab {
 					break;
 				}
 				case t: case wt: {
-					fs.set(n.p1); break;
+					fs.set(n.p1);
+break;
 				}
 				case any: {
-					fs.or(set[n.p1]); break;
+					fs.or(set[n.p1]);
+break;
 				}
 				case alt: case iter: case opt: {
 					fs.or(First0(n.p1, mark));
@@ -471,7 +505,9 @@ class Tab {
 
 	static BitSet First(int p) {
 		BitSet fs = First0(p, new BitSet(nNodes+1));
-		if (ddt[3]) {Trace.println(); Trace.println("First: gp = " + p); PrintSet(fs, 0);}
+		if (ddt[3]) {Trace.println();
+Trace.println("First: gp = " + p);
+PrintSet(fs, 0);}
 		return fs;
 	}
 
@@ -480,7 +516,8 @@ class Tab {
 		int i;
 		for (i=@@firstNt; i<=@@lastNt; i++) {
 			s = new FirstSet();
-			s.ts = new BitSet(); s.ready = false;
+			s.ts = new BitSet();
+s.ready = false;
 			first[i-@@firstNt] = s;
 		}
 		for (i=@@firstNt; i<=@@lastNt; i++) {
@@ -493,7 +530,8 @@ class Tab {
 		GraphNode n;
 		BitSet s;
 		while (p>0 && !visited.get(p)) {
-			n = Node(p); visited.set(p);
+			n = Node(p);
+visited.set(p);
 			if (n.typ==nt) {
 				s = First(Math.abs(n.next));
 				follow[n.p1-@@firstNt].ts.or(s);
@@ -511,7 +549,9 @@ class Tab {
 	static private void Complete(int i) {
 		if (!visited.get(i)) {
 			visited.set(i);
-			for (int j=0; j<=@@lastNt-@@firstNt; j++) { # for all nonterminals
+			for (int j=0;
+j<=@@lastNt-@@firstNt;
+j++) { # for all nonterminals
 				if (follow[i].nts.get(j)) {
 					Complete(j);
 					follow[i].ts.or(follow[j].ts);
@@ -523,16 +563,24 @@ class Tab {
 
 	static private void CompFollowSets() {
 		FollowSet s;
-		for (curSy=@@firstNt; curSy<=@@lastNt; curSy++) {
+		for (curSy=@@firstNt;
+curSy<=@@lastNt;
+curSy++) {
 			s = new FollowSet();
-			s.ts = new BitSet(); s.nts = new BitSet();
+			s.ts = new BitSet();
+s.nts = new BitSet();
 			follow[curSy-@@firstNt] = s;
 		}
 		visited = new BitSet();
-		for (curSy=@@firstNt; curSy<=@@lastNt; curSy++) # get direct successors of nonterminals
+		for (curSy=@@firstNt;
+curSy<=@@lastNt;
+curSy++) # get direct successors of nonterminals
 			CompFollow(sy[curSy].struct);
-		# CompFollow(root); # curSy = @@lastNt+1
-		for (curSy=0; curSy<=@@lastNt-@@firstNt; curSy++) { # add indirect successors to follow.ts
+		# CompFollow(root);
+# curSy = @@lastNt+1
+		for (curSy=0;
+curSy<=@@lastNt-@@firstNt;
+curSy++) { # add indirect successors to follow.ts
 			visited = new BitSet();
 			Complete(curSy);
 		}
@@ -569,7 +617,8 @@ class Tab {
 				s1 = new BitSet();
 				q = p;
 				while (q != 0) {
-					nod = Node(q); FindAS(nod.p1);
+					nod = Node(q);
+FindAS(nod.p1);
 					a = LeadingAny(nod.p1);
 					if (a!=null) {
 						s2 = First(nod.p2);
@@ -586,7 +635,9 @@ class Tab {
 	}
 
 	static private void CompAnySets() {
-		for (curSy=@@firstNt; curSy<=@@lastNt; curSy++)
+		for (curSy=@@firstNt;
+curSy<=@@lastNt;
+curSy++)
 			FindAS(sy[curSy].struct);
 	}
 
@@ -600,14 +651,16 @@ class Tab {
 		GraphNode n;
 		BitSet s;
 		while (p > 0 && !visited.get(p)) {
-			n = Node(p); visited.set(p);
+			n = Node(p);
+visited.set(p);
 			if (n.typ==sync) {
 				s = Expected(Math.abs(n.next), curSy);
 				s.set(eofSy);
 				set[0].or(s);
 				n.p1 = NewSet(s);
 			} else if (n.typ==alt) {
-				CompSync(n.p1); CompSync(n.p2);
+				CompSync(n.p1);
+CompSync(n.p2);
 			} else if (n.typ==opt || n.typ==iter)
 				CompSync(n.p1);
 			p = n.next;
@@ -616,7 +669,9 @@ class Tab {
 
 	static private void CompSyncSets() {
 		visited = new BitSet();
-		for (curSy=@@firstNt; curSy<=@@lastNt; curSy++)
+		for (curSy=@@firstNt;
+curSy<=@@lastNt;
+curSy++)
 			CompSync(sy[curSy].struct);
 	}
 
@@ -625,20 +680,28 @@ class Tab {
 		boolean changed;
 		do {
 			changed = false;
-			for (i=@@firstNt; i<=@@lastNt; i++)
+			for (i=@@firstNt;
+i<=@@lastNt;
+i++)
 				if (!sy[i].deletable && DelGraph(sy[i].struct)) {
-					sy[i].deletable = true; changed = true;
+					sy[i].deletable = true;
+changed = true;
 				}
 		} while (changed);
-		for (i=@@firstNt; i<=@@lastNt; i++)
+		for (i=@@firstNt;
+i<=@@lastNt;
+i++)
 			if (sy[i].deletable) System.out.println("  " + sy[i].name + " deletable");
 	}
 
 	static private void MovePragmas() {
 		if (@@maxP > @@firstNt) {
 			@@maxP = @@maxT;
-			for (int i=MaxSymbols-1; i>@@lastNt; i--) {
-				@@maxP++; Assert(@@maxP < @@firstNt, 6);
+			for (int i=MaxSymbols-1;
+i>@@lastNt;
+i--) {
+				@@maxP++;
+Assert(@@maxP < @@firstNt, 6);
 				sy[@@maxP] = sy[i];
 			}
 		}
@@ -646,7 +709,8 @@ class Tab {
 
 	static void CompSymbolSets() {
 		int i;
-		i = self.NewSym(t, "???", 0); # unknown symbols get code @@maxT
+		i = self.NewSym(t, "???", 0);
+# unknown symbols get code @@maxT
 		MovePragmas();
 		CompDeletableSymbols();
 		first = new FirstSet[@@lastNt-@@firstNt+1];
@@ -657,20 +721,28 @@ class Tab {
 		CompSyncSets();
 		if (ddt[1]) {
 			Trace.println("First & follow symbols:");
-			for (i=@@firstNt; i<=@@lastNt; i++) {
+			for (i=@@firstNt;
+i<=@@lastNt;
+i++) {
 				Trace.println(sy[i].name);
-				Trace.print("first:   "); PrintSet(first[i-@@firstNt].ts, 10);
-				Trace.print("follow:  "); PrintSet(follow[i-@@firstNt].ts, 10);
+				Trace.print("first:   ");
+PrintSet(first[i-@@firstNt].ts, 10);
+				Trace.print("follow:  ");
+PrintSet(follow[i-@@firstNt].ts, 10);
 				Trace.println();
 			}
 			if (@@maxSet >= 0) {
-				Trace.println(); Trace.println();
+				Trace.println();
+Trace.println();
 				Trace.println("List of sets (ANY, SYNC): ");
-				for (i=0; i<=@@maxSet; i++) {
+				for (i=0;
+i<=@@maxSet;
+i++) {
 					Trace.print("     set[" + i + "] = ");
 					PrintSet(set[i], 16);
 				}
-				Trace.println(); Trace.println();
+				Trace.println();
+Trace.println();
 			}
 		}
 	}
@@ -681,7 +753,8 @@ class Tab {
 
 	static private void GetSingles(int p, BitSet singles) {
 		GraphNode n;
-		if (p <= 0) return;  # end of graph
+		if (p <= 0) return;
+ # end of graph
 		n = Node(p);
 		if (n.typ==nt) {
 			if (DelGraph(Math.abs(n.next))) singles.set(n.p1);
@@ -701,35 +774,51 @@ class Tab {
 		BitSet singles;
 		Sym sym;
 		int i, j, len = 0;
-		for (i=@@firstNt; i<=@@lastNt; i++) {
+		for (i=@@firstNt;
+i<=@@lastNt;
+i++) {
 			singles = new BitSet();
-			GetSingles(sy[i].struct, singles); # get nts such that i-->j
-			for (j=@@firstNt; j<=@@lastNt; j++) {
+			GetSingles(sy[i].struct, singles);
+# get nts such that i-->j
+			for (j=@@firstNt;
+j<=@@lastNt;
+j++) {
 				if (singles.get(j)) {
-					x = new CNode(); x.left = i; x.right = j; x.deleted = false;
+					x = new CNode();
+x.left = i;
+x.right = j;
+x.deleted = false;
 					list[len++] = x;
 				}
 			}
 		}
 		do {
 			changed = false;
-			for (i=0; i<len; i++) {
+			for (i=0;
+i<len;
+i++) {
 				if (!list[i].deleted) {
-					onLeftSide = false; onRightSide = false;
-					for (j=0; j<len; j++) {
+					onLeftSide = false;
+onRightSide = false;
+					for (j=0;
+j<len;
+j++) {
 						if (!list[j].deleted) {
 							if (list[i].left==list[j].right) onRightSide = true;
 							if (list[j].left==list[i].right) onLeftSide = true;
 						}
 					}
 					if (!onLeftSide || !onRightSide) {
-						list[i].deleted = true; changed = true;
+						list[i].deleted = true;
+changed = true;
 					}
 				}
 			}
 		} while(changed);
 		ok = true;
-		for (i=0; i<len; i++) {
+		for (i=0;
+i<len;
+i++) {
 			if (!list[i].deleted) {
 				ok = false;
 				System.out.println("  "+sy[list[i].left].name+" --> "+sy[list[i].right].name);
@@ -742,16 +831,22 @@ class Tab {
 		System.out.print("  LL1 warning in " + sy[curSy].name + ": ");
 		if (ts > 0) System.out.print(sy[ts].name + " is ");
 		switch (cond) {
-			case 1: {System.out.println(" start of several alternatives"); break;}
-			case 2: {System.out.println(" start & successor of deletable structure"); break;}
-			case 3: {System.out.println(" an ANY node that matches no symbol"); break;}
+			case 1: {System.out.println(" start of several alternatives");
+break;}
+			case 2: {System.out.println(" start & successor of deletable structure");
+break;}
+			case 3: {System.out.println(" an ANY node that matches no symbol");
+break;}
 		}
 	}
 
 	static private boolean Overlap(BitSet s1, BitSet s2, int cond) {
 		boolean overlap = false;
-		for (int i=0; i<=@@maxT; i++) {
-			if (s1.get(i) && s2.get(i)) {LL1Error(cond, i); overlap = true;}
+		for (int i=0;
+i<=@@maxT;
+i++) {
+			if (s1.get(i) && s2.get(i)) {LL1Error(cond, i);
+overlap = true;}
 		}
 		return overlap;
 	}
@@ -764,9 +859,11 @@ class Tab {
 		while (p > 0) {
 			n = Node(p);
 			if (n.typ==alt) {
-				q = p; s1 = new BitSet();
+				q = p;
+s1 = new BitSet();
 				while (q != 0) { # for all alternatives
-					a = Node(q); s2 = Expected(a.p1, curSy);
+					a = Node(q);
+s2 = Expected(a.p1, curSy);
 					if (Overlap(s1, s2, 1)) overlap = true;
 					s1.or(s2);
 					if (AltOverlap(a.p1)) overlap = true;
@@ -778,7 +875,8 @@ class Tab {
 				if (Overlap(s1, s2, 2)) overlap = true;
 				if (AltOverlap(n.p1)) overlap = true;
 			} else if (n.typ==any) {
-				if (Sets.Empty(Set(n.p1))) {LL1Error(3, 0); overlap = true;}
+				if (Sets.Empty(Set(n.p1))) {LL1Error(3, 0);
+overlap = true;}
 				# e.g. {ANY} ANY or [ANY] ANY
 			}
 			p = n.next;
@@ -788,14 +886,18 @@ class Tab {
 
 	static boolean LL1() {
 		boolean ll1 = true;
-		for (curSy=@@firstNt; curSy<=@@lastNt; curSy++)
+		for (curSy=@@firstNt;
+curSy<=@@lastNt;
+curSy++)
 			if (AltOverlap(sy[curSy].struct)) ll1 = false;
 		return ll1;
 	}
 
 	static boolean NtsComplete() {
 		boolean complete = true;
-		for (int i=@@firstNt; i<=@@lastNt; i++) {
+		for (int i=@@firstNt;
+i<=@@lastNt;
+i++) {
 			if (sy[i].struct==0) {
 				complete = false;
 				System.out.println("  No production for " + sy[i].name);
@@ -827,7 +929,9 @@ class Tab {
 		visited = new BitSet();
 		visited.set(gramSy);
 		MarkReachedNts(Sym(gramSy).struct);
-		for (int i=@@firstNt; i<=@@lastNt; i++) {
+		for (int i=@@firstNt;
+i<=@@lastNt;
+i++) {
 			if (!visited.get(i)) {
 				ok = false;
 				System.out.println("  " + sy[i].name + " cannot be reached");
@@ -853,12 +957,17 @@ class Tab {
 		termNt = new BitSet();
 		do {
 			changed = false;
-			for (i=@@firstNt; i<=@@lastNt; i++)
+			for (i=@@firstNt;
+i<=@@lastNt;
+i++)
 				if (!termNt.get(i) && Term(sy[i].struct)) {
-					termNt.set(i); changed = true;
+					termNt.set(i);
+changed = true;
 				}
 		} while (changed);
-		for (i=@@firstNt; i<=@@lastNt; i++)
+		for (i=@@firstNt;
+i<=@@lastNt;
+i++)
 			if (!termNt.get(i)) {
 				ok = false;
 				System.out.println("  " + sy[i].name + "cannot be derived to terminals");
@@ -874,7 +983,9 @@ class Tab {
 		char[] a = new char[64];
 		int i = s.length();
 		s.getChars(0, i, a, 0);
-		for (; i<len; i++) a[i] = ' ';
+		for (;
+i<len;
+i++) a[i] = ' ';
 		return new String(a, 0, len);
 	}
 
@@ -882,23 +993,30 @@ class Tab {
 		char[] a = new char[16];
 		String s = String.valueOf(n);
 		int i = 0, j = 0, d = len - s.length();
-		while (i < d) {a[i] = ' '; i++;}
-		while (i < len) {a[i] = s.charAt(j); i++; j++;}
+		while (i < d) {a[i] = ' ';
+i++;}
+		while (i < len) {a[i] = s.charAt(j);
+i++;
+j++;}
 		return new String(a, 0, len);
 	}
 
 	static void PrintSymbolTable() {
 		int i;
 		Trace.println("Symbol Table:");
-		Trace.println(" nr name       typ  hasAt struct del   line"); Trace.println();
+		Trace.println(" nr name       typ  hasAt struct del   line");
+Trace.println();
 		i = 0;
 		while (i < MaxSymbols) {
 			Trace.print(Int(i, 3) + " " + Str(sy[i].name, 10) + " " + nTyp[sy[i].typ]);
-			if (sy[i].attrPos==null) Trace.print(" false "); else Trace.print(" true  ");
+			if (sy[i].attrPos==null) Trace.print(" false ");
+else Trace.print(" true  ");
 			Trace.print(Int(sy[i].struct, 5));
-			if (sy[i].deletable) Trace.print(" true  "); else Trace.print(" false ");
+			if (sy[i].deletable) Trace.print(" true  ");
+else Trace.print(" false ");
 			Trace.println(Int(sy[i].line, 5));
-			if (i==@@maxT) i = @@firstNt; else i++;
+			if (i==@@maxT) i = @@firstNt;
+else i++;
 		}
 		Trace.println();
 	}
@@ -912,46 +1030,66 @@ class Tab {
 		if (@@maxT <= 0) return;
 		MovePragmas();
 		# search lines where symbol has been referenced
-		for (i=nNodes; i>=1; i--) {
+		for (i=nNodes;
+i>=1;
+i--) {
 			n = Node(i);
 			if (n.typ==t || n.typ==wt || n.typ==nt) {
-				p = new XNode(); p.line = n.line;
-				p.next = list[n.p1]; list[n.p1] = p;
+				p = new XNode();
+p.line = n.line;
+				p.next = list[n.p1];
+list[n.p1] = p;
 			}
 		}
 		# search lines where symbol has been defined and insert in order
 		i = 1;
 		while (i <= @@lastNt) {
-			sym = Sym(i); p = list[i]; q = null;
-			while (p != null && sym.line > p.line) {q = p; p = p.next;}
-			x = new XNode(); x.line = -sym.line; x.next = p;
-			if (q==null) list[i] = x; else q.next = x;
-			if (i==@@maxP) i = @@firstNt; else i++;
+			sym = Sym(i);
+p = list[i];
+q = null;
+			while (p != null && sym.line > p.line) {q = p;
+p = p.next;}
+			x = new XNode();
+x.line = -sym.line;
+x.next = p;
+			if (q==null) list[i] = x;
+else q.next = x;
+			if (i==@@maxP) i = @@firstNt;
+else i++;
 		}
 		# print cross reference list
 		Trace.println();
-		Trace.println("Cross reference list:"); Trace.println();
+		Trace.println("Cross reference list:");
+Trace.println();
 		Trace.println("Terminals:");
 		Trace.println("  0 EOF");
 		i = 1;
 		while (i <= @@lastNt) {
 			Trace.print(Int(i, 3) + " " + sy[i].name + "  ");
-			p = list[i]; col = 25;
+			p = list[i];
+col = 25;
 			while (p != null) {
 				if (col + 5 > 80) {
 					Trace.println();
-					for (col=0; col<25; col++) Trace.print(" ");
+					for (col=0;
+col<25;
+col++) Trace.print(" ");
 				}
-				if (p.line==0) Trace.print("undef  "); else Trace.print(p.line + "  ");
+				if (p.line==0) Trace.print("undef  ");
+else Trace.print(p.line + "  ");
 				col = col + 5;
 				p = p.next;
 			}
 			Trace.println();
-			if (i==@@maxT) {Trace.println(); Trace.println("Pragmas:");}
-			if (i==@@maxP) {Trace.println(); Trace.println("Nonterminals:"); i = @@firstNt;}
+			if (i==@@maxT) {Trace.println();
+Trace.println("Pragmas:");}
+			if (i==@@maxP) {Trace.println();
+Trace.println("Nonterminals:");
+i = @@firstNt;}
 			else i++;
 		}
-		Trace.println(); Trace.println();
+		Trace.println();
+Trace.println();
 	}
 
 	static void Init() {
