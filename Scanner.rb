@@ -1,6 +1,6 @@
 # This file is generated. DO NOT MODIFY!
 
-# HACK: package Coco;
+# TODO namespace/module starts here: package Coco;
 require 'BitSet'
 require 'module-hack'
 

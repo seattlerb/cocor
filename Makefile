@@ -13,6 +13,7 @@ all:
 	cp $(RUBY) $(FRAMES) Coco.ATG build/build2
 	(cd build; ruby -w Comp.rb build2/Coco.ATG)
 	mv build/build2 .
+	diff build/listing build2/listing
 
 bootstrap: all
 	mv Parser.rb Parser.rb.prev
@@ -27,5 +28,5 @@ rollback:
 	mv ErrorStream.rb.prev ErrorStream.rb
 
 clean:
-	rm -rf build build2 *~
+	rm -rf build build2 *.prev *~
 

@@ -26,12 +26,12 @@ COMPILER Coco
 	
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		while (p > 0)
-			n = GraphNode.Node(p)
-			if (n.typ==GraphNode::Chr || n.typ==GraphNode::Clas) then
+			n = Node.Node(p)
+			if (n.typ==Node::Chr || n.typ==Node::Clas) then
 				n.p2 = Tab::ContextTrans
-			elsif (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
+			elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
 				SetCtx(n.p1)
-			elsif (n.typ==GraphNode::Alt) then
+			elsif (n.typ==Node::Alt) then
 				SetCtx(n.p1)
 				SetCtx(n.p2)
 			end
@@ -108,7 +108,7 @@ Coco                            (. gramLine = sp = eofSy = 0
 				.)
 =
   "COMPILER"                    (. gramLine = @token.line
-                                   eofSy = Sym.NewSym(GraphNode::T, "EOF", 0)
+                                   eofSy = Sym.NewSym(Node::T, "EOF", 0)
                                    @@genScanner = true
                                    ok = true
                                    Tab.ignored = BitSet.new()
@@ -124,16 +124,16 @@ Coco                            (. gramLine = sp = eofSy = 0
                                    if (@@genScanner) then
 					ok = DFA.MakeDeterministic()
 				   end
-                                   Tab.nNodes = 0
+                                   Node.EraseNodes
 				.)
   { ident                       (. sp = Sym.FindSym(@token.val)
                                    undefined = sp == Tab::NoSym
                                    if (undefined) then
-                                       sp = Sym.NewSym(GraphNode::Nt, @token.val, @token.line)
+                                       sp = Sym.NewSym(Node::Nt, @token.val, @token.line)
                                        sym = Sym.Sym(sp)
                                    else 
                                        sym = Sym.Sym(sp)
-                                       if (sym.typ==GraphNode::Nt) then
+                                       if (sym.typ==Node::Nt) then
                                            if (sym.struct > 0) then
 						SemErr(7)
 					   end
@@ -227,8 +227,8 @@ Declaration                     (. g1 = g2 = nil
 				.)
 =
   "CHARACTERS" { SetDecl }
-| "TOKENS"     { TokenDecl <GraphNode::T> }
-| "PRAGMAS"    { TokenDecl <GraphNode::Pr> }
+| "TOKENS"     { TokenDecl <Node::T> }
+| "PRAGMAS"    { TokenDecl <Node::Pr> }
 | "COMMENTS"
   "FROM" TokenExpr <^g1>
   "TO" TokenExpr <^g2>
@@ -313,7 +313,7 @@ TokenDecl <int typ>             (. s = pos = g = nil
 				   end
 				.)
   )
-  [ SemText <^pos>              (. if (typ==GraphNode::T) then
+  [ SemText <^pos>              (. if (typ==Node::T) then
 				     SemErr(14)
 				   end
                                    Sym.Sym(sp).semPos = pos
@@ -393,7 +393,7 @@ Term<^Graph g>                  (. g2 = nil .)
     { Factor <^g2>              (. g = Graph.Sequence(g, g2) .)
     }
   |                             (. g = Graph.new()
-                                   g.l = GraphNode.NewNode(GraphNode::Eps, 0, 0)
+                                   g.l = Node.NewNode(Node::Eps, 0, 0)
                                    g.r = g.l
 				 .)
   ).
@@ -412,9 +412,9 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
-                                           sp = Sym.NewSym(GraphNode::Nt, s.name, 0) # forward nt
+                                           sp = Sym.NewSym(Node::Nt, s.name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Sym.NewSym(GraphNode::T, s.name, @token.line)
+                                           sp = Sym.NewSym(Node::T, s.name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
@@ -423,19 +423,19 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
                                    end
                                    sym = Sym.Sym(sp)
 				   typ = sym.typ
-                                   if (typ!=GraphNode::T && typ!=GraphNode::Nt) then
+                                   if (typ!=Node::T && typ!=Node::Nt) then
 				     SemErr(4)
 				   end
                                    if (weak) then
-                                       if (sym.typ==GraphNode::T) then
-				         typ = GraphNode::Wt
+                                       if (sym.typ==Node::T) then
+				         typ = Node::Wt
 				       else
 				         SemErr(23)
 				       end
 				   end
-                                   g.l = GraphNode.NewNode(typ, sp, @token.line)
+                                   g.l = Node.NewNode(typ, sp, @token.line)
 				   g.r = g.l
-                                   n = GraphNode.Node(g.l)
+                                   n = Node.Node(g.l)
 				 .)
   [ Attribs <n>                 (. if (s.kind!=@@ident) then
     	    			     SemErr(3)
@@ -457,17 +457,17 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 | "(" Expression <^g> ")"
 | "[" Expression <^g> "]"       (. g = Graph.Option(g) .)
 | "{" Expression <^g> "}"       (. g = Graph.Iteration(g) .)
-| SemText <^pos>                (. g.l = GraphNode.NewNode(GraphNode::Sem, 0, 0)
+| SemText <^pos>                (. g.l = Node.NewNode(Node::Sem, 0, 0)
                                    g.r = g.l
-                                   n = GraphNode.Node(g.l)
+                                   n = Node.Node(g.l)
 				   n.pos = pos
 				 .)
 | "ANY"                         (. set = Sets.FullSet(Tab::MaxTerminals)
                                    set.clear(Tab::EofSy)
-                                   g.l = GraphNode.NewNode(GraphNode::Any, Tab.NewSet(set), 0)
+                                   g.l = Node.NewNode(Node::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 .)
-| "SYNC"                        (. g.l = GraphNode.NewNode(GraphNode::Sync, 0, 0)
+| "SYNC"                        (. g.l = Node.NewNode(Node::Sync, 0, 0)
                                    g.r = g.l
 				 .)
 ).
@@ -509,7 +509,7 @@ TokenFactor <^Graph g>          (. name = s = nil
                                        SemErr(15)
                                        c = CharClass.NewClass(s.name, BitSet.new())
                                      end
-                                     g.l = GraphNode.NewNode(GraphNode::Clas, c, 0)
+                                     g.l = Node.NewNode(Node::Clas, c, 0)
                                      g.r = g.l
                                    else # string
 				     g = Graph.StrToGraph(s.name)
@@ -528,7 +528,7 @@ Symbol <^SymInfo s>
 				 .)
   ).
 /*------------------------------------------------------------------------------------*/
-Attribs <GraphNode n>           (. beg = col = 0 .)
+Attribs <Node n>           (. beg = col = 0 .)
 = 
   "<"
   ( "^"                         (. beg = @t.pos .)
@@ -549,7 +549,7 @@ Attribs <GraphNode n>           (. beg = col = 0 .)
   |	AttrRest1<n>
   ).
 /*------------------------------------------------------------------------------------*/
-AttrRest <GraphNode n>          (. beg = col = 0 .)
+AttrRest <Node n>          (. beg = col = 0 .)
 =
                                 (. beg = @t.pos
 				   col = @t.col
@@ -560,7 +560,7 @@ AttrRest <GraphNode n>          (. beg = col = 0 .)
                                    end
 				.).
 /*------------------------------------------------------------------------------------*/
-AttrRest1 <GraphNode n>         (. beg = col = 0 .)
+AttrRest1 <Node n>         (. beg = col = 0 .)
 =
                                 (. beg = @t.pos
 				   col = @t.col

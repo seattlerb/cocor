@@ -104,15 +104,15 @@ class Sym
     assert(@@maxT+1 < @@firstNt, 6)
 
     case typ 
-    when GraphNode::T
+    when Node::T
       @@maxT += 1
       i = @@maxT
-    when GraphNode::Pr
+    when Node::Pr
       @@maxP -= 1
       @@firstNt -= 1
       @@lastNt -= 1
       i = @@maxP
-    when GraphNode::Nt
+    when Node::Nt
       @@firstNt -= 1
       i = @@firstNt
     end
@@ -169,8 +169,7 @@ class Sym
   
 end
 
-# TODO: rename to Node
-class GraphNode
+class Node
 
   MaxNodes = 1500	# max. no. of graph nodes
   T    = 1				# node kinds
@@ -187,10 +186,8 @@ class GraphNode
   Iter = 12
   Opt  = 13
 
-  @@gn = Array.new(MaxNodes, :GraphNode)	# grammar graph
-  @@nNodes = -1					# index of last graph node
-
-  cls_attr_accessor :gn, :nNodes # TODO: nuke me
+  @@gn = Array.new(0, :Node)		# grammar graph
+  @@nNodes = -1				# index of last graph node
 
   attr_accessor :typ			# t, nt, wt, chr, clas, any, eps, sem, sync, alt, iter, opt
   attr_accessor :next			# index of successor node
@@ -211,22 +208,24 @@ class GraphNode
   attr_accessor :state			# DFA state corresponding to this node
 					# (only used in Sgen.ConvertToStates)
 
-  def initialize
-    @typ = @next = @p1 = @p2 = @line = 0
+  def initialize(typ, p1, line)
+    @typ = typ
+    @p1 = p1
+    @line = line
+    @next = @p2 = 0
     @pos = nil
     @retVar = nil			# string
     @state = nil
   end
 
   def self.NewNode(typ, p1, line)
-    n = nil
+
     @@nNodes += 1
-    assert(@@nNodes <= GraphNode::MaxNodes, 3)
-    n = GraphNode.new
-    n.typ = typ
-    n.p1 = p1
-    n.line = line
-    @@gn[@@nNodes] = n
+
+    assert(@@nNodes <= Node::MaxNodes, 3)
+
+
+    @@gn[@@nNodes] = Node.new(typ, p1, line)
 
     return @@nNodes
   end
@@ -239,27 +238,36 @@ class GraphNode
     return @@gn[i]
   end
 
+  def self.NodeCount
+    return @@nNodes
+  end
+
+  def self.EraseNodes
+    @@nNodes = 0
+    @@gn = []
+  end
+
   def self.DelGraph(p)
     n = nil
     return true if p == 0 # end of graph found
-    n = Node(p)
+    n = self.Node(p)
     return DelNode(n) && DelGraph(n.next.abs)
   end
 
   def self.DelAlt(p)
     n = nil
     return true if p <= 0 # end of graph found
-    n = Node(p)
+    n = self.Node(p)
     return DelNode(n) && DelAlt(n.next)
   end
 
   def self.DelNode(n)
-    if (n.typ==GraphNode::Nt) then
+    if (n.typ==Node::Nt) then
       return Sym.Sym(n.p1).deletable
-    elsif (n.typ==GraphNode::Alt) then
+    elsif (n.typ==Node::Alt) then
       return DelAlt(n.p1) || n.p2!=0 && DelAlt(n.p2)
     else
-      return n.typ==GraphNode::Eps || n.typ==GraphNode::Iter || n.typ==GraphNode::Opt || n.typ==GraphNode::Sem || n.typ==GraphNode::Sync
+      return n.typ==Node::Eps || n.typ==Node::Iter || n.typ==Node::Opt || n.typ==Node::Sem || n.typ==Node::Sync
     end
   end
 
@@ -387,35 +395,35 @@ class Graph
   end
   
   def self.FirstAlt(g)
-    g.l = GraphNode.NewNode(GraphNode::Alt, g.l, 0)
-    GraphNode.gn[g.l].next = g.r
+    g.l = Node.NewNode(Node::Alt, g.l, 0)
+    Node.Node(g.l).next = g.r
     g.r = g.l
     return g
   end
 
   def self.Alternative(g1, g2)
     p = 0
-    g2.l = GraphNode.NewNode(GraphNode::Alt, g2.l, 0)
+    g2.l = Node.NewNode(Node::Alt, g2.l, 0)
     p = g1.l
-    while (GraphNode.gn[p].p2 != 0) do
-      p = GraphNode.gn[p].p2
+    while (Node.Node(p).p2 != 0) do
+      p = Node.Node(p).p2
     end
-    GraphNode.gn[p].p2 = g2.l
+    Node.Node(p).p2 = g2.l
     p = g1.r 
-    while (GraphNode.gn[p].next != 0) do
-      p = GraphNode.gn[p].next
+    while (Node.Node(p).next != 0) do
+      p = Node.Node(p).next
     end
-    GraphNode.gn[p].next = g2.r
+    Node.Node(p).next = g2.r
     return g1
   end
 
   def self.Sequence(g1, g2)
     p = q = 0
-    p = GraphNode.gn[g1.r].next
-    GraphNode.gn[g1.r].next = g2.l # head node
+    p = Node.Node(g1.r).next
+    Node.Node(g1.r).next = g2.l # head node
     while (p != 0) do # substructure
-      q = GraphNode.gn[p].next
-      GraphNode.gn[p].next = -g2.l
+      q = Node.Node(p).next
+      Node.Node(p).next = -g2.l
       p = q
     end
     g1.r = g2.r
@@ -424,28 +432,28 @@ class Graph
 
   def self.Iteration(g)
     p = q = 0
-    g.l = GraphNode.NewNode(GraphNode::Iter, g.l, 0)
+    g.l = Node.NewNode(Node::Iter, g.l, 0)
     p = g.r
     g.r = g.l
     while (p != 0) do
-      q = GraphNode.gn[p].next
-      GraphNode.gn[p].next = -g.l
+      q = Node.Node(p).next
+      Node.Node(p).next = -g.l
       p = q
     end
     return g
   end
 
   def self.Option(g)
-    g.l = GraphNode.NewNode(GraphNode::Opt, g.l, 0)
-    GraphNode.gn[g.l].next = g.r
+    g.l = Node.NewNode(Node::Opt, g.l, 0)
+    Node.Node(g.l).next = g.r
     g.r = g.l
     return g
   end
 
   def self.CompleteGraph(p)
     while (p != 0) do
-      q = GraphNode.gn[p].next
-      GraphNode.gn[p].next = 0
+      q = Node.Node(p).next
+      Node.Node(p).next = 0
       p = q
     end
   end
@@ -459,12 +467,12 @@ class Graph
     g = Graph.new
     i = 1
     while (i<len) do
-      GraphNode.gn[g.r].next = GraphNode.NewNode(GraphNode::Chr, s[i], 0)
-      g.r = GraphNode.gn[g.r].next
+      Node.Node(g.r).next = Node.NewNode(Node::Chr, s[i], 0)
+      g.r = Node.Node(g.r).next
       i += 1
     end
-      g.l = GraphNode.gn[0].next
-      GraphNode.gn[0].next = 0
+      g.l = Node.Node(0).next
+      Node.Node(0).next = 0
     return g
   end
 
@@ -472,8 +480,8 @@ class Graph
     n = nil
     Trace.println("Graph:")
     Trace.println("  nr typ  next   p1   p2 line")
-    for i in 1..Tab.nNodes do
-      n = GraphNode.Node(i)
+    for i in 1..Node.NodeCount do
+      n = Node.Node(i)
       s = sprintf("%4d %s%5d%5d%5d%5d", i, Tab.nTyp[n.typ], n.next, n.p1, n.p2, n.line)
       Trace.println(s)
     end
@@ -482,7 +490,7 @@ class Graph
 
 end
 
-# REFACTOR: move this into graphnode
+# REFACTOR: move this into Node
 class XNode				# node of cross reference list
   attr_accessor :line
   attr_accessor :next
@@ -548,9 +556,8 @@ class Tab
   @@nTyp = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
              "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
 
-  # I'm only adding these as they get used and fubar something
-  cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy, :firstNt, :lastNt
-  cls_attr_accessor :ddt, :maxP, :maxC, :set
+  # TODO: get rid of these
+  cls_attr_accessor :ignored, :semDeclPos, :gramSy, :ddt, :set, :nTyp
 
   def initialize
     raise "Not implemented yet"
@@ -566,7 +573,7 @@ class Tab
     @@set[0] = BitSet.new()
     @@set[0].set(EofSy)
 
-    dummy = GraphNode.NewNode(0, 0, 0) # fills slot zero
+    dummy = Node.NewNode(0, 0, 0) # fills slot zero
   end
 
   # ---------------------------------------------------------------------
@@ -608,27 +615,27 @@ class Tab
     fs = BitSet.new
 
     while (p!=0 && !mark.get(p)) do
-      n = GraphNode.Node(p)
+      n = Node.Node(p)
       mark.set(p)
 		 
       case (n.typ)
-      when GraphNode::Nt then
+      when Node::Nt then
 	if (@@first[n.p1-Sym.firstNt].ready) then
 	  fs.or(@@first[n.p1-Sym.firstNt].ts)
 	else 
 	  fs.or(self.First0(Sym.Sym(n.p1).struct, mark))
 	end
-      when GraphNode::T, GraphNode::Wt then
+      when Node::T, Node::Wt then
 	fs.set(n.p1)
-      when GraphNode::Any then
+      when Node::Any then
 	fs.or(@@set[n.p1])
-      when GraphNode::Alt, GraphNode::Iter, GraphNode::Opt then
+      when Node::Alt, Node::Iter, Node::Opt then
 	fs.or(self.First0(n.p1, mark))
-	if (n.typ==GraphNode::Alt) then
+	if (n.typ==Node::Alt) then
 	  fs.or(self.First0(n.p2, mark))
 	end
       end
-      if (!GraphNode.DelNode(n)) then
+      if (!Node.DelNode(n)) then
 	break
       end
       p = n.next.abs
@@ -637,7 +644,7 @@ class Tab
   end
   
   def self.First(p)
-    fs = First0(p, BitSet.new(@@nNodes+1))
+    fs = First0(p, BitSet.new(Node.NodeCount+1))
     if (@@ddt[3]) then
       Trace.println()
       Trace.println("First: gp = #{p}")
@@ -668,17 +675,17 @@ class Tab
   def self.CompFollow(p)
     n = s = nil
     while (p>0 && !@@visited.get(p)) do
-      n = GraphNode.Node(p)
+      n = Node.Node(p)
       @@visited.set(p)
-      if (n.typ==GraphNode::Nt) then
+      if (n.typ==Node::Nt) then
 	s = First(n.next.abs)
 	@@follow[n.p1-Sym.firstNt].ts.or(s)
-	if (GraphNode.DelGraph(n.next.abs)) then
+	if (Node.DelGraph(n.next.abs)) then
 	  @@follow[n.p1-Sym.firstNt].nts.set(@@curSy-Sym.firstNt)
 	end
-      elsif (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
+      elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
 	CompFollow(n.p1)
-      elsif (n.typ==GraphNode::Alt) then
+      elsif (n.typ==Node::Alt) then
 	CompFollow(n.p1)
 	CompFollow(n.p2)
       end
@@ -737,18 +744,18 @@ class Tab
       return nil
     end
 
-    n = GraphNode.Node(p)
+    n = Node.Node(p)
 
-    if (n.typ==GraphNode::Any) then
+    if (n.typ==Node::Any) then
       a = n
-    elsif (n.typ==GraphNode::Alt) then
+    elsif (n.typ==Node::Alt) then
       a = LeadingAny(n.p1)
       if (a.nil?) then
 	a = LeadingAny(n.p2)
       end
-    elsif (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
+    elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
       a = LeadingAny(n.p1)
-    elsif (GraphNode.DelNode(n)) then
+    elsif (Node.DelNode(n)) then
       a = LeadingAny(n.next)
     end
 
@@ -760,19 +767,19 @@ class Tab
     q = 0
 
     while (p > 0) do
-      n = GraphNode.Node(p)
-      if (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
+      n = Node.Node(p)
+      if (n.typ==Node::Opt || n.typ==Node::Iter) then
 	FindAS(n.p1)
 	a = LeadingAny(n.p1)
 	unless (a.nil?) then
 	  s1 = First(n.next.abs)
 	  Sets.Differ(@@set[a.p1], s1)
 	end
-      elsif (n.typ==GraphNode::Alt) then
+      elsif (n.typ==Node::Alt) then
 	s1 = BitSet.new()
 	q = p
 	while (q != 0) do
-	  nod = GraphNode.Node(q)
+	  nod = Node.Node(q)
 	  FindAS(nod.p1)
 	  a = LeadingAny(nod.p1)
 	  unless (a.nil?) then
@@ -799,7 +806,7 @@ class Tab
 
   def self.Expected(p, sp)
     s = First(p)
-    if (GraphNode.DelGraph(p)) then
+    if (Node.DelGraph(p)) then
       s.or(@@follow[sp-Sym.firstNt].ts)
     end
     return s
@@ -808,17 +815,17 @@ class Tab
   def self.CompSync(p)
     n = s = nil
     while (p > 0 && !@@visited.get(p)) do
-      n = GraphNode.Node(p)
+      n = Node.Node(p)
       @@visited.set(p)
-      if (n.typ==GraphNode::Sync) then
+      if (n.typ==Node::Sync) then
 	s = Expected(n.next.abs, @@curSy)
 	s.set(EofSy)
 	@@set[0].or(s)
 	n.p1 = NewSet(s)
-      elsif (n.typ==GraphNode::Alt) then
+      elsif (n.typ==Node::Alt) then
 	CompSync(n.p1)
 	CompSync(n.p2)
-      elsif (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
+      elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
 	CompSync(n.p1)
       end
       p = n.next
@@ -842,7 +849,7 @@ class Tab
 
       i = Sym.firstNt
       while (i<=Sym.lastNt) do
-	if (!Sym.Sym(i).deletable && GraphNode.DelGraph(Sym.Sym(i).struct)) then
+	if (!Sym.Sym(i).deletable && Node.DelGraph(Sym.Sym(i).struct)) then
 	  Sym.Sym(i).deletable = true
 	  changed = true
 	end
@@ -852,7 +859,7 @@ class Tab
 
     for i in Sym.firstNt..Sym.lastNt do
       if (Sym.Sym(i).deletable) then
-	puts("  " + Sym.Sym(i).name + " deletable") # FIX
+	puts("  #{Sym.Sym(i).name} deletable")
 	$stdout.flush
       end
       i += 1
@@ -873,7 +880,7 @@ class Tab
   end
 
   def self.CompSymbolSets
-    i = Sym.NewSym(GraphNode::T, "???", 0)
+    i = Sym.NewSym(Node::T, "???", 0)
     # unknown symbols get code Sym.maxT
     MovePragmas()
     CompDeletableSymbols()
@@ -924,29 +931,29 @@ class Tab
 
     return if p <= 0 # end of graph
 
-    n = GraphNode.Node(p)
+    n = Node.Node(p)
 
-    if (n.typ==GraphNode::Nt) then
-      if (GraphNode.DelGraph(n.next.abs)) then
+    if (n.typ==Node::Nt) then
+      if (Node.DelGraph(n.next.abs)) then
 	singles.set(n.p1)
       end
-    elsif (n.typ==GraphNode::Alt || n.typ==GraphNode::Iter || n.typ==GraphNode::Opt) then
-      if (GraphNode.DelGraph(n.next.abs)) then
+    elsif (n.typ==Node::Alt || n.typ==Node::Iter || n.typ==Node::Opt) then
+      if (Node.DelGraph(n.next.abs)) then
 	GetSingles(n.p1, singles)
-	if (n.typ==GraphNode::Alt) then
+	if (n.typ==Node::Alt) then
 	  GetSingles(n.p2, singles)
 	end
       end
     end
 
-    if (GraphNode.DelNode(n)) then
+    if (Node.DelNode(n)) then
       GetSingles(n.next, singles)
     end
   end
 
   def self.NoCircularProductions
     ok = changed = onLeftSide = onRightSide = false
-    list = Array.new(150) # FIX: constify
+    list = Array.new(Tab::MaxTerminals)
     x = singles = sym = nil
     i = j = len = 0
 
@@ -1034,24 +1041,24 @@ class Tab
     q = 0
 
     while (p > 0) do
-      n = GraphNode.Node(p)
-      if (n.typ==GraphNode::Alt) then
+      n = Node.Node(p)
+      if (n.typ==Node::Alt) then
 	q = p
 	s1 = BitSet.new()
 	while (q != 0) do # for all alternatives
-	  a = GraphNode.Node(q)
+	  a = Node.Node(q)
 	  s2 = Expected(a.p1, @@curSy)
 	  overlap = true if (Overlap(s1, s2, 1)) 
 	  s1.or(s2)
 	  overlap = true if (AltOverlap(a.p1)) 
 	  q = a.p2
 	end
-      elsif (n.typ==GraphNode::Opt || n.typ==GraphNode::Iter) then
+      elsif (n.typ==Node::Opt || n.typ==Node::Iter) then
 	s1 = Expected(n.p1, @@curSy)
 	s2 = Expected(n.next.abs, @@curSy)
 	overlap = true if (Overlap(s1, s2, 2)) 
 	overlap = true if (AltOverlap(n.p1)) 
-      elsif (n.typ==GraphNode::Any) then
+      elsif (n.typ==Node::Any) then
 	if (Sets.Empty(Set(n.p1))) then # e.g. {ANY} ANY or [ANY] ANY
 	  LL1Error(3, 0)
 	  overlap = true
@@ -1089,15 +1096,15 @@ class Tab
     n = nil
 
     while (p > 0) do
-      n = GraphNode.Node(p)
-      if (n.typ==GraphNode::Nt) then
+      n = Node.Node(p)
+      if (n.typ==Node::Nt) then
 	if (!@@visited.get(n.p1)) then # new nt reached
 	  @@visited.set(n.p1)
 	  MarkReachedNts(Sym.Sym(n.p1).struct)
 	end
-      elsif (n.typ==GraphNode::Alt || n.typ==GraphNode::Iter || n.typ==GraphNode::Opt) then
+      elsif (n.typ==Node::Alt || n.typ==Node::Iter || n.typ==Node::Opt) then
 	MarkReachedNts(n.p1)
-	MarkReachedNts(n.p2) if (n.typ==GraphNode::Alt)
+	MarkReachedNts(n.p2) if (n.typ==Node::Alt)
       end
       p = n.next
     end
@@ -1124,9 +1131,9 @@ class Tab
     n = nil
 
     while (p > 0) do
-      n = GraphNode.Node(p)
-      return false if (n.typ==GraphNode::Nt  && !@@termNt.get(n.p1))
-      return false if (n.typ==GraphNode::Alt && !Term(n.p1) && (n.p2==0 || !Term(n.p2)))
+      n = Node.Node(p)
+      return false if (n.typ==Node::Nt  && !@@termNt.get(n.p1))
+      return false if (n.typ==Node::Alt && !Term(n.p1) && (n.p2==0 || !Term(n.p2)))
       p = n.next
     end
 
@@ -1206,10 +1213,10 @@ class Tab
     MovePragmas()
 
     # search lines where symbol has been referenced
-    i = @@nNodes
+    i = Node.NodeCount
     while (i>=1) do
-      n = GraphNode.Node(i);
-      if (n.typ==T || n.typ==Wt || n.typ==Nt) then
+      n = Node.Node(i);
+      if (n.typ==Node::T || n.typ==Node::Wt || n.typ==Node::Nt) then
 	p = XNode.new();
 	p.line = n.line;
 	p.next = list[n.p1];

@@ -50,7 +50,7 @@ class ParserGen
     i = 0
     while (p > 0) do
       i += 1
-      p = GraphNode.Node(p).p2
+      p = Node.Node(p).p2
     end
     return i
   end
@@ -202,9 +202,9 @@ class ParserGen
     equal = false
 
     while (p > 0) do
-      n = GraphNode.Node(p);
+      n = Node.Node(p);
       case (n.typ)
-      when GraphNode::Nt then
+      when Node::Nt then
 	Indent(indent);
 	sym = Sym.Sym(n.p1);
 	if (n.retVar != nil && n.retVar != "") then
@@ -213,33 +213,33 @@ class ParserGen
 	@@gen.print("self.#{sym.name}(");
 	CopySourcePart(n.pos, 0);
 	@@gen.println(")");
-      when GraphNode::T then
+      when Node::T then
 	Indent(indent);
 	if (checked.get(n.p1)) then
 	  @@gen.println("Get()");
 	else
 	  @@gen.println("Expect(" + n.p1.to_s + ")");
 	end
-      when GraphNode::Wt then
+      when Node::Wt then
 	Indent(indent);
 	s1 = Tab.Expected(n.next.abs, @@curSy);
 	s1.or(Tab.Set(0));
 	@@gen.println("ExpectWeak(" + n.p1.to_s + ", " + NewCondSet(s1).to_s + ")");
-      when GraphNode::Any then
+      when Node::Any then
 	Indent(indent);
 	@@gen.println("Get()");
-      when GraphNode::Eps then
+      when Node::Eps then
 	# nothing
-      when GraphNode::Sem then
+      when Node::Sem then
 	CopySourcePart(n.pos, indent);
-      when GraphNode::Sync then
+      when Node::Sync then
 	Indent(indent);
 	GenErrorMsg(SyncErr, @@curSy);
 	s1 = Tab.Set(n.p1).clone();
 	@@gen.print("while (!(");
 	GenCond(s1);
 	@@gen.println(")); Error(" + @@errorNr.to_s + "); Get(); end");
-      when GraphNode::Alt then
+      when Node::Alt then
 	s1 = Tab.First(p);
 	equal = s1 == checked;
 	alts = Alternatives(p);
@@ -249,7 +249,7 @@ class ParserGen
 	end
 	p2 = p;
 	while (p2 != 0) do
-	  n2 = GraphNode.Node(p2);
+	  n2 = Node.Node(p2);
 	  s1 = Tab.Expected(n2.p1, @@curSy);
 	  Indent(indent);
 
@@ -290,11 +290,11 @@ class ParserGen
 	    @@gen.println("end");
 	  end
 	end
-      when GraphNode::Iter then
+      when Node::Iter then
 	Indent(indent);
-	n2 = GraphNode.Node(n.p1);
+	n2 = Node.Node(n.p1);
 	@@gen.print("while (");
-	if (n2.typ==GraphNode::Wt) 
+	if (n2.typ==Node::Wt) 
 	  s1 = Tab.Expected(n2.next.abs, @@curSy);
 	  s2 = Tab.Expected(n.next.abs, @@curSy);
 	  @@gen.print("WeakSeparator(" + n2.p1.to_s + "," + NewCondSet(s1).to_s + "," + NewCondSet(s2).to_s + ") ");
@@ -313,7 +313,7 @@ class ParserGen
 	GenCode(p2, indent + 1, s1);
 	Indent(indent);
 	@@gen.println("end");
-      when GraphNode::Opt then
+      when Node::Opt then
 	s1 = Tab.First(n.p1);
 	if (checked != s1) then
 	  Indent(indent);
@@ -328,7 +328,7 @@ class ParserGen
 	end
       end
 
-      if (n.typ!=GraphNode::Eps && n.typ!=GraphNode::Sem && n.typ!=GraphNode::Sync) then
+      if (n.typ!=Node::Eps && n.typ!=Node::Sem && n.typ!=Node::Sync) then
 	checked = BitSet.new;
       end
 
@@ -472,7 +472,7 @@ class ParserGen
   def self.WriteStatistics
     Trace.println("#{Sym.maxT+1} terminals");
     Trace.println("#{Sym::MaxSymbols - Sym.firstNt + Sym.maxT + 1} symbols")
-    Trace.println("#{Tab.nNodes} nodes");
+    Trace.println("#{Node.NodeCount} nodes");
     Trace.println("#{@@maxSS} sets");
   end
 

@@ -94,9 +94,9 @@ class State				# state of finite automaton
     s=nil
     a=@firstAction
     while (a!=nil) do
-      if (a.typ==GraphNode::Chr && ch==a.sym) then
+      if (a.typ==Node::Chr && ch==a.sym) then
 	return a
-      elsif (a.typ==GraphNode::Clas) then
+      elsif (a.typ==Node::Clas) then
 	s = CharClass.Class(a.sym)
 	return a if s.get(ch)
       end
@@ -180,7 +180,7 @@ class Action			# action of finite automaton
   def Symbols()
     s = nil
 
-    if (@typ==GraphNode::Clas) then
+    if (@typ==Node::Clas) then
       s = CharClass.Class(@sym).clone()
     else
       s = BitSet.new()
@@ -194,7 +194,7 @@ class Action			# action of finite automaton
     i = 0
 
     if (Sets.Size(s)==1) then
-      @typ = GraphNode::Chr
+      @typ = Node::Chr
       @sym = Sets.First(s)
     else
 
@@ -208,7 +208,7 @@ class Action			# action of finite automaton
       if (i < 0) then # class with dummy name
 	i = CharClass.NewClass("#", s)
       end
-      @typ = GraphNode::Clas
+      @typ = Node::Clas
       @sym = i
     end
   end
@@ -360,11 +360,11 @@ class Comment				# info about comment syntax
     set = nil
 
     while (p != 0) do
-      n = GraphNode.Node(p)
+      n = Node.Node(p)
 
-      if (n.typ==GraphNode::Chr) then
+      if (n.typ==Node::Chr) then
 	s << n.p1.chr
-      elsif (n.typ==GraphNode::Clas) then
+      elsif (n.typ==Node::Clas) then
 	set = CharClass.Class(n.p1)
 	if (Sets.Size(set) != 1) then
 	  DFA.SemErr(26)
@@ -601,7 +601,7 @@ class DFA
       state = self.NewState()
       state.endOf = @@curSy
     else
-      state = GraphNode.Node(p).state
+      state = Node.Node(p).state
     end
     return state
   end
@@ -611,15 +611,15 @@ class DFA
     return if p == 0
 
     stepped.set(p)
-    n = GraphNode.Node(p)
+    n = Node.Node(p)
 
     case (n.typ)
-    when GraphNode::Clas, GraphNode::Chr then
+    when Node::Clas, Node::Chr then
       NewTransition(from, TheState(n.next.abs), n.typ, n.p1, n.p2)
-    when GraphNode::Alt then
+    when Node::Alt then
       Step(from, n.p1, stepped)
       Step(from, n.p2, stepped)
-    when GraphNode::Iter, GraphNode::Opt then
+    when Node::Iter, Node::Opt then
       nxt = n.next.abs
       if (!stepped.get(nxt)) then
 	Step(from, nxt, stepped)
@@ -635,7 +635,7 @@ class DFA
 
     return if p == 0
 
-    n = GraphNode.Node(p)
+    n = Node.Node(p)
 
     return unless n.state.nil? # already visited
 
@@ -645,20 +645,20 @@ class DFA
 
     n.state = state
 
-    if (GraphNode.DelGraph(p)) then
+    if (Node.DelGraph(p)) then
       state.endOf = @@curSy
     end
 
     case (n.typ)
-    when GraphNode::Clas, GraphNode::Chr then
+    when Node::Clas, Node::Chr then
       NumberNodes(n.next.abs, nil)
-    when GraphNode::Opt then
+    when Node::Opt then
       NumberNodes(n.next.abs, nil)
       NumberNodes(n.p1, state)
-    when GraphNode::Iter then
+    when Node::Iter then
       NumberNodes(n.next.abs, state)
       NumberNodes(n.p1, state)
-    when GraphNode::Alt then
+    when Node::Alt then
       NumberNodes(n.p1, state)
       NumberNodes(n.p2, state)
     end
@@ -667,22 +667,22 @@ class DFA
   def self.FindTrans (p, start, mark)
     return if p==0 || mark.get(p)
     mark.set(p)
-    n = GraphNode.Node(p)
+    n = Node.Node(p)
 
     if (start) then
       Step(n.state, p, BitSet.new(512)) # start of group of equally numbered nodes
     end
 
     case (n.typ)
-    when GraphNode::Clas, GraphNode::Chr then
+    when Node::Clas, Node::Chr then
       FindTrans(n.next.abs, true, mark)
-    when GraphNode::Opt then
+    when Node::Opt then
       FindTrans(n.next.abs, true, mark)
       FindTrans(n.p1, false, mark)
-    when GraphNode::Iter then
+    when Node::Iter then
       FindTrans(n.next.abs, false, mark)
       FindTrans(n.p1, false, mark)
-    when GraphNode::Alt then
+    when Node::Alt then
       FindTrans(n.p1, false, mark)
       FindTrans(n.p2, false, mark)
     end
@@ -692,7 +692,7 @@ class DFA
     @@curGraph = p
     @@curSy = sp
 
-    if (GraphNode.DelGraph(@@curGraph)) then
+    if (Node.DelGraph(@@curGraph)) then
       self.SemErr(20)
     end
 
@@ -714,7 +714,7 @@ class DFA
       a = state.TheAction(s[i])
       break if (a == nil)
 
-      if (a.typ == GraphNode::Clas) then
+      if (a.typ == Node::Clas) then
 	weakMatch = true			# TODO: check and see if this should break
       end
       state = a.target.state
@@ -729,7 +729,7 @@ class DFA
 
     while (i<len) do # make new DFA for s[i..len-1]
       to = NewState()
-      NewTransition(state, to, GraphNode::Chr, s[i], Tab::NormTrans)
+      NewTransition(state, to, Node::Chr, s[i], Tab::NormTrans)
       state = to
       i += 1
     end
@@ -780,8 +780,8 @@ class DFA
     result = false
     seta = setb = nil
 
-    if (a.typ==GraphNode::Chr) then
-      if (b.typ==GraphNode::Chr) then
+    if (a.typ==Node::Chr) then
+      if (b.typ==Node::Chr) then
 	result = a.sym==b.sym
       else
 	setb = CharClass.Class(b.sym)
@@ -789,7 +789,7 @@ class DFA
       end
     else
       seta = CharClass.Class(a.sym)
-      if (b.typ==GraphNode::Chr) then
+      if (b.typ==Node::Chr) then
 	result = seta.get(b.sym)
       else
 	setb = CharClass.Class(b.sym)
@@ -924,7 +924,7 @@ class DFA
 	else
 	  Trace.print("          ")
 	end
-	if (action.typ==GraphNode::Clas) then
+	if (action.typ==Node::Clas) then
 	  Trace.print(CharClass.ClassName(action.sym))
 	else
 	  Trace.print(Ch(action.sym))
@@ -1102,7 +1102,7 @@ class DFA
 	@@gen.print("\t\t\t\t\telsif (")
       end
 
-      if (action.typ==GraphNode::Chr)
+      if (action.typ==Node::Chr)
 	@@gen.print(ChCond(action.sym)) # FIX: action.sym might be a char?
       else
 	PutRange(CharClass.Class(action.sym))
@@ -1162,7 +1162,7 @@ class DFA
     action = @@firstState.firstAction
     until (action.nil?) do
       targetState = action.target.state.nr
-      if (action.typ==GraphNode::Chr) then
+      if (action.typ==Node::Chr) then
 	startTab[action.sym] = targetState
       else
 	s = CharClass.Class(action.sym)
