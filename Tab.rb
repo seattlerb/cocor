@@ -256,13 +256,28 @@ class Tab
   @@nTyp = [ "    ", "T   ", "Pr  ", "Nt  ", "Clas", "Chr ", "Wt  ",
              "Any ", "Eps ", "Sync", "Sem ", "Alt ", "Iter", "Opt " ]
 
-  # I'm only adding these as they get used and fubar something
-  public
-  cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy
-
-  def self.ddt # HACK : I have no idea why cls_attr_accessor isn't working 
-    @@ddt
+  # HACK HACK HACK... this is weird that I need to copy this code in.
+  def self.cls_attr_accessor(*names)
+    for name in names do
+      eval "def self.#{name}; @@#{name}; end; def self.#{name}=(x); @@#{name}=x; end"
+    end
   end
+
+  # I'm only adding these as they get used and fubar something
+  cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy, :firstNt, :lastNt
+  cls_attr_accessor :ddt, :maxT, :maxP
+
+#   def self.ddt # HACK : I have no idea why cls_attr_accessor isn't working 
+#     @@ddt
+#   end
+
+#   def self.maxT # HACK : I have no idea why cls_attr_accessor isn't working 
+#     @@maxT
+#   end
+
+#   def self.maxP # HACK : I have no idea why cls_attr_accessor isn't working 
+#     @@maxP
+#   end
 
   def initialize
     raise "Not implemented yet"
@@ -272,7 +287,6 @@ class Tab
     raise "Not implemented yet"
   end
   
-  private
   def self.Assert(cond, n)
     if (!cond) then
       $stderr.puts("-- SymTab fatal error ")
@@ -290,7 +304,6 @@ class Tab
       exit(n)
     end
   end
-  public
 
   def self.Init
     @@err = Scanner.err
@@ -1167,7 +1180,7 @@ class Tab {
 #   Utility functions
 # ---------------------------------------------------------------------
 
-static private String Str(String s, int len) {
+static String Str(String s, int len) {
 char[] a = new char[64];
 int i = s.length();
 s.getChars(0, i, a, 0);
@@ -1175,7 +1188,7 @@ for (; i<len; i++) a[i] = ' ';
 return String.new(a, 0, len);
 }
 
-static private String Int(int n, int len) {
+static String Int(int n, int len) {
 char[] a = new char[16];
 String s = String.valueOf(n);
 int i = 0, j = 0, d = len - s.length();
