@@ -187,15 +187,15 @@ class Parser
 		if (@t.kind==1 || @t.kind==2) then
 			s = self.Symbol()
 			if (s.kind==@@ident) then
-                                     c = Tab.ClassWithName(s.name)
+                                     c = CharClass.ClassWithName(s.name)
                                      if (c < 0) then
                                        SemErr(15)
-                                       c = Tab.NewClass(s.name, BitSet.new())
+                                       c = CharClass.NewClass(s.name, BitSet.new())
                                      end
                                      g.l = GraphNode.NewNode(Tab::Clas, c, 0)
                                      g.r = g.l
                                    else # string
-				     g = Tab.StrToGraph(s.name)
+				     g = Graph.StrToGraph(s.name)
 				   end
 				
 		elsif (@t.kind==21) then
@@ -206,12 +206,12 @@ class Parser
 			Get()
 			g = self.TokenExpr()
 			Expect(27)
-			g = Tab.Option(g) 
+			g = Graph.Option(g) 
 		elsif (@t.kind==34) then
 			Get()
 			g = self.TokenExpr()
 			Expect(35)
-			g = Tab.Iteration(g) 
+			g = Graph.Iteration(g) 
 		else Error(41)
 end
 		return g
@@ -222,14 +222,14 @@ end
 		g = self.TokenFactor()
 		while (StartOf(3))
 			g2 = self.TokenFactor()
-			g = Tab.Sequence(g, g2) 
+			g = Graph.Sequence(g, g2) 
 		end
 		if (@t.kind==37) then
 			Get()
 			Expect(21)
 			g2 = self.TokenExpr()
 			SetCtx(g2.l)
-				   g = Tab.Sequence(g, g2)
+				   g = Graph.Sequence(g, g2)
 				 
 			Expect(22)
 		end
@@ -358,13 +358,13 @@ end
 			Get()
 			g = self.Expression()
 			Expect(27)
-			g = Tab.Option(g) 
+			g = Graph.Option(g) 
 		when 34 then
 
 			Get()
 			g = self.Expression()
 			Expect(35)
-			g = Tab.Iteration(g) 
+			g = Graph.Iteration(g) 
 		when 38 then
 
 			pos = self.SemText()
@@ -400,7 +400,7 @@ end
 			g = self.Factor()
 			while (StartOf(7))
 				g2 = self.Factor()
-				g = Tab.Sequence(g, g2) 
+				g = Graph.Sequence(g, g2) 
 			end
 		elsif (StartOf(8)) then
 			g = Graph.new()
@@ -436,11 +436,11 @@ end
 		s = BitSet.new(128) 
 		if (@t.kind==1) then
 			Get()
-			c = Tab.ClassWithName(@token.val)
+			c = CharClass.ClassWithName(@token.val)
                                    if (c < 0) then
 				     SemErr(15)
 				   else
-				     s.or(Tab.Class(c))
+				     s.or(CharClass.Class(c))
 				   end
 				
 		elsif (@t.kind==2) then
@@ -494,10 +494,10 @@ end
 		while (WeakSeparator(32,3,9) )
 			g2 = self.TokenTerm()
 			if (first) then
-				     g = Tab.FirstAlt(g)
+				     g = Graph.FirstAlt(g)
 				     first = false
 				   end
-                                   g = Tab.Alternative(g, g2)
+                                   g = Graph.Alternative(g, g2)
 				 
 		end
 		return g
@@ -524,7 +524,7 @@ end
 			if (s.kind != @@ident) then
 				     SemErr(13)
 				   end
-                                   Tab.CompleteGraph(g.r)
+                                   Graph.CompleteGraph(g.r)
                                    DFA.ConvertToStates(g.l, sp)
 				 
 		elsif (StartOf(11)) then
@@ -553,14 +553,14 @@ end
 				
 		Expect(1)
 		name = @token.val
-                                   c = Tab.ClassWithName(name)
+                                   c = CharClass.ClassWithName(name)
                                    if (c > 0) then
 				     SemErr(7)
 				   end
 				
 		Expect(7)
 		s = self.Set()
-		c = Tab.NewClass(name, s) 
+		c = CharClass.NewClass(name, s) 
 		Expect(8)
 	end
 
@@ -573,10 +573,10 @@ end
 		while (WeakSeparator(32,12,13) )
 			g2 = self.Term()
 			if (first) then
-				     g = Tab.FirstAlt(g)
+				     g = Graph.FirstAlt(g)
 				     first = false
 				   end
-                                   g = Tab.Alternative(g, g2)
+                                   g = Graph.Alternative(g, g2)
 				 
 		end
 		return g
@@ -817,12 +817,12 @@ end
 			ExpectWeak(7, 19)
 			g = self.Expression()
 			sym.struct = g.l
-                                   Tab.CompleteGraph(g.r)
+                                   Graph.CompleteGraph(g.r)
 				
 			ExpectWeak(8, 20)
 		end
 		if (Tab.ddt[2]) then
-				     Tab.PrintGraph()
+				     Graph.PrintGraph()
 				   end
                                    Tab.gramSy = Sym.FindSym(gramName)
                                    if (Tab.gramSy==Tab::NoSym) then

@@ -253,6 +253,7 @@ class GraphNode
 
 end
 
+# REFACTOR: merge into Sym per C# design
 class FirstSet
     attr_accessor :ts			# terminal symbols
     attr_accessor :ready		# if true, ts is complete
@@ -268,6 +269,7 @@ class FirstSet
   
 end
 
+# REFACTOR: merge into Sym per C# design
 class FollowSet
     attr_accessor :ts			# terminal symbols
     attr_accessor :nts			# nonterminals whose start set is to be included into ts
@@ -283,8 +285,17 @@ class FollowSet
 end
 
 class CharClass
-    attr_accessor :name			# class name
-    attr_accessor :set			# index of set representing the class
+
+  MaxClasses   =  150	# max. no. of character classes
+
+  @@maxC = -1					# index of last character class
+  @@chClass = Array.new(MaxClasses)#CharClass[] # character classes
+  @@dummyName = 0				# for unnamed character classes
+
+  cls_attr_accessor :maxC, :chClass
+
+  attr_accessor :name			# class name
+  attr_accessor :set			# index of set representing the class
 
   def initialize
     @name = ""
@@ -295,9 +306,58 @@ class CharClass
     raise "Not implemented yet"
   end
   
+
+  # ---------------------------------------------------------------------
+  #   Character class management
+  # ---------------------------------------------------------------------
+
+  def self.NewClass(name, s)
+    c = nil
+    @@maxC += 1
+    assert(@@maxC < MaxClasses, 7)
+    if (name == "#") then
+      name = "#" + (?A + @@dummyName).chr
+      @@dummyName += 1
+    end
+    c = CharClass.new
+    c.name = name
+    c.set = Tab.NewSet(s)
+    @@chClass[@@maxC] = c
+    return @@maxC
+  end
+
+  # TODO: these aren't necessary in ruby
+  def self.ClassWithName(name)
+    i=@@maxC
+    while (i>=0 && name != @@chClass[i].name) do
+      i -= 1
+    end
+    return i
+  end
+
+  # TODO: these aren't necessary in ruby
+  def self.ClassWithSet(s)
+    i = @@maxC
+
+    while (i>=0 && s != Tab.set[@@chClass[i].set]) do
+      i -= 1
+    end
+
+    return i
+  end
+
+  def self.Class(i)
+    return Tab.set[@@chClass[i].set]
+  end
+
+  def self.ClassName(i)
+    return @@chClass[i].name
+  end
+
 end
 
 class Graph
+
   attr_accessor :l			# left end of graph = head
   attr_accessor :r			# right end of graph = list of nodes to be linked to successor graph
 
@@ -314,8 +374,103 @@ class Graph
     "<Graph@#{self.id}: #{@l}, #{@r}>"
   end
   
+  def self.FirstAlt(g)
+    g.l = GraphNode.NewNode(Tab::Alt, g.l, 0)
+    GraphNode.gn[g.l].next = g.r
+    g.r = g.l
+    return g
+  end
+
+  def self.Alternative(g1, g2)
+    p = 0
+    g2.l = GraphNode.NewNode(Tab::Alt, g2.l, 0)
+    p = g1.l
+    while (GraphNode.gn[p].p2 != 0) do
+      p = GraphNode.gn[p].p2
+    end
+    GraphNode.gn[p].p2 = g2.l
+    p = g1.r 
+    while (GraphNode.gn[p].next != 0) do
+      p = GraphNode.gn[p].next
+    end
+    GraphNode.gn[p].next = g2.r
+    return g1
+  end
+
+  def self.Sequence(g1, g2)
+    p = q = 0
+    p = GraphNode.gn[g1.r].next
+    GraphNode.gn[g1.r].next = g2.l # head node
+    while (p != 0) do # substructure
+      q = GraphNode.gn[p].next
+      GraphNode.gn[p].next = -g2.l
+      p = q
+    end
+    g1.r = g2.r
+    return g1
+  end
+
+  def self.Iteration(g)
+    p = q = 0
+    g.l = GraphNode.NewNode(Tab::Iter, g.l, 0) # TODO: find all NewNode and cap 1st arg
+    p = g.r
+    g.r = g.l
+    while (p != 0) do
+      q = GraphNode.gn[p].next
+      GraphNode.gn[p].next = -g.l
+      p = q
+    end
+    return g
+  end
+
+  def self.Option(g)
+    g.l = GraphNode.NewNode(Tab::Opt, g.l, 0)
+    GraphNode.gn[g.l].next = g.r
+    g.r = g.l
+    return g
+  end
+
+  def self.CompleteGraph(p)
+    while (p != 0) do
+      q = GraphNode.gn[p].next
+      GraphNode.gn[p].next = 0
+      p = q
+    end
+  end
+
+  # ---------------------------------------------------------------------
+  #   topdown graph management
+  # ---------------------------------------------------------------------
+
+  def self.StrToGraph(s)
+    len = s.length() - 1
+    g = Graph.new
+    i = 1
+    while (i<len) do
+      GraphNode.gn[g.r].next = GraphNode.NewNode(Tab::Chr, s[i], 0)
+      g.r = GraphNode.gn[g.r].next
+      i += 1
+    end
+      g.l = GraphNode.gn[0].next
+      GraphNode.gn[0].next = 0
+    return g
+  end
+
+  def self.PrintGraph
+    n = nil
+    Trace.println("Graph:")
+    Trace.println("  nr typ  next   p1   p2 line")
+    for i in 1..Tab.nNodes do
+      n = GraphNode.Node(i)
+      s = sprintf("%4d %s%5d%5d%5d%5d", i, Tab.nTyp[n.typ], n.next, n.p1, n.p2, n.line)
+      Trace.println(s)
+    end
+    Trace.println()
+  end
+
 end
 
+# REFACTOR: move this into graphnode
 class XNode				# node of cross reference list
   attr_accessor :line
   attr_accessor :next
@@ -329,7 +484,7 @@ class XNode				# node of cross reference list
     !o.nil? && @line == o.line && @next == o.next
   end
   
-end
+end # FUCK
 
 class CNode				# node of list for finding circular productions
     attr_accessor :left
@@ -352,7 +507,6 @@ class Tab
   # --- constants ---
   MaxTerminals =  256	# max. no. of terminals
   MaxSetNr     =  128	# max. no. of symbol sets
-  MaxClasses   =  150	# max. no. of character classes
 
   # REFACTOR: move to node
   T    = 1				# node kinds
@@ -381,7 +535,6 @@ class Tab
 
   # --- variables ---
   @@maxSet = nil				# index of last set
-  @@maxC = nil					# index of last character class
 ## TODO: convert usage to @@
   @@semDeclPos = nil				# position of global semantic declarations
   @@importPos = nil				# position of imported identifiers
@@ -391,12 +544,10 @@ class Tab
 
   @@first = nil # FirstSet[]			# first[i] = start symbols of sy[i+Sym.firstNt]
   @@follow = nil #  FollowSet[] 		# follow[i] = followers of sy[i+Sym.firstNt]
-  @@chClass = Array.new(MaxClasses)#CharClass[] # character classes
 
   @@set = Array.new(128) # new BitSet[128]	# set[0] = union of all synchr. sets
 
   @@err = nil					# error messages
-  @@dummyName = 0				# for unnamed character classes
   @@visited = nil # BitSet
   @@termNt = nil # BitSet			# mark lists for graph traversals
   @@curSy = 0					# current symbol in computation of sets
@@ -405,7 +556,9 @@ class Tab
 
   # I'm only adding these as they get used and fubar something
   cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy, :firstNt, :lastNt
-  cls_attr_accessor :ddt, :maxP, :maxC, :set, :chClass
+  cls_attr_accessor :ddt, :maxP, :maxC, :set
+
+  move_class_methods Graph, :FirstAlt, :Alternative, :Sequence, :Iteration, :Option, :CompleteGraph, :PrintGraph, :StrToGraph
 
   def initialize
     raise "Not implemented yet"
@@ -421,157 +574,7 @@ class Tab
     @@set[0] = BitSet.new()
     @@set[0].set(EofSy)
 
-    @@dummyName = 0
-    @@maxC = -1
     dummy = GraphNode.NewNode(0, 0, 0) # fills slot zero
-  end
-
-  # ---------------------------------------------------------------------
-  # Symbol table management
-  # ---------------------------------------------------------------------
-
-  # ---------------------------------------------------------------------
-  #   topdown graph management
-  # ---------------------------------------------------------------------
-
-  def self.CompleteGraph(p)
-    while (p != 0) do
-      q = GraphNode.gn[p].next
-      GraphNode.gn[p].next = 0
-      p = q
-    end
-  end
-
-  def self.Alternative(g1, g2)
-    p = 0
-    g2.l = GraphNode.NewNode(Alt, g2.l, 0)
-    p = g1.l
-    while (GraphNode.gn[p].p2 != 0) do
-      p = GraphNode.gn[p].p2
-    end
-    GraphNode.gn[p].p2 = g2.l
-    p = g1.r 
-    while (GraphNode.gn[p].next != 0) do
-      p = GraphNode.gn[p].next
-    end
-    GraphNode.gn[p].next = g2.r
-    return g1
-  end
-
-  def self.Sequence(g1, g2)
-    p = q = 0
-    p = GraphNode.gn[g1.r].next
-    GraphNode.gn[g1.r].next = g2.l # head node
-    while (p != 0) do # substructure
-      q = GraphNode.gn[p].next
-      GraphNode.gn[p].next = -g2.l
-      p = q
-    end
-    g1.r = g2.r
-    return g1
-  end
-
-  def self.FirstAlt(g)
-    g.l = GraphNode.NewNode(Alt, g.l, 0)
-    GraphNode.gn[g.l].next = g.r
-    g.r = g.l
-    return g
-  end
-
-  def self.Iteration(g)
-    p = q = 0
-    g.l = GraphNode.NewNode(Iter, g.l, 0) # TODO: find all NewNode and cap 1st arg
-    p = g.r
-    g.r = g.l
-    while (p != 0) do
-      q = GraphNode.gn[p].next
-      GraphNode.gn[p].next = -g.l
-      p = q
-    end
-    return g
-  end
-
-  def self.Option(g)
-    g.l = GraphNode.NewNode(Opt, g.l, 0)
-    GraphNode.gn[g.l].next = g.r
-    g.r = g.l
-    return g
-  end
-
-  def self.StrToGraph(s)
-    len = s.length() - 1
-    g = Graph.new
-    i = 1
-    while (i<len) do
-      GraphNode.gn[g.r].next = GraphNode.NewNode(Chr, s[i], 0)
-      g.r = GraphNode.gn[g.r].next
-      i += 1
-    end
-      g.l = GraphNode.gn[0].next
-      GraphNode.gn[0].next = 0
-    return g
-  end
-
-  def self.PrintGraph
-    n = nil
-
-
-    Trace.println("Graph:")
-    Trace.println("  nr typ  next   p1   p2 line")
-    for i in 1..nNodes do
-      n = GraphNode.Node(i)
-      s = sprintf("%4d %s%5d%5d%5d%5d", i, @@nTyp[n.typ], n.next, n.p1, n.p2, n.line)
-      Trace.println(s)
-    end
-    Trace.println()
-  end
-
-
-  # ---------------------------------------------------------------------
-  #   Character class management
-  # ---------------------------------------------------------------------
-
-  def self.NewClass(name, s)
-    c = nil
-    @@maxC += 1
-    assert(@@maxC < MaxClasses, 7)
-    if (name == "#") then
-      name = "#" + (?A + @@dummyName).chr
-      @@dummyName += 1
-    end
-    c = CharClass.new
-    c.name = name
-    c.set = NewSet(s)
-    @@chClass[@@maxC] = c
-    return @@maxC
-  end
-
-  # TODO: these aren't necessary in ruby
-  def self.ClassWithName(name)
-    i=@@maxC
-    while (i>=0 && name != @@chClass[i].name) do
-      i -= 1
-    end
-    return i
-  end
-
-  # TODO: these aren't necessary in ruby
-  def self.ClassWithSet(s)
-    i = @@maxC
-
-    while (i>=0 && s != @@set[@@chClass[i].set]) do
-      i -= 1
-    end
-
-    return i
-  end
-
-  def self.Class(i)
-    return @@set[@@chClass[i].set]
-  end
-
-  def self.ClassName(i)
-    return @@chClass[i].name
   end
 
   # ---------------------------------------------------------------------

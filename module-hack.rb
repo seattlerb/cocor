@@ -8,7 +8,7 @@ class Module
       EOS
     }
   end
-  def move_methods (cls, *attrs)
+  def move_class_methods (cls, *attrs)
     attrs.each {|attr|
       module_eval(<<-EOS)
         def self.#{attr}(*args)

@@ -97,7 +97,7 @@ class State				# state of finite automaton
       if (a.typ==Tab::Chr && ch==a.sym) then
 	return a
       elsif (a.typ==Tab::Clas) then
-	s = Tab.Class(a.sym)
+	s = CharClass.Class(a.sym)
 	return a if s.get(ch)
       end
       a=a.next
@@ -181,7 +181,7 @@ class Action			# action of finite automaton
     s = nil
 
     if (@typ==Tab::Clas) then
-      s = Tab.Class(@sym).clone()
+      s = CharClass.Class(@sym).clone()
     else
       s = BitSet.new()
       s.set(@sym)
@@ -198,15 +198,15 @@ class Action			# action of finite automaton
       @sym = Sets.First(s)
     else
 
-      i = Tab.maxC
+      i = CharClass.maxC
       while (i>=0) do
-	x = Tab.set()[Tab.chClass[i].set]
+	x = Tab.set()[CharClass.chClass[i].set]
 	i -= 1
       end
 
-      i = Tab.ClassWithSet(s)
+      i = CharClass.ClassWithSet(s)
       if (i < 0) then # class with dummy name
-	i = Tab.NewClass("#", s)
+	i = CharClass.NewClass("#", s)
       end
       @typ = Tab::Clas
       @sym = i
@@ -372,7 +372,7 @@ class Comment				# info about comment syntax
       if (n.typ==Tab::Chr) then
 	s << n.p1.chr
       elsif (n.typ==Tab::Clas) then
-	set = Tab.Class(n.p1)
+	set = CharClass.Class(n.p1)
 	if (Sets.Size(set) != 1) then
 	  DFA.SemErr(26)
 	end
@@ -792,15 +792,15 @@ class DFA
       if (b.typ==Tab::Chr) then
 	result = a.sym==b.sym
       else
-	setb = Tab.Class(b.sym)
+	setb = CharClass.Class(b.sym)
 	result = setb.get(a.sym)
       end
     else
-      seta = Tab.Class(a.sym)
+      seta = CharClass.Class(a.sym)
       if (b.typ==Tab::Chr) then
 	result = seta.get(b.sym)
       else
-	setb = Tab.Class(b.sym)
+	setb = CharClass.Class(b.sym)
 	result = ! Sets.Different(seta, setb)
       end
     end
@@ -933,7 +933,7 @@ class DFA
 	  Trace.print("          ")
 	end
 	if (action.typ==Tab::Clas) then
-	  Trace.print(Tab.ClassName(action.sym))
+	  Trace.print(CharClass.ClassName(action.sym))
 	else
 	  Trace.print(Ch(action.sym))
 	end
@@ -954,9 +954,9 @@ class DFA
     end
     Trace.println("\n---------- character classes ----------")
     i = 0
-    while (i<=Tab.maxC) do
-      set = Tab.Class(i)
-      Trace.println("#{Tab.ClassName(i)}: #{set}")
+    while (i<=CharClass.maxC) do
+      set = CharClass.Class(i)
+      Trace.println("#{CharClass.ClassName(i)}: #{set}")
       i += 1
     end
   end
@@ -1113,7 +1113,7 @@ class DFA
       if (action.typ==Tab::Chr)
 	@@gen.print(ChCond(action.sym)) # FIX: action.sym might be a char?
       else
-	PutRange(Tab.Class(action.sym))
+	PutRange(CharClass.Class(action.sym))
       end
       @@gen.println(") then")
       if (action.target.state != state) then
@@ -1175,7 +1175,7 @@ class DFA
       if (action.typ==Tab::Chr) then
 	startTab[action.sym] = targetState
       else
-	s = Tab.Class(action.sym)
+	s = CharClass.Class(action.sym)
 	max = s.size()
 	for i in 0..max do
 	  startTab[i] = targetState if (s.get(i))

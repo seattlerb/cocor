@@ -161,11 +161,11 @@ Coco                            (. gramLine = sp = eofSy = 0
     [ SemText <^sym.semPos> ] 
     WEAK "="
     Expression <^g>             (. sym.struct = g.l
-                                   Tab.CompleteGraph(g.r)
+                                   Graph.CompleteGraph(g.r)
 				.) 
     WEAK "."
   }                             (. if (Tab.ddt[2]) then
-				     Tab.PrintGraph()
+				     Graph.PrintGraph()
 				   end
                                    Tab.gramSy = Sym.FindSym(gramName)
                                    if (Tab.gramSy==Tab::NoSym) then
@@ -247,12 +247,12 @@ SetDecl                         (. c = 0
 				.)
 =
   ident                         (. name = @token.val
-                                   c = Tab.ClassWithName(name)
+                                   c = CharClass.ClassWithName(name)
                                    if (c > 0) then
 				     SemErr(7)
 				   end
 				.)
-  "=" Set <^s>                  (. c = Tab.NewClass(name, s) .)
+  "=" Set <^s>                  (. c = CharClass.NewClass(name, s) .)
   ".".
 /*------------------------------------------------------------------------------------*/
 Set <^BitSet s>                 (. s2 = nil .)
@@ -267,11 +267,11 @@ SimSet <^BitSet s>              (. name = ""
 				.)
 =
                                 (. s = BitSet.new(128) .)
-( ident                         (. c = Tab.ClassWithName(@token.val)
+( ident                         (. c = CharClass.ClassWithName(@token.val)
                                    if (c < 0) then
 				     SemErr(15)
 				   else
-				     s.or(Tab.Class(c))
+				     s.or(CharClass.Class(c))
 				   end
 				.)
 | string                        (. name = @token.val
@@ -305,7 +305,7 @@ TokenDecl <int typ>             (. s = pos = g = nil
   ( "=" TokenExpr <^g> "."      (. if (s.kind != @@ident) then
 				     SemErr(13)
 				   end
-                                   Tab.CompleteGraph(g.r)
+                                   Graph.CompleteGraph(g.r)
                                    DFA.ConvertToStates(g.l, sp)
 				 .)
   |                             (. if (s.kind==@@ident) then
@@ -388,17 +388,17 @@ Expression <^Graph g>           (. g2 = nil
   Term <^g>                     (. first = true .)
   { WEAK "|"
     Term <^g2>                  (. if (first) then
-				     g = Tab.FirstAlt(g)
+				     g = Graph.FirstAlt(g)
 				     first = false
 				   end
-                                   g = Tab.Alternative(g, g2)
+                                   g = Graph.Alternative(g, g2)
 				 .)
   }.
 /*------------------------------------------------------------------------------------*/
 Term<^Graph g>                  (. g2 = nil .)
 =                               (. g = nil .)
   ( Factor <^g>
-    { Factor <^g2>              (. g = Tab.Sequence(g, g2) .)
+    { Factor <^g2>              (. g = Graph.Sequence(g, g2) .)
     }
   |                             (. g = Graph.new()
                                    g.l = GraphNode.NewNode(Tab::Eps, 0, 0)
@@ -463,8 +463,8 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				 .)
 /* TODO - it would be really nice to support ()* and ()+ */
 | "(" Expression <^g> ")"
-| "[" Expression <^g> "]"       (. g = Tab.Option(g) .)
-| "{" Expression <^g> "}"       (. g = Tab.Iteration(g) .)
+| "[" Expression <^g> "]"       (. g = Graph.Option(g) .)
+| "{" Expression <^g> "}"       (. g = Graph.Iteration(g) .)
 | SemText <^pos>                (. g.l = GraphNode.NewNode(Tab::Sem, 0, 0)
                                    g.r = g.l
                                    n = GraphNode.Node(g.l)
@@ -487,21 +487,21 @@ TokenExpr <^Graph g>            (. g2 = nil
   TokenTerm <^g>                (. first = true .)
   { WEAK "|"
     TokenTerm <^g2>             (. if (first) then
-				     g = Tab.FirstAlt(g)
+				     g = Graph.FirstAlt(g)
 				     first = false
 				   end
-                                   g = Tab.Alternative(g, g2)
+                                   g = Graph.Alternative(g, g2)
 				 .)
   }.
 /*------------------------------------------------------------------------------------*/
 TokenTerm <^Graph g>            (. g2 = nil .)
 =
   TokenFactor <^g>
-  { TokenFactor <^g2>           (. g = Tab.Sequence(g, g2) .)
+  { TokenFactor <^g2>           (. g = Graph.Sequence(g, g2) .)
   }
   [ "CONTEXT"
     "(" TokenExpr <^g2>         (. SetCtx(g2.l)
-				   g = Tab.Sequence(g, g2)
+				   g = Graph.Sequence(g, g2)
 				 .)
     ")"
   ].
@@ -512,20 +512,20 @@ TokenFactor <^Graph g>          (. name = s = nil
 =
                                 (. g = Graph.new .)
 ( Symbol <^s>                   (. if (s.kind==@@ident) then
-                                     c = Tab.ClassWithName(s.name)
+                                     c = CharClass.ClassWithName(s.name)
                                      if (c < 0) then
                                        SemErr(15)
-                                       c = Tab.NewClass(s.name, BitSet.new())
+                                       c = CharClass.NewClass(s.name, BitSet.new())
                                      end
                                      g.l = GraphNode.NewNode(Tab::Clas, c, 0)
                                      g.r = g.l
                                    else # string
-				     g = Tab.StrToGraph(s.name)
+				     g = Graph.StrToGraph(s.name)
 				   end
 				.)
 | "(" TokenExpr <^g> ")"
-| "[" TokenExpr <^g> "]"        (. g = Tab.Option(g) .)
-| "{" TokenExpr <^g> "}"        (. g = Tab.Iteration(g) .)
+| "[" TokenExpr <^g> "]"        (. g = Graph.Option(g) .)
+| "{" TokenExpr <^g> "}"        (. g = Graph.Iteration(g) .)
 ).
 /*------------------------------------------------------------------------------------*/
 Symbol <^SymInfo s> = 
