@@ -23,12 +23,12 @@ class Parser
 	end
 	
 	private; def Parser.MatchLiteral(sp) # store string either as token or as literal
-		sym = Tab.Sym(sp)
+		sym = Sym.Sym(sp)
 		matchedSp = DFA.MatchedDFA(sym.name, sp)
 		if (matchedSp==Tab::NoSym)
 		  sym.struct = Tab::ClassToken
 		else 
-		  sym1 = Tab.Sym(matchedSp)
+		  sym1 = Sym.Sym(matchedSp)
 		  sym1.struct = Tab::ClassLitToken
 		  sym.struct = Tab::LitToken
 		end
@@ -36,7 +36,7 @@ class Parser
 	
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		while (p > 0)
-			n = Tab.Node(p)
+			n = GraphNode.Node(p)
 			if (n.typ==Tab::Chr || n.typ==Tab::Clas) then
 				n.p2 = Tab::ContextTrans
 			elsif (n.typ==Tab::Opt || n.typ==Tab::Iter) then
@@ -192,7 +192,7 @@ class Parser
                                        SemErr(15)
                                        c = Tab.NewClass(s.name, BitSet.new())
                                      end
-                                     g.l = Tab.NewNode(Tab::Clas, c, 0)
+                                     g.l = GraphNode.NewNode(Tab::Clas, c, 0)
                                      g.r = g.l
                                    else # string
 				     g = Tab.StrToGraph(s.name)
@@ -300,20 +300,20 @@ end
 				weak = true 
 			end
 			s = self.Symbol()
-			sp = Tab.FindSym(s.name)
+			sp = Sym.FindSym(s.name)
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
-                                           sp = Tab.NewSym(Tab::Nt, s.name, 0) # forward nt
+                                           sp = Sym.NewSym(Tab::Nt, s.name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Tab.NewSym(Tab::T, s.name, @token.line)
+                                           sp = Sym.NewSym(Tab::T, s.name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
 					   sp = 0
                                        end
                                    end
-                                   sym = Tab.Sym(sp)
+                                   sym = Sym.Sym(sp)
 				   typ = sym.typ
                                    if (typ!=Tab::T && typ!=Tab::Nt) then
 				     SemErr(4)
@@ -325,9 +325,9 @@ end
 				         SemErr(23)
 				       end
 				   end
-                                   g.l = Tab.NewNode(typ, sp, @token.line)
+                                   g.l = GraphNode.NewNode(typ, sp, @token.line)
 				   g.r = g.l
-                                   n = Tab.Node(g.l)
+                                   n = GraphNode.Node(g.l)
 				 
 			if (@t.kind==24 || @t.kind==30) then
 				self.Attribs(n)
@@ -368,9 +368,9 @@ end
 		when 38 then
 
 			pos = self.SemText()
-			g.l = Tab.NewNode(Tab::Sem, 0, 0)
+			g.l = GraphNode.NewNode(Tab::Sem, 0, 0)
                                    g.r = g.l
-                                   n = Tab.Node(g.l)
+                                   n = GraphNode.Node(g.l)
 				   n.pos = pos
 				 
 		when 23 then
@@ -378,13 +378,13 @@ end
 			Get()
 			set = Sets.FullSet(Tab::MaxTerminals)
                                    set.clear(Tab::EofSy)
-                                   g.l = Tab.NewNode(Tab::Any, Tab.NewSet(set), 0)
+                                   g.l = GraphNode.NewNode(Tab::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 
 		when 36 then
 
 			Get()
-			g.l = Tab.NewNode(Tab::Sync, 0, 0)
+			g.l = GraphNode.NewNode(Tab::Sync, 0, 0)
                                    g.r = g.l
 				 
 		else
@@ -404,7 +404,7 @@ end
 			end
 		elsif (StartOf(8)) then
 			g = Graph.new()
-                                   g.l = Tab.NewNode(Tab::Eps, 0, 0)
+                                   g.l = GraphNode.NewNode(Tab::Eps, 0, 0)
                                    g.r = g.l
 				 
 		else Error(48)
@@ -508,12 +508,12 @@ end
 				   sp = 0
 				 
 		s = self.Symbol()
-		if (Tab.FindSym(s.name) != Tab::NoSym) then
+		if (Sym.FindSym(s.name) != Tab::NoSym) then
 				     SemErr(7)
 				     sp = 0
                                    else
-                                     sp = Tab.NewSym(typ, s.name, @token.line)
-                                     Tab.Sym(sp).struct = Tab::ClassToken
+                                     sp = Sym.NewSym(typ, s.name, @token.line)
+                                     Sym.Sym(sp).struct = Tab::ClassToken
                                    end
 				 
 		while (!(StartOf(10))); Error(51); Get(); end
@@ -541,7 +541,7 @@ end
 			if (typ==Tab::T) then
 				     SemErr(14)
 				   end
-                                   Tab.Sym(sp).semPos = pos
+                                   Sym.Sym(sp).semPos = pos
 				 
 		end
 	end
@@ -749,7 +749,7 @@ end
 				
 		Expect(5)
 		gramLine = @token.line
-                                   eofSy = Tab.NewSym(Tab::T, "EOF", 0)
+                                   eofSy = Sym.NewSym(Tab::T, "EOF", 0)
                                    @@genScanner = true
                                    ok = true
                                    Tab.ignored = BitSet.new()
@@ -778,13 +778,13 @@ end
 				
 		while (@t.kind==1)
 			Get()
-			sp = Tab.FindSym(@token.val)
+			sp = Sym.FindSym(@token.val)
                                    undefined = sp == Tab::NoSym
                                    if (undefined) then
-                                       sp = Tab.NewSym(Tab::Nt, @token.val, @token.line)
-                                       sym = Tab.Sym(sp)
+                                       sp = Sym.NewSym(Tab::Nt, @token.val, @token.line)
+                                       sym = Sym.Sym(sp)
                                    else 
-                                       sym = Tab.Sym(sp)
+                                       sym = Sym.Sym(sp)
                                        if (sym.typ==Tab::Nt) then
                                            if (sym.struct > 0) then
 						SemErr(7)
@@ -824,11 +824,11 @@ end
 		if (Tab.ddt[2]) then
 				     Tab.PrintGraph()
 				   end
-                                   Tab.gramSy = Tab.FindSym(gramName)
+                                   Tab.gramSy = Sym.FindSym(gramName)
                                    if (Tab.gramSy==Tab::NoSym) then
 				       SemErr(11)
                                    else
-                                       sym = Tab.Sym(Tab.gramSy)
+                                       sym = Sym.Sym(Tab.gramSy)
                                        unless (sym.attrPos.nil?) then
 				         SemErr(12)
 				       end

@@ -8,4 +8,14 @@ class Module
       EOS
     }
   end
+  def move_methods (cls, *attrs)
+    attrs.each {|attr|
+      module_eval(<<-EOS)
+        def self.#{attr}(*args)
+	  $stderr.puts "WARNING: #{cls}.#{attr} called from " + caller[0]
+          #{cls}.#{attr}(*args)
+        end
+      EOS
+    }
+  end
 end 

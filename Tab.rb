@@ -1,11 +1,30 @@
 
 require "module-hack"
 
+def assert(cond, n)
+  if (!cond) then
+    $stderr.puts("-- SymTab fatal error ")
+    case (n)
+    when 3 
+      $stderr.puts("-- too many nodes in graph")
+    when 4
+      $stderr.puts("-- too many sets")
+    when 6
+      $stderr.puts("-- too many symbols")
+    when 7
+      $stderr.puts("-- too many character classes")
+    end
+    $stderr.puts("Stack Trace = #{caller.join "\n"}")
+    exit(n)
+  end
+end
+
 class Position	 			# position of source code stretch (e.g. semantic action)
   attr_accessor :beg			# start relative to the beginning of the file
   attr_accessor :len			# length of stretch
   attr_accessor :col			# column number of start position
 
+  # REFACTOR: needs 3 args
   def initialize
     @beg = @len = @col = 0
   end
@@ -18,10 +37,12 @@ class Position	 			# position of source code stretch (e.g. semantic action)
   end
 end
 
+# REFACTOR: c# version has this folded into Sym(bol)
 class SymInfo
   attr_accessor :name
   attr_accessor :kind			# 0 = ident, 1 = string
 
+  # REFACTOR: needs 2 args
   def initialize
     @name = ""
     @kind = 0
@@ -35,6 +56,19 @@ end
 
 # RENAMED from Symbol
 class Sym
+
+  MaxSymbols   =  512	# max. no. of t, nt, and pragmas
+
+  # FIX: nuke me... use iterators for real
+  @@firstNt = MaxSymbols		# idx of first nt:available after CompSymbolSets
+  @@maxP = MaxSymbols			# pragmas stored from maxT+1 to maxP
+  @@maxT = -1				# terminals stored from 0 to maxT
+  @@sy = Array.new(MaxSymbols, :Sym)	# symbol table
+  @@lastNt = @@maxP - 1		# index of last nt: available after CompSymbolSets
+
+  # TODO: get rid of me
+  cls_attr_accessor :maxT, :firstNt, :sy, :maxP, :lastNt
+
   attr_accessor :typ			# t, nt, pr, unknown
   attr_accessor :name			# symbol name
   attr_accessor :struct			# nt: index of first node of syntax graph
@@ -47,6 +81,7 @@ class Sym
 					# nt: pos of local declarations in source text (or null)
   attr_accessor :line			# source text line number of item in this node
 
+  # REFACTOR: needs args (typ, name, line)
   def initialize # symbol
     @typ = @struct = @line = @struct = 0
     @deletable = @attrPos = @semPos = @line = nil
@@ -57,13 +92,94 @@ class Sym
     raise "Not implemented yet"
   end
 
+  # TODO: <=>
+
+  # TODO: this is totally unnecessary in ruby
+  def self.FindSym(name)
+
+    # TODO: make clean like this
+    # foreach (Symbol s in terminals)
+    # if (s.name == name) return s;
+    # foreach (Symbol s in nonterminals)
+    # if (s.name == name) return s;
+    # return null;
+    
+    # TODO: if @@maxT and Sym.firstNt are always side-by-side, this can become one each_with_index
+    # @@sy.each_with_index do |sym, i|
+    #   return i if name == sym.name
+    # end
+    i = 0
+    while (i <= @@maxT)
+      if (name == @@sy[i].name) then
+	return i
+      end
+      i += 1
+    end
+    i = Sym.firstNt
+    while (i < MaxSymbols)
+      if (name == @@sy[i].name) then
+	return i
+      end
+      i += 1
+    end
+    return Tab::NoSym
+  end
+
+  # REFACTOR: move to sym
+  def self.NewSym(typ, name, line)
+    s = nil
+    i = 0
+
+    assert(@@maxT+1 < Sym.firstNt, 6)
+
+    case typ 
+    when Tab::T
+      @@maxT += 1
+      i = @@maxT
+    when Tab::Pr
+      @@maxP -= 1
+      Sym.firstNt -= 1
+      @@lastNt -= 1
+      i = @@maxP
+    when Tab::Nt
+      Sym.firstNt -= 1
+      i = Sym.firstNt
+    end
+
+    assert(@@maxT+1 < Sym.firstNt, 6)
+
+#    puts "NewSym(#{typ}, #{name}, #{line})"
+
+    s = Sym.new()
+    s.typ = typ
+    s.name = name
+    s.line = line
+    @@sy[i] = s
+
+    return i
+  end
+
+  # TODO: make all Sym.sy[n] be Sym.Sym(n)
+  def self.Sym(i)
+    return @@sy[i]
+  end
+
   def to_s
     "<Symbol: name=#{@name}/retType=#{@retType.inspect}/retVar=#{@retVar.inspect}/attrPos:#{attrPos.inspect}>"
   end
   
 end
 
+# TODO: rename to Node
 class GraphNode
+
+  MaxNodes = 1500	# max. no. of graph nodes
+
+  @@gn = Array.new(MaxNodes, :GraphNode)	# grammar graph
+  @@nNodes = -1					# index of last graph node
+
+  cls_attr_accessor :gn, :nNodes # TODO: nuke me
+
   attr_accessor :typ			# t, nt, wt, chr, clas, any, eps, sem, sync, alt, iter, opt
   attr_accessor :next			# index of successor node
 					# next<0: to successor in enclosing structure
@@ -90,10 +206,51 @@ class GraphNode
     @state = nil
   end
 
+  def self.NewNode(typ, p1, line)
+    n = nil
+    @@nNodes += 1
+    assert(@@nNodes <= GraphNode::MaxNodes, 3)
+    n = GraphNode.new
+    n.typ = typ
+    n.p1 = p1
+    n.line = line
+    @@gn[@@nNodes] = n
+
+    return @@nNodes
+  end
+
   def ==(o)
     raise "Not implemented yet"
   end
   
+  def self.Node(i)
+    return @@gn[i]
+  end
+
+  def self.DelGraph(p)
+    n = nil
+    return true if p == 0 # end of graph found
+    n = Node(p)
+    return DelNode(n) && DelGraph(n.next.abs)
+  end
+
+  def self.DelAlt(p)
+    n = nil
+    return true if p <= 0 # end of graph found
+    n = Node(p)
+    return DelNode(n) && DelAlt(n.next)
+  end
+
+  def self.DelNode(n)
+    if (n.typ==Tab::Nt) then
+      return Sym.sy[n.p1].deletable
+    elsif (n.typ==Tab::Alt) then
+      return DelAlt(n.p1) || n.p2!=0 && DelAlt(n.p2)
+    else
+      return n.typ==Tab::Eps || n.typ==Tab::Iter || n.typ==Tab::Opt || n.typ==Tab::Sem || n.typ==Tab::Sync
+    end
+  end
+
 end
 
 class FirstSet
@@ -193,12 +350,11 @@ end
 class Tab
 
   # --- constants ---
-  MaxSymbols   =  512	# max. no. of t, nt, and pragmas
   MaxTerminals =  256	# max. no. of terminals
-  MaxNodes     = 1500	# max. no. of graph nodes
   MaxSetNr     =  128	# max. no. of symbol sets
   MaxClasses   =  150	# max. no. of character classes
 
+  # REFACTOR: move to node
   T    = 1				# node kinds
   Pr   = 2
   Nt   = 3
@@ -225,23 +381,16 @@ class Tab
 
   # --- variables ---
   @@maxSet = nil				# index of last set
-  @@maxT = nil					# terminals stored from 0 to maxT
-  @@maxP = nil					# pragmas stored from maxT+1 to maxP
-  @@firstNt = nil				# index of first nt: available after CompSymbolSets
-  @@lastNt = nil				# index of last nt: available after CompSymbolSets
   @@maxC = nil					# index of last character class
 ## TODO: convert usage to @@
   @@semDeclPos = nil				# position of global semantic declarations
   @@importPos = nil				# position of imported identifiers
   @@ignored = nil				# characters ignored by the scanner
   @@ddt = Array.new(10, false)			# debug and test switches
-  @@nNodes = nil				# index of last graph node
   @@gramSy = 0					# root nonterminal filled by ATG
 
-  @@sy = Array.new(MaxSymbols, :Sym)		# symbol table
-  @@gn = Array.new(MaxNodes, :GraphNode)	# grammar graph
-  @@first = nil # FirstSet[]			# first[i] = start symbols of sy[i+@@firstNt]
-  @@follow = nil #  FollowSet[] 		# follow[i] = followers of sy[i+@@firstNt]
+  @@first = nil # FirstSet[]			# first[i] = start symbols of sy[i+Sym.firstNt]
+  @@follow = nil #  FollowSet[] 		# follow[i] = followers of sy[i+Sym.firstNt]
   @@chClass = Array.new(MaxClasses)#CharClass[] # character classes
 
   @@set = Array.new(128) # new BitSet[128]	# set[0] = union of all synchr. sets
@@ -256,7 +405,7 @@ class Tab
 
   # I'm only adding these as they get used and fubar something
   cls_attr_accessor :ignored, :semDeclPos, :nNodes, :gramSy, :firstNt, :lastNt
-  cls_attr_accessor :ddt, :maxT, :maxP, :maxC, :set, :chClass
+  cls_attr_accessor :ddt, :maxP, :maxC, :set, :chClass
 
   def initialize
     raise "Not implemented yet"
@@ -265,24 +414,6 @@ class Tab
   def ==(o)
     raise "Not implemented yet"
   end
-  
-  def self.Assert(cond, n)
-    if (!cond) then
-      $stderr.puts("-- SymTab fatal error ")
-      case (n)
-      when 3 
-	  $stderr.puts("-- too many nodes in graph")
-      when 4
-	  $stderr.puts("-- too many sets")
-      when 6
-	  $stderr.puts("-- too many symbols")
-      when 7
-	  $stderr.puts("-- too many character classes")
-      end
-      $stderr.puts("Stack Trace = #{caller.join "\n"}")
-      exit(n)
-    end
-  end
 
   def self.Init
     @@err = Scanner.err
@@ -290,128 +421,50 @@ class Tab
     @@set[0] = BitSet.new()
     @@set[0].set(EofSy)
 
-    @@maxT = -1
-    @@maxP = MaxSymbols
-    @@firstNt = MaxSymbols
-    @@lastNt = @@maxP - 1
     @@dummyName = 0
     @@maxC = -1
-    @@nNodes = -1
-    dummy = NewNode(0, 0, 0) # fills slot zero
+    dummy = GraphNode.NewNode(0, 0, 0) # fills slot zero
   end
 
   # ---------------------------------------------------------------------
   # Symbol table management
   # ---------------------------------------------------------------------
 
-  def self.NewSym(typ, name, line)
-    s = nil
-    i = 0
-
-    self.Assert(@@maxT+1 < @@firstNt, 6)
-
-    case typ 
-    when T
-      @@maxT += 1
-      i = @@maxT
-    when Pr
-      @@maxP -= 1
-      @@firstNt -= 1
-      @@lastNt -= 1
-      i = @@maxP
-    when Nt
-      @@firstNt -= 1
-      i = @@firstNt
-    end
-
-    self.Assert(@@maxT+1 < @@firstNt, 6)
-
-#    puts "NewSym(#{typ}, #{name}, #{line})"
-
-    s = Sym.new()
-    s.typ = typ
-    s.name = name
-    s.line = line
-    @@sy[i] = s
-
-    return i
-  end
-
-  def self.Sym(i)
-    return @@sy[i]
-  end
-
-  # TODO: this is totally unnecessary in ruby
-  def self.FindSym(name)
-    i = 0
-    while (i <= @@maxT)
-      if (name == @@sy[i].name) then
-	return i
-      end
-      i += 1
-    end
-    i = @@firstNt
-    while (i < MaxSymbols)
-      if (name == @@sy[i].name) then
-	return i
-      end
-      i += 1
-    end
-    return NoSym
-  end
-
   # ---------------------------------------------------------------------
   #   topdown graph management
   # ---------------------------------------------------------------------
 
-  def self.NewNode(typ, p1, line)
-    n = nil
-    @@nNodes += 1
-    self.Assert(@@nNodes <= MaxNodes, 3)
-    n = GraphNode.new
-    n.typ = typ
-    n.p1 = p1
-    n.line = line
-    @@gn[@@nNodes] = n
-
-    return @@nNodes
-  end
-
-  def self.Node(i)
-    return @@gn[i]
-  end
-
   def self.CompleteGraph(p)
     while (p != 0) do
-      q = @@gn[p].next
-      @@gn[p].next = 0
+      q = GraphNode.gn[p].next
+      GraphNode.gn[p].next = 0
       p = q
     end
   end
 
   def self.Alternative(g1, g2)
     p = 0
-    g2.l = NewNode(Alt, g2.l, 0)
+    g2.l = GraphNode.NewNode(Alt, g2.l, 0)
     p = g1.l
-    while (@@gn[p].p2 != 0) do
-      p = @@gn[p].p2
+    while (GraphNode.gn[p].p2 != 0) do
+      p = GraphNode.gn[p].p2
     end
-    @@gn[p].p2 = g2.l
+    GraphNode.gn[p].p2 = g2.l
     p = g1.r 
-    while (@@gn[p].next != 0) do
-      p = @@gn[p].next
+    while (GraphNode.gn[p].next != 0) do
+      p = GraphNode.gn[p].next
     end
-    @@gn[p].next = g2.r
+    GraphNode.gn[p].next = g2.r
     return g1
   end
 
   def self.Sequence(g1, g2)
     p = q = 0
-    p = @@gn[g1.r].next
-    @@gn[g1.r].next = g2.l # head node
+    p = GraphNode.gn[g1.r].next
+    GraphNode.gn[g1.r].next = g2.l # head node
     while (p != 0) do # substructure
-      q = @@gn[p].next
-      @@gn[p].next = -g2.l
+      q = GraphNode.gn[p].next
+      GraphNode.gn[p].next = -g2.l
       p = q
     end
     g1.r = g2.r
@@ -419,28 +472,28 @@ class Tab
   end
 
   def self.FirstAlt(g)
-    g.l = NewNode(Alt, g.l, 0)
-    @@gn[g.l].next = g.r
+    g.l = GraphNode.NewNode(Alt, g.l, 0)
+    GraphNode.gn[g.l].next = g.r
     g.r = g.l
     return g
   end
 
   def self.Iteration(g)
     p = q = 0
-    g.l = NewNode(Iter, g.l, 0) # TODO: find all NewNode and cap 1st arg
+    g.l = GraphNode.NewNode(Iter, g.l, 0) # TODO: find all NewNode and cap 1st arg
     p = g.r
     g.r = g.l
     while (p != 0) do
-      q = @@gn[p].next
-      @@gn[p].next = -g.l
+      q = GraphNode.gn[p].next
+      GraphNode.gn[p].next = -g.l
       p = q
     end
     return g
   end
 
   def self.Option(g)
-    g.l = NewNode(Opt, g.l, 0)
-    @@gn[g.l].next = g.r
+    g.l = GraphNode.NewNode(Opt, g.l, 0)
+    GraphNode.gn[g.l].next = g.r
     g.r = g.l
     return g
   end
@@ -450,37 +503,13 @@ class Tab
     g = Graph.new
     i = 1
     while (i<len) do
-      @@gn[g.r].next = NewNode(Chr, s[i], 0)
-      g.r = @@gn[g.r].next
+      GraphNode.gn[g.r].next = GraphNode.NewNode(Chr, s[i], 0)
+      g.r = GraphNode.gn[g.r].next
       i += 1
     end
-      g.l = @@gn[0].next
-      @@gn[0].next = 0
+      g.l = GraphNode.gn[0].next
+      GraphNode.gn[0].next = 0
     return g
-  end
-
-  def self.DelGraph(p)
-    n = nil
-    return true if p == 0 # end of graph found
-    n = Node(p)
-    return DelNode(n) && DelGraph(n.next.abs)
-  end
-
-  def self.DelAlt(p)
-    n = nil
-    return true if p <= 0 # end of graph found
-    n = Node(p)
-    return DelNode(n) && DelAlt(n.next)
-  end
-
-  def self.DelNode(n)
-    if (n.typ==Nt) then
-      return @@sy[n.p1].deletable
-    elsif (n.typ==Alt) then
-      return DelAlt(n.p1) || n.p2!=0 && DelAlt(n.p2)
-    else
-      return n.typ==Eps || n.typ==Iter || n.typ==Opt || n.typ==Sem || n.typ==Sync
-    end
   end
 
   def self.PrintGraph
@@ -490,7 +519,7 @@ class Tab
     Trace.println("Graph:")
     Trace.println("  nr typ  next   p1   p2 line")
     for i in 1..nNodes do
-      n = Node(i)
+      n = GraphNode.Node(i)
       s = sprintf("%4d %s%5d%5d%5d%5d", i, @@nTyp[n.typ], n.next, n.p1, n.p2, n.line)
       Trace.println(s)
     end
@@ -505,7 +534,7 @@ class Tab
   def self.NewClass(name, s)
     c = nil
     @@maxC += 1
-    Assert(@@maxC < MaxClasses, 7)
+    assert(@@maxC < MaxClasses, 7)
     if (name == "#") then
       name = "#" + (?A + @@dummyName).chr
       @@dummyName += 1
@@ -552,10 +581,10 @@ class Tab
   def self.PrintSet(s, indent)
     i = len = 0
     col = indent
-    for i in 0..@@maxT do
+    for i in 0..Sym.maxT do
       if (s.get(i)) then
-	len = @@sy[i].name.length
-	Trace.print(@@sy[i].name + "  ")
+	len = Sym.sy[i].name.length
+	Trace.print(Sym.sy[i].name + "  ")
 	col += len + 1
       end
     end
@@ -569,7 +598,7 @@ class Tab
     
   def self.NewSet(s)
     @@maxSet += 1
-    Assert(@@maxSet <= MaxSetNr, 4)
+    assert(@@maxSet <= MaxSetNr, 4)
     @@set[@@maxSet] = s
     return @@maxSet
   end
@@ -584,15 +613,15 @@ class Tab
     fs = BitSet.new
 
     while (p!=0 && !mark.get(p)) do
-      n = self.Node(p)
+      n = GraphNode.Node(p)
       mark.set(p)
 		 
       case (n.typ)
       when Nt then
-	if (@@first[n.p1-@@firstNt].ready) then
-	  fs.or(@@first[n.p1-@@firstNt].ts)
+	if (@@first[n.p1-Sym.firstNt].ready) then
+	  fs.or(@@first[n.p1-Sym.firstNt].ts)
 	else 
-	  fs.or(self.First0(@@sy[n.p1].struct, mark))
+	  fs.or(self.First0(Sym.sy[n.p1].struct, mark))
 	end
       when T, Wt then
 	fs.set(n.p1)
@@ -604,7 +633,7 @@ class Tab
 	  fs.or(self.First0(n.p2, mark))
 	end
       end
-      if (!self.DelNode(n)) then
+      if (!GraphNode.DelNode(n)) then
 	break
       end
       p = n.next.abs
@@ -624,19 +653,19 @@ class Tab
 
   def self.CompFirstSets
     s = nil
-    i = @@firstNt
-    while (i<=@@lastNt) do
+    i = Sym.firstNt
+    while (i<=Sym.lastNt) do
       s = FirstSet.new()
       s.ts = BitSet.new()
       s.ready = false
-      @@first[i-@@firstNt] = s
+      @@first[i-Sym.firstNt] = s
       i += 1
     end
 
-    i = @@firstNt
-    while (i <= @@lastNt) do
-      @@first[i-@@firstNt].ts = self.First(@@sy[i].struct)
-      @@first[i-@@firstNt].ready = true
+    i = Sym.firstNt
+    while (i <= Sym.lastNt) do
+      @@first[i-Sym.firstNt].ts = self.First(Sym.sy[i].struct)
+      @@first[i-Sym.firstNt].ready = true
       i += 1
     end
   end
@@ -644,13 +673,13 @@ class Tab
   def self.CompFollow(p)
     n = s = nil
     while (p>0 && !@@visited.get(p)) do
-      n = Node(p)
+      n = GraphNode.Node(p)
       @@visited.set(p)
       if (n.typ==Nt) then
 	s = First(n.next.abs)
-	@@follow[n.p1-@@firstNt].ts.or(s)
-	if (DelGraph(n.next.abs)) then
-	  @@follow[n.p1-@@firstNt].nts.set(@@curSy-@@firstNt)
+	@@follow[n.p1-Sym.firstNt].ts.or(s)
+	if (GraphNode.DelGraph(n.next.abs)) then
+	  @@follow[n.p1-Sym.firstNt].nts.set(@@curSy-Sym.firstNt)
 	end
       elsif (n.typ==Opt || n.typ==Iter) then
 	CompFollow(n.p1)
@@ -666,7 +695,7 @@ class Tab
     if (!@@visited.get(i)) then
       @@visited.set(i)
       j = 0
-      while (j<=@@lastNt-@@firstNt) do # for all nonterminals
+      while (j<=Sym.lastNt-Sym.firstNt) do # for all nonterminals
 	if (@@follow[i].nts.get(j)) then
 	  Complete(j)
 	  @@follow[i].ts.or(@@follow[j].ts)
@@ -681,25 +710,25 @@ class Tab
 
   def self.CompFollowSets
     s = nil
-    @@curSy = @@firstNt
-    while (@@curSy<=@@lastNt) do
+    @@curSy = Sym.firstNt
+    while (@@curSy<=Sym.lastNt) do
       s = FollowSet.new()
       s.ts = BitSet.new()
       s.nts = BitSet.new()
-      @@follow[@@curSy-@@firstNt] = s
+      @@follow[@@curSy-Sym.firstNt] = s
       @@curSy += 1
     end
 
     @@visited = BitSet.new()
 
-    @@curSy = @@firstNt
-    while (@@curSy<=@@lastNt) do # get direct successors of nonterminals
-      CompFollow(@@sy[@@curSy].struct)
+    @@curSy = Sym.firstNt
+    while (@@curSy<=Sym.lastNt) do # get direct successors of nonterminals
+      CompFollow(Sym.sy[@@curSy].struct)
       @@curSy += 1
     end
 
     @@curSy = 0
-    while (@@curSy<=@@lastNt-@@firstNt) do # add indirect successors to follow.ts
+    while (@@curSy<=Sym.lastNt-Sym.firstNt) do # add indirect successors to follow.ts
       @@visited = BitSet.new()
       Complete(@@curSy)
       @@curSy += 1
@@ -713,7 +742,7 @@ class Tab
       return nil
     end
 
-    n = Node(p)
+    n = GraphNode.Node(p)
 
     if (n.typ==Any) then
       a = n
@@ -724,7 +753,7 @@ class Tab
       end
     elsif (n.typ==Opt || n.typ==Iter) then
       a = LeadingAny(n.p1)
-    elsif (DelNode(n)) then
+    elsif (GraphNode.DelNode(n)) then
       a = LeadingAny(n.next)
     end
 
@@ -736,7 +765,7 @@ class Tab
     q = 0
 
     while (p > 0) do
-      n = Node(p)
+      n = GraphNode.Node(p)
       if (n.typ==Opt || n.typ==Iter) then
 	FindAS(n.p1)
 	a = LeadingAny(n.p1)
@@ -748,7 +777,7 @@ class Tab
 	s1 = BitSet.new()
 	q = p
 	while (q != 0) do
-	  nod = Node(q)
+	  nod = GraphNode.Node(q)
 	  FindAS(nod.p1)
 	  a = LeadingAny(nod.p1)
 	  unless (a.nil?) then
@@ -766,17 +795,17 @@ class Tab
   end
 
   def self.CompAnySets()
-    @@curSy = @@firstNt
-    while (@@curSy<=@@lastNt) do
-      FindAS(@@sy[@@curSy].struct)
+    @@curSy = Sym.firstNt
+    while (@@curSy<=Sym.lastNt) do
+      FindAS(Sym.sy[@@curSy].struct)
       @@curSy += 1
     end
   end
 
   def self.Expected(p, sp)
     s = First(p)
-    if (DelGraph(p)) then
-      s.or(@@follow[sp-@@firstNt].ts)
+    if (GraphNode.DelGraph(p)) then
+      s.or(@@follow[sp-Sym.firstNt].ts)
     end
     return s
   end
@@ -784,7 +813,7 @@ class Tab
   def self.CompSync(p)
     n = s = nil
     while (p > 0 && !@@visited.get(p)) do
-      n = Node(p)
+      n = GraphNode.Node(p)
       @@visited.set(p)
       if (n.typ==Sync) then
 	s = Expected(n.next.abs, @@curSy)
@@ -803,9 +832,9 @@ class Tab
 
   def self.CompSyncSets
     @@visited = BitSet.new()
-    @@curSy = @@firstNt
-    while (@@curSy <= @@lastNt) do
-      CompSync(@@sy[@@curSy].struct)
+    @@curSy = Sym.firstNt
+    while (@@curSy <= Sym.lastNt) do
+      CompSync(Sym.sy[@@curSy].struct)
       @@curSy += 1
     end
   end
@@ -816,19 +845,19 @@ class Tab
     begin
       changed = false
 
-      i = @@firstNt
-      while (i<=@@lastNt) do
-	if (!@@sy[i].deletable && DelGraph(@@sy[i].struct)) then
-	  @@sy[i].deletable = true
+      i = Sym.firstNt
+      while (i<=Sym.lastNt) do
+	if (!Sym.sy[i].deletable && GraphNode.DelGraph(Sym.sy[i].struct)) then
+	  Sym.sy[i].deletable = true
 	  changed = true
 	end
 	i += 1
       end
     end while (changed)
 
-    for i in @@firstNt..@@lastNt do
-      if (@@sy[i].deletable) then
-	puts("  " + @@sy[i].name + " deletable") # FIX
+    for i in Sym.firstNt..Sym.lastNt do
+      if (Sym.sy[i].deletable) then
+	puts("  " + Sym.sy[i].name + " deletable") # FIX
 	$stdout.flush
       end
       i += 1
@@ -836,26 +865,26 @@ class Tab
   end
 
   def self.MovePragmas
-    if (@@maxP > @@firstNt) then
-      @@maxP = @@maxT
-      i = MaxSymbols - 1
-      while (i > @@lastNt) do
-	@@maxP += 1
-	Assert(@@maxP < @@firstNt, 6)
-	@@sy[@@maxP] = @@sy[i]
+    if (Sym.maxP > Sym.firstNt) then
+      Sym.maxP = Sym.maxT
+      i = Sym::MaxSymbols - 1
+      while (i > Sym.lastNt) do
+	Sym.maxP += 1
+	assert(Sym.maxP < Sym.firstNt, 6)
+	Sym.sy[Sym.maxP] = Sym.sy[i]
 	i -= 1
       end
     end
   end
 
   def self.CompSymbolSets
-    i = self.NewSym(T, "???", 0)
-    # unknown symbols get code @@maxT
+    i = Sym.NewSym(T, "???", 0)
+    # unknown symbols get code Sym.maxT
     MovePragmas()
     CompDeletableSymbols()
 
-    @@first = Array.new(@@lastNt-@@firstNt+1)
-    @@follow = Array.new(@@lastNt-@@firstNt+1)
+    @@first = Array.new(Sym.lastNt-Sym.firstNt+1)
+    @@follow = Array.new(Sym.lastNt-Sym.firstNt+1)
 
     CompFirstSets()
     CompFollowSets()
@@ -864,13 +893,13 @@ class Tab
     if (@@ddt[1]) then
       Trace.println("First & follow symbols:")
 
-      i = @@firstNt
-      while (i<=@@lastNt) do
-	Trace.println(@@sy[i].name)
+      i = Sym.firstNt
+      while (i<=Sym.lastNt) do
+	Trace.println(Sym.sy[i].name)
 	Trace.print("first:   ")
-	PrintSet(@@first[i-@@firstNt].ts, 10)
+	PrintSet(@@first[i-Sym.firstNt].ts, 10)
 	Trace.print("follow:  ")
-	PrintSet(@@follow[i-@@firstNt].ts, 10)
+	PrintSet(@@follow[i-Sym.firstNt].ts, 10)
 	Trace.println()
 	i += 1
       end
@@ -900,14 +929,14 @@ class Tab
 
     return if p <= 0 # end of graph
 
-    n = Node(p)
+    n = GraphNode.Node(p)
 
     if (n.typ==Nt) then
-      if (DelGraph(n.next.abs)) then
+      if (GraphNode.DelGraph(n.next.abs)) then
 	singles.set(n.p1)
       end
     elsif (n.typ==Alt || n.typ==Iter || n.typ==Opt) then
-      if (DelGraph(n.next.abs)) then
+      if (GraphNode.DelGraph(n.next.abs)) then
 	GetSingles(n.p1, singles)
 	if (n.typ==Alt) then
 	  GetSingles(n.p2, singles)
@@ -915,7 +944,7 @@ class Tab
       end
     end
 
-    if (DelNode(n)) then
+    if (GraphNode.DelNode(n)) then
       GetSingles(n.next, singles)
     end
   end
@@ -926,11 +955,11 @@ class Tab
     x = singles = sym = nil
     i = j = len = 0
 
-    for i in @@firstNt..@@lastNt do
+    for i in Sym.firstNt..Sym.lastNt do
       singles = BitSet.new()
-      GetSingles(@@sy[i].struct, singles)
+      GetSingles(Sym.sy[i].struct, singles)
       # get nts such that i-->j
-      for j in @@firstNt..@@lastNt do
+      for j in Sym.firstNt..Sym.lastNt do
 	if (singles.get(j)) then
 	  x = CNode.new
 	  x.left = i
@@ -969,7 +998,7 @@ class Tab
     for i in 0...len do
       if (!list[i].deleted) then
 	ok = false
-	puts("  "+@@sy[list[i].left].name+" --> "+@@sy[list[i].right].name)
+	puts("  "+Sym.sy[list[i].left].name+" --> "+Sym.sy[list[i].right].name)
       end
     end
 
@@ -977,8 +1006,8 @@ class Tab
   end
 
   def self.LL1Error(cond, ts)
-    print("  LL1 warning in " + @@sy[@@curSy].name + ": ")
-    print(@@sy[ts].name + " is ") if (ts > 0)
+    print("  LL1 warning in " + Sym.sy[@@curSy].name + ": ")
+    print(Sym.sy[ts].name + " is ") if (ts > 0)
 
     case cond
     when 1
@@ -994,7 +1023,7 @@ class Tab
   def self.Overlap(s1, s2, cond)
     overlap = false
 
-    for i in 0..@@maxT do
+    for i in 0..Sym.maxT do
       if (s1.get(i) && s2.get(i)) then
 	LL1Error(cond, i)
 	overlap = true
@@ -1010,12 +1039,12 @@ class Tab
     q = 0
 
     while (p > 0) do
-      n = Node(p)
+      n = GraphNode.Node(p)
       if (n.typ==Alt) then
 	q = p
 	s1 = BitSet.new()
 	while (q != 0) do # for all alternatives
-	  a = Node(q)
+	  a = GraphNode.Node(q)
 	  s2 = Expected(a.p1, @@curSy)
 	  overlap = true if (Overlap(s1, s2, 1)) 
 	  s1.or(s2)
@@ -1042,8 +1071,8 @@ class Tab
 
   def self.LL1()
     ll1 = true
-    for @@curSy in @@firstNt..@@lastNt do
-      ll1 = false if (AltOverlap(@@sy[@@curSy].struct)) 
+    for @@curSy in Sym.firstNt..Sym.lastNt do
+      ll1 = false if (AltOverlap(Sym.sy[@@curSy].struct)) 
     end
     return ll1
   end
@@ -1051,10 +1080,10 @@ class Tab
   def self.NtsComplete
     complete = true
     
-    for i in @@firstNt..@@lastNt do
-      if (@@sy[i].struct==0) then
+    for i in Sym.firstNt..Sym.lastNt do
+      if (Sym.sy[i].struct==0) then
 	complete = false
-	puts("  No production for " + @@sy[i].name)
+	puts("  No production for " + Sym.sy[i].name)
       end
     end
 
@@ -1065,11 +1094,11 @@ class Tab
     n = nil
 
     while (p > 0) do
-      n = Node(p)
+      n = GraphNode.Node(p)
       if (n.typ==Nt) then
 	if (!@@visited.get(n.p1)) then # new nt reached
 	  @@visited.set(n.p1)
-	  MarkReachedNts(@@sy[n.p1].struct)
+	  MarkReachedNts(Sym.sy[n.p1].struct)
 	end
       elsif (n.typ==Alt || n.typ==Iter || n.typ==Opt) then
 	MarkReachedNts(n.p1)
@@ -1085,12 +1114,12 @@ class Tab
     @@visited = BitSet.new()
     @@visited.set(@@gramSy)
 
-    MarkReachedNts(Sym(@@gramSy).struct)
+    MarkReachedNts(Sym.Sym(@@gramSy).struct)
 
-    for i in @@firstNt..@@lastNt do
+    for i in Sym.firstNt..Sym.lastNt do
       if (!@@visited.get(i)) then
 	ok = false
-	puts("  " + @@sy[i].name + " cannot be reached")
+	puts("  " + Sym.sy[i].name + " cannot be reached")
       end
     end
     return ok
@@ -1100,7 +1129,7 @@ class Tab
     n = nil
 
     while (p > 0) do
-      n = Node(p)
+      n = GraphNode.Node(p)
       return false if (n.typ==Nt && !@@termNt.get(n.p1))
       return false if (n.typ==Alt && !Term(n.p1) && (n.p2==0 || !Term(n.p2)))
       p = n.next
@@ -1117,18 +1146,18 @@ class Tab
 
     begin
       changed = false
-      for i in @@firstNt..@@lastNt do
-	if (!@@termNt.get(i) && Term(@@sy[i].struct)) then
+      for i in Sym.firstNt..Sym.lastNt do
+	if (!@@termNt.get(i) && Term(Sym.sy[i].struct)) then
 	  @@termNt.set(i)
 	  changed = true
 	end
       end
     end while changed
 
-    for i in @@firstNt..@@lastNt do
+    for i in Sym.firstNt..Sym.lastNt do
       if (!@@termNt.get(i)) then
 	ok = false
-	puts "  " + @@sy[i].name + "cannot be derived to terminals"
+	puts "  " + Sym.sy[i].name + "cannot be derived to terminals"
       end
     end
 
@@ -1145,25 +1174,25 @@ class Tab
     Trace.println(" nr name       typ  hasAt struct del   line")
     Trace.println()
     i = 0
-    while (i < MaxSymbols) do
-      Trace.print(sprintf("%3d %-10.10s %s", i, @@sy[i].name, @@nTyp[@@sy[i].typ]))
-      if (@@sy[i].attrPos==nil) then
+    while (i < Sym::MaxSymbols) do
+      Trace.print(sprintf("%3d %-10.10s %s", i, Sym.sy[i].name, @@nTyp[Sym.sy[i].typ]))
+      if (Sym.sy[i].attrPos==nil) then
 	Trace.print(" false ")
       else
 	Trace.print(" true  ")
       end
 
-      Trace.print(sprintf("%5d", @@sy[i].struct))
-      if (@@sy[i].deletable) then
+      Trace.print(sprintf("%5d", Sym.sy[i].struct))
+      if (Sym.sy[i].deletable) then
 	Trace.print(" true  ")
       else
 	Trace.print(" false ")
       end
 
-      Trace.println(sprintf("%5d", @@sy[i].line))
+      Trace.println(sprintf("%5d", Sym.sy[i].line))
 
-      if (i==@@maxT) then
-	i = @@firstNt
+      if (i==Sym.maxT) then
+	i = Sym.firstNt
       else
 	i += 1
       end
@@ -1174,17 +1203,17 @@ class Tab
   def self.XRef
 
     sym = n = p = q = x = nil
-    list = Array.new(@@lastNt + 1) # XNode[] list = new XNode[@@lastNt+1]
+    list = Array.new(Sym.lastNt + 1) # XNode[] list = new XNode[Sym.lastNt+1]
     i = col = 0
     
-    return if (@@maxT <= 0) 
+    return if (Sym.maxT <= 0) 
 
     MovePragmas()
 
     # search lines where symbol has been referenced
     i = @@nNodes
     while (i>=1) do
-      n = Node(i);
+      n = GraphNode.Node(i);
       if (n.typ==T || n.typ==Wt || n.typ==Nt) then
 	p = XNode.new();
 	p.line = n.line;
@@ -1196,8 +1225,8 @@ class Tab
 
     # search lines where symbol has been defined and insert in order
     i = 1;
-    while (i <= @@lastNt) do
-      sym = Sym(i);
+    while (i <= Sym.lastNt) do
+      sym = Sym.Sym(i);
       p = list[i];
       q = nil;
       while (p != nil && sym.line > p.line) do
@@ -1212,8 +1241,8 @@ class Tab
       else 
 	q.next = x;
       end
-      if (i==@@maxP) then
-	i = @@firstNt;
+      if (i==Sym.maxP) then
+	i = Sym.firstNt;
       else 
 	i += 1
       end
@@ -1227,8 +1256,8 @@ class Tab
     Trace.println("  0 EOF");
     i = 1;
 
-    while (i <= @@lastNt) do
-      Trace.print(sprintf("%3d %s  ", i, @@sy[i].name))
+    while (i <= Sym.lastNt) do
+      Trace.print(sprintf("%3d %s  ", i, Sym.sy[i].name))
       p = list[i];
       col = 25;
       while (p != nil) do
@@ -1246,14 +1275,14 @@ class Tab
 	p = p.next;
       end
       Trace.println();
-      if (i==@@maxT) then
+      if (i==Sym.maxT) then
 	Trace.println();
 	Trace.println("Pragmas:");
       end
-      if (i==@@maxP) then
+      if (i==Sym.maxP) then
 	Trace.println();
 	Trace.println("Nonterminals:");
-	i = @@firstNt;
+	i = Sym.firstNt;
       else
 	i += 1
       end

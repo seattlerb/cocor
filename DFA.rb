@@ -367,7 +367,7 @@ class Comment				# info about comment syntax
     set = nil
 
     while (p != 0) do
-      n = Tab.Node(p)
+      n = GraphNode.Node(p)
 
       if (n.typ==Tab::Chr) then
 	s << n.p1.chr
@@ -609,7 +609,7 @@ class DFA
       state = self.NewState()
       state.endOf = @@curSy
     else
-      state = Tab.Node(p).state
+      state = GraphNode.Node(p).state
     end
     return state
   end
@@ -619,7 +619,7 @@ class DFA
     return if p == 0
 
     stepped.set(p)
-    n = Tab.Node(p)
+    n = GraphNode.Node(p)
 
     case (n.typ)
     when Tab::Clas, Tab::Chr then
@@ -643,7 +643,7 @@ class DFA
 
     return if p == 0
 
-    n = Tab.Node(p)
+    n = GraphNode.Node(p)
 
     return unless n.state.nil? # already visited
 
@@ -653,7 +653,7 @@ class DFA
 
     n.state = state
 
-    if (Tab.DelGraph(p)) then
+    if (GraphNode.DelGraph(p)) then
       state.endOf = @@curSy
     end
 
@@ -675,7 +675,7 @@ class DFA
   def self.FindTrans (p, start, mark)
     return if p==0 || mark.get(p)
     mark.set(p)
-    n = Tab.Node(p)
+    n = GraphNode.Node(p)
 
     if (start) then
       Step(n.state, p, BitSet.new(512)) # start of group of equally numbered nodes
@@ -700,7 +700,7 @@ class DFA
     @@curGraph = p
     @@curSy = sp
 
-    if (Tab.DelGraph(@@curGraph)) then
+    if (GraphNode.DelGraph(@@curGraph)) then
       self.SemErr(20)
     end
 
@@ -1056,8 +1056,8 @@ class DFA
     # sort literal list (don't consider eofSy)
     k = 0
 
-    for i in 1..Tab.maxT do
-      sym = Tab.Sym(i)
+    for i in 1..Sym.maxT do
+      sym = Sym.Sym(i)
       if (sym.struct==Tab::LitToken) then
 	j = k-1
 	while (j>=0 && ((sym.name <=> key[j]) < 0)) do
@@ -1095,8 +1095,8 @@ class DFA
     ctxEnd = false
     endOf = state.endOf
 
-    if (endOf > Tab.maxT) then
-      endOf = Tab.maxT + Tab::MaxSymbols - endOf # pragmas have been moved
+    if (endOf > Sym.maxT) then
+      endOf = Sym.maxT + Sym::MaxSymbols - endOf # pragmas have been moved
     end
 
     @@gen.println("\t\t\t\twhen #{state.nr}")
@@ -1139,7 +1139,7 @@ class DFA
       else
 	@@gen.print("")
       end
-      sym = Tab.Sym(endOf)
+      sym = Sym.Sym(endOf)
       if (ctxEnd) then # final context state: cut appendix
 	@@gen.println()
 	@@gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length()")
@@ -1190,7 +1190,7 @@ class DFA
     startTab = Array.new(128, 0)
     ok = true
     s = com = nil
-    root = Tab.Sym(Tab.gramSy)
+    root = Sym.Sym(Tab.gramSy)
 
     begin
       @@fram = File.new(@@srcDir + "/Scanner.frame")
@@ -1211,7 +1211,7 @@ class DFA
     @@gen.println()
     @@gen.println("# HACK: package #{root.name};")
     CopyFramePart("-->declarations")
-    @@gen.println("\tprivate; @@noSym = #{Tab.maxT}; # FIX: make this a constant")
+    @@gen.println("\tprivate; @@noSym = #{Sym.maxT}; # FIX: make this a constant")
     @@gen.println("\tprivate; @@start = [")
     for i in 0...8 do
       for j in 0...16 do

@@ -13,12 +13,12 @@ COMPILER Coco
 	end
 	
 	private; def Parser.MatchLiteral(sp) # store string either as token or as literal
-		sym = Tab.Sym(sp)
+		sym = Sym.Sym(sp)
 		matchedSp = DFA.MatchedDFA(sym.name, sp)
 		if (matchedSp==Tab::NoSym)
 		  sym.struct = Tab::ClassToken
 		else 
-		  sym1 = Tab.Sym(matchedSp)
+		  sym1 = Sym.Sym(matchedSp)
 		  sym1.struct = Tab::ClassLitToken
 		  sym.struct = Tab::LitToken
 		end
@@ -26,7 +26,7 @@ COMPILER Coco
 	
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		while (p > 0)
-			n = Tab.Node(p)
+			n = GraphNode.Node(p)
 			if (n.typ==Tab::Chr || n.typ==Tab::Clas) then
 				n.p2 = Tab::ContextTrans
 			elsif (n.typ==Tab::Opt || n.typ==Tab::Iter) then
@@ -108,7 +108,7 @@ Coco                            (. gramLine = sp = eofSy = 0
 				.)
 =
   "COMPILER"                    (. gramLine = @token.line
-                                   eofSy = Tab.NewSym(Tab::T, "EOF", 0)
+                                   eofSy = Sym.NewSym(Tab::T, "EOF", 0)
                                    @@genScanner = true
                                    ok = true
                                    Tab.ignored = BitSet.new()
@@ -128,13 +128,13 @@ Coco                            (. gramLine = sp = eofSy = 0
 				   end
                                    Tab.nNodes = 0
 				.)
-  { ident                       (. sp = Tab.FindSym(@token.val)
+  { ident                       (. sp = Sym.FindSym(@token.val)
                                    undefined = sp == Tab::NoSym
                                    if (undefined) then
-                                       sp = Tab.NewSym(Tab::Nt, @token.val, @token.line)
-                                       sym = Tab.Sym(sp)
+                                       sp = Sym.NewSym(Tab::Nt, @token.val, @token.line)
+                                       sym = Sym.Sym(sp)
                                    else 
-                                       sym = Tab.Sym(sp)
+                                       sym = Sym.Sym(sp)
                                        if (sym.typ==Tab::Nt) then
                                            if (sym.struct > 0) then
 						SemErr(7)
@@ -167,11 +167,11 @@ Coco                            (. gramLine = sp = eofSy = 0
   }                             (. if (Tab.ddt[2]) then
 				     Tab.PrintGraph()
 				   end
-                                   Tab.gramSy = Tab.FindSym(gramName)
+                                   Tab.gramSy = Sym.FindSym(gramName)
                                    if (Tab.gramSy==Tab::NoSym) then
 				       SemErr(11)
                                    else
-                                       sym = Tab.Sym(Tab.gramSy)
+                                       sym = Sym.Sym(Tab.gramSy)
                                        unless (sym.attrPos.nil?) then
 				         SemErr(12)
 				       end
@@ -293,12 +293,12 @@ TokenDecl <int typ>             (. s = pos = g = nil
 				   sp = 0
 				 .)
 =
-  Symbol <^s>                   (. if (Tab.FindSym(s.name) != Tab::NoSym) then
+  Symbol <^s>                   (. if (Sym.FindSym(s.name) != Tab::NoSym) then
 				     SemErr(7)
 				     sp = 0
                                    else
-                                     sp = Tab.NewSym(typ, s.name, @token.line)
-                                     Tab.Sym(sp).struct = Tab::ClassToken
+                                     sp = Sym.NewSym(typ, s.name, @token.line)
+                                     Sym.Sym(sp).struct = Tab::ClassToken
                                    end
 				 .)
   SYNC
@@ -318,7 +318,7 @@ TokenDecl <int typ>             (. s = pos = g = nil
   [ SemText <^pos>              (. if (typ==Tab::T) then
 				     SemErr(14)
 				   end
-                                   Tab.Sym(sp).semPos = pos
+                                   Sym.Sym(sp).semPos = pos
 				 .)
   ].
 /*------------------------------------------------------------------------------------*/
@@ -401,7 +401,7 @@ Term<^Graph g>                  (. g2 = nil .)
     { Factor <^g2>              (. g = Tab.Sequence(g, g2) .)
     }
   |                             (. g = Graph.new()
-                                   g.l = Tab.NewNode(Tab::Eps, 0, 0)
+                                   g.l = GraphNode.NewNode(Tab::Eps, 0, 0)
                                    g.r = g.l
 				 .)
   ).
@@ -416,20 +416,20 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				 .)
 ( [ "WEAK"                      (. weak = true .)
   ]
-  Symbol <^s>                   (. sp = Tab.FindSym(s.name)
+  Symbol <^s>                   (. sp = Sym.FindSym(s.name)
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
-                                           sp = Tab.NewSym(Tab::Nt, s.name, 0) # forward nt
+                                           sp = Sym.NewSym(Tab::Nt, s.name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Tab.NewSym(Tab::T, s.name, @token.line)
+                                           sp = Sym.NewSym(Tab::T, s.name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
 					   sp = 0
                                        end
                                    end
-                                   sym = Tab.Sym(sp)
+                                   sym = Sym.Sym(sp)
 				   typ = sym.typ
                                    if (typ!=Tab::T && typ!=Tab::Nt) then
 				     SemErr(4)
@@ -441,9 +441,9 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				         SemErr(23)
 				       end
 				   end
-                                   g.l = Tab.NewNode(typ, sp, @token.line)
+                                   g.l = GraphNode.NewNode(typ, sp, @token.line)
 				   g.r = g.l
-                                   n = Tab.Node(g.l)
+                                   n = GraphNode.Node(g.l)
 				 .)
   [ Attribs <n>                 (. if (s.kind!=@@ident) then
     	    			     SemErr(3)
@@ -465,17 +465,17 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 | "(" Expression <^g> ")"
 | "[" Expression <^g> "]"       (. g = Tab.Option(g) .)
 | "{" Expression <^g> "}"       (. g = Tab.Iteration(g) .)
-| SemText <^pos>                (. g.l = Tab.NewNode(Tab::Sem, 0, 0)
+| SemText <^pos>                (. g.l = GraphNode.NewNode(Tab::Sem, 0, 0)
                                    g.r = g.l
-                                   n = Tab.Node(g.l)
+                                   n = GraphNode.Node(g.l)
 				   n.pos = pos
 				 .)
 | "ANY"                         (. set = Sets.FullSet(Tab::MaxTerminals)
                                    set.clear(Tab::EofSy)
-                                   g.l = Tab.NewNode(Tab::Any, Tab.NewSet(set), 0)
+                                   g.l = GraphNode.NewNode(Tab::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 .)
-| "SYNC"                        (. g.l = Tab.NewNode(Tab::Sync, 0, 0)
+| "SYNC"                        (. g.l = GraphNode.NewNode(Tab::Sync, 0, 0)
                                    g.r = g.l
 				 .)
 ).
@@ -517,7 +517,7 @@ TokenFactor <^Graph g>          (. name = s = nil
                                        SemErr(15)
                                        c = Tab.NewClass(s.name, BitSet.new())
                                      end
-                                     g.l = Tab.NewNode(Tab::Clas, c, 0)
+                                     g.l = GraphNode.NewNode(Tab::Clas, c, 0)
                                      g.r = g.l
                                    else # string
 				     g = Tab.StrToGraph(s.name)
