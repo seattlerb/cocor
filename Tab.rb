@@ -87,7 +87,8 @@ class GraphNode
   def initialize
     @typ = @next = @p1 = @p2 = @line = 0
     @pos = nil
-    @retVar = @state = ""
+    @retVar = ""
+    @state = nil
   end
 
   def ==(o)
