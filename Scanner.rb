@@ -81,7 +81,7 @@ class Scanner
   MAXCHR = 65535				# FIX: not ruby compatible
   SPACE = ' '[0]
 
-	private; @@noSym = 38; # FIX: make this a constant
+	private; @@noSym = 39; # FIX: make this a constant
 	private; @@start = [
  25,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -181,40 +181,40 @@ end
   def self.CheckLiteral
     case (@@t.val[0])
 			when ?A
-				if (@@t.val == "ANY") then; @@t.kind = 23
+				if (@@t.val == "ANY") then; @@t.kind = 24
 				end
 			when ?C
-				if (@@t.val == "CHARACTERS") then; @@t.kind = 10
-				elsif (@@t.val == "CHR") then; @@t.kind = 20
-				elsif (@@t.val == "COMMENTS") then; @@t.kind = 13
-				elsif (@@t.val == "COMPILER") then; @@t.kind = 5
-				elsif (@@t.val == "CONTEXT") then; @@t.kind = 35
+				if (@@t.val == "CHARACTERS") then; @@t.kind = 11
+				elsif (@@t.val == "CHR") then; @@t.kind = 21
+				elsif (@@t.val == "COMMENTS") then; @@t.kind = 14
+				elsif (@@t.val == "COMPILER") then; @@t.kind = 6
+				elsif (@@t.val == "CONTEXT") then; @@t.kind = 36
 				end
 			when ?E
-				if (@@t.val == "END") then; @@t.kind = 9
+				if (@@t.val == "END") then; @@t.kind = 10
 				end
 			when ?F
-				if (@@t.val == "FROM") then; @@t.kind = 14
+				if (@@t.val == "FROM") then; @@t.kind = 15
 				end
 			when ?I
-				if (@@t.val == "IGNORE") then; @@t.kind = 17
+				if (@@t.val == "IGNORE") then; @@t.kind = 18
 				end
 			when ?N
-				if (@@t.val == "NESTED") then; @@t.kind = 16
+				if (@@t.val == "NESTED") then; @@t.kind = 17
 				end
 			when ?P
-				if (@@t.val == "PRAGMAS") then; @@t.kind = 12
-				elsif (@@t.val == "PRODUCTIONS") then; @@t.kind = 6
+				if (@@t.val == "PRAGMAS") then; @@t.kind = 13
+				elsif (@@t.val == "PRODUCTIONS") then; @@t.kind = 7
 				end
 			when ?S
-				if (@@t.val == "SYNC") then; @@t.kind = 34
+				if (@@t.val == "SYNC") then; @@t.kind = 35
 				end
 			when ?T
-				if (@@t.val == "TO") then; @@t.kind = 15
-				elsif (@@t.val == "TOKENS") then; @@t.kind = 11
+				if (@@t.val == "TO") then; @@t.kind = 16
+				elsif (@@t.val == "TOKENS") then; @@t.kind = 12
 				end
 			when ?W
-				if (@@t.val == "WEAK") then; @@t.kind = 29
+				if (@@t.val == "WEAK") then; @@t.kind = 30
 				end
 
     end
@@ -244,26 +244,26 @@ end
 				when 1
 					if ((@@ch>=?0 && @@ch<=?9 || @@ch>=?A && @@ch<=?Z || @@ch>=?a && @@ch<=?z)) then
 					else
-@@t.kind = 1
+@@t.kind = 2
 @@t.val = buf.to_s; CheckLiteral()
 break
 end
 				when 2
-					@@t.kind = 2
+					@@t.kind = 3
 break
 				when 3
 					if ((@@ch>=?0 && @@ch<=?9)) then
 					else
-@@t.kind = 3
+@@t.kind = 4
 break
 end
 				when 4
-					@@t.kind = 4
+					@@t.kind = 5
 break
 				when 5
 					if ((@@ch>=?0 && @@ch<=?9)) then
 					else
-@@t.kind = 39
+@@t.kind = 40
 break
 end
 				when 6
@@ -283,63 +283,63 @@ state = 2
 					else
 @@t.kind = @@noSym; break; end
 				when 8
-					@@t.kind = 7
+					@@t.kind = 8
 break
 				when 9
 					if (@@ch==?)) then
 state = 24
 					else
-@@t.kind = 8
+@@t.kind = 9
 break
 end
 				when 10
-					@@t.kind = 18
+					@@t.kind = 19
 break
 				when 11
-					@@t.kind = 19
+					@@t.kind = 20
 break
 				when 12
 					if (@@ch==?.) then
 state = 23
 					else
-@@t.kind = 21
+@@t.kind = 22
 break
 end
 				when 13
-					@@t.kind = 22
+					@@t.kind = 23
 break
 				when 14
-					@@t.kind = 24
-break
-				when 15
 					@@t.kind = 25
 break
-				when 16
+				when 15
 					@@t.kind = 26
 break
-				when 17
+				when 16
 					@@t.kind = 27
 break
-				when 18
+				when 17
 					@@t.kind = 28
 break
-				when 19
-					@@t.kind = 30
+				when 18
+					@@t.kind = 29
 break
-				when 20
+				when 19
 					@@t.kind = 31
 break
-				when 21
+				when 20
 					@@t.kind = 32
 break
-				when 22
+				when 21
 					@@t.kind = 33
 break
+				when 22
+					@@t.kind = 34
+break
 				when 23
-					@@t.kind = 36
+					@@t.kind = 37
 break
 				when 24
-					@@t.kind = 37
+					@@t.kind = 38
 break
 				when 25
 					@@t.kind = 0

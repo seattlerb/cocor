@@ -38,12 +38,12 @@ class Position	 			# position of source code stretch (e.g. semantic action)
   end
 end
 
-# RENAMED from Symbol
+# NOTE: renamed from Symbol
 class Sym
 
-  class << self
-    include Enumerable
-  end
+  @@terminals = []
+  @@pragmas = []
+  @@nonterminals = []
 
   EofSy = 0
   NoSym = nil
@@ -52,44 +52,33 @@ class Sym
   ClassLitToken = 2
   MaxSymbols    = 512		# max. no. of t, nt, and pragmas
 
-  @@terminals = []
-  @@pragmas = []
-  @@nonterminals = []
-
-  def self.RenumberPragmas
-    n = self.terminal_count
-    self.each_pragma do |sym|
-      sym.n = n
-      n += 1
-    end
-  end
-
   attr_accessor :n			# symbol number
   attr_accessor :typ			# t, nt, pr, unknown
   attr_accessor :name			# symbol name
   attr_accessor :graph			# nt: first node of syntax graph
 					# t:  token kind (literal, class, ...)
+  # TODO: it looks like we are misusing graph above. C# version has graph(Node) and tokenKind(int).
+  attr_accessor :tokenKind
   attr_accessor :deletable		# nt: true if nonterminal is deletable
+  attr_accessor :firstReady		# nt: true if terminal start symbols have been computed
+  attr_accessor :first			# nt: terminal start symbols
+  attr_accessor :follow			# nt: terminal followers
+  attr_accessor :nts			# nt: nonterminals whose followers have been added to this sym
+  attr_accessor :line			# source text line number of item in this node
   attr_accessor :attrPos		# position of attributes in source text (or null)
-  attr_accessor :retType		# nt: Type of output attribute (or null)
-  attr_accessor :retVar			# nt: Name of output attribute (or null)
   attr_accessor :semPos			# pr: pos of semantic action in source text (or null)
 					# nt: pos of local declarations in source text (or null)
-  attr_accessor :line			# source text line number of item in this node
-  attr_accessor :n			# index in the array, currently @sy, but soon to be the actual array it is stored in
-
-  attr_accessor :first
-  attr_accessor :firstReady
-  attr_accessor :follow
-  attr_accessor :nts
+  # TODO: retVar and retType don't occur in C# version at all
+  attr_accessor :retVar			# nt: Name of output attribute (or null)
+  attr_accessor :retType		# nt: Type of output attribute (or null)
 
   def initialize(typ=0, name="", line=0)
     @typ  = typ
     @name = name
     @line = line
-    @n = -1
-    @graph = nil
-    @deletable = @attrPos = @semPos = nil
+    @tokenKind = -1
+    @deletable = firstReady = false
+    @graph = @first = @follow = @nts = @attrPos = @semPos = nil
     @retType = @retVar = nil	# strings
 
     case typ 
@@ -114,7 +103,7 @@ class Sym
       return false if o.nil?
       return true if self.object_id == o.object_id
       
-      return @typ == o.typ && @name == o.name && @line == o.line && @n == o.n && @graph == o.graph && @deletable == o.deletable && @attrPos == o.attrPos && @semPos == o.semPos && @retType = o.retType && @retVar == o.retVar
+      return @typ == o.typ && @name == o.name && @line == o.line && @n == o.n && @graph == o.graph && @deletable == o.deletable && @attrPos == o.attrPos && @semPos == o.semPos && @retType = o.retType && @retVar == o.retVar && @tokenKind == o.tokenKind
     end
   end
 
@@ -138,6 +127,10 @@ class Sym
   
   def self.symbol_count
     return @@terminals.size + @@nonterminals.size + @@pragmas.size
+  end
+
+  class << self
+    include Enumerable
   end
 
   # not actually used, but required for enumerable
@@ -164,15 +157,26 @@ class Sym
     @@pragmas.each(&b)
   end
 
-  def self.FindSym(name)
+  def self.Find(name)
     return @@terminals.detect { |s| s.name == name } || @@nonterminals.detect { |s| s.name == name } || NoSym
+  end
 
+  def node_type
+    return Node::NodeTypes[@typ]
   end
 
   def to_s
     self.n.to_s
   end
   
+  def self.RenumberPragmas
+    n = self.terminal_count
+    self.each_pragma do |sym|
+      sym.n = n
+      n += 1
+    end
+  end
+
 end
 
 class Node
@@ -183,7 +187,8 @@ class Node
 
   NormTrans    = 0		# transition codes
   ContextTrans = 1
-  MaxNodes = 1500		# max. no. of graph nodes
+  MaxNodes     = 1500		# max. no. of graph nodes # TODO : remove me
+
   T    = 1			# node kinds
   Pr   = 2
   Nt   = 3
@@ -198,12 +203,9 @@ class Node
   Iter = 12
   Opt  = 13
 
-  @@nTyp = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
-             "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
-  @@gn = Array.new(0, :Node)		# grammar graph
-
-  # TODO: get rid of these
-  cls_attr_accessor :nTyp
+  NodeTypes = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
+                "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
+  @@gn = Array.new(0, :Node)		# grammar graph # TODO: rename nodes
 
   attr_accessor :n			# node number
   attr_accessor :typ			# t, nt, wt, chr, clas, any, eps, sem, sync, alt, iter, opt
@@ -216,22 +218,13 @@ class Node
   attr_accessor :val			# chr: ordinal character value
 					# cls: index of character class
   attr_accessor :code			# chr, clas: transition code
-#  attr_accessor :set			# any, sync: set represented by node
+  attr_accessor :set			# any, sync: set represented by node
   attr_accessor :pos			# nt, t, wt: pos of actual attributes
 					# sem:       pos of semantic action in source text
-  attr_accessor :retVar			# nt: name of output attribute (or null)
+  attr_accessor :retVar			# nt: name of output attribute (or null) # TODO: remove
   attr_accessor :line			# source text line number of item in this node
   attr_accessor :state			# DFA state corresponding to this node
 					# (only used in Sgen.ConvertToStates)
-
-  def set
-    @set
-  end
-
-  def set=(o)
-    # raise "no" if o.kind_of? Fixnum
-    @set = o
-  end
 
   def initialize(typ, val, line)
 
@@ -268,7 +261,7 @@ class Node
   end
 
   def node_type
-    return @@nTyp[@typ]
+    return NodeTypes[@typ]
   end
 
   def nxt=(o)
@@ -379,7 +372,7 @@ class CharClass
 
   # TODO: get rid of these
   cls_attr_accessor_warn :maxC
-  cls_attr_accessor :classes
+  cls_attr_accessor_warn :classes
 
   attr_accessor :n			# class number
   attr_accessor :name			# class name
@@ -615,7 +608,7 @@ class Tab
   @@curSy = 0				# current symbol in computation of sets
 
   # TODO: get rid of these
-  cls_attr_accessor :ignored, :semDeclPos, :gramSy, :ddt, :allSyncSets
+  cls_attr_accessor_warn :ignored, :semDeclPos, :gramSy, :ddt, :allSyncSets
 
   def initialize
     raise "Not implemented yet"
@@ -633,6 +626,16 @@ class Tab
     @@set[0].set(Tab::EofSy.n)
 
     Node.EraseNodes # TODO: remove me... stupid bastards
+  end
+
+  class << self
+    include Enumerable
+  end
+
+  def self.each_ignored
+    @@ignored.each_with_index do |isTrue, index|
+      yield(index) if isTrue
+    end
   end
 
   # ---------------------------------------------------------------------
@@ -1183,7 +1186,7 @@ class Tab
 # ---------------------------------------------------------------------
 
   def self.PrintSym(sym)
-      Trace.print(sprintf("%3d %-10.10s %s", sym.n, sym.name, Node.nTyp[sym.typ]))
+      Trace.print(sprintf("%3d %-10.10s %s", sym.n, sym.name, sym.node_type))
       if (sym.attrPos==nil) then
 	Trace.print(" false ")
       else

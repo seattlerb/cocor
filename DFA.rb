@@ -734,6 +734,16 @@ class DFA
     return matchedSp
   end
 
+  def self.MatchLiteral(sym) # store string either as token or as literal
+    sym2 = MatchedDFA(sym.name, sym)
+    if sym2.nil? then
+      sym.graph = Sym::ClassToken # TODO: graph -> tokenKind
+    else 
+      sym2.graph = Sym::ClassLitToken
+      sym.graph = Sym::LitToken
+    end
+  end
+  
   def self.SplitActions(state, a, b)
 
     c = setc = nil
@@ -1195,9 +1205,9 @@ class DFA
     @@gen.println("  0]")
     CopyFramePart("-->initialization")
     @@gen.print("\t\t")
-    max = Tab.ignored.size()
-    for i in 0..max do
-      @@gen.println("@@ignore.set(#{i})") if Tab.ignored.get(i)
+
+    Tab.each_ignored do |i|
+      @@gen.println("@@ignore.set(#{i})")
     end
 
     CopyFramePart("-->comment")

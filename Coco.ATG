@@ -12,16 +12,6 @@ COMPILER Coco
 		Scanner.err.SemErr(n, @t.line, @t.col)
 	end
 	
-	private; def Parser.MatchLiteral(sym) # store string either as token or as literal
-		sym2 = DFA.MatchedDFA(sym.name, sym)
-		if (sym2.nil?)
-		  sym.graph = Sym::ClassToken
-		else 
-		  sym2.graph = Sym::ClassLitToken
-		  sym.graph = Sym::LitToken
-		end
-	end
-	
 	private; def Parser.SetCtx(p) # set transition code to contextTrans
 		until (p.nil?)
 			# TODO: make a case statement or refactor better
@@ -125,7 +115,7 @@ Coco                            (. gramLine = sp = eofSy = 0
 				   end
                                    Node.EraseNodes
 				.)
-  { ident                       (. sym = Sym.FindSym(@token.val)
+  { ident                       (. sym = Sym.Find(@token.val)
                                    undefined = sym == Sym::NoSym
                                    if (undefined) then
                                        sym = Sym.new(Node::Nt, @token.val, @token.line)
@@ -162,7 +152,7 @@ Coco                            (. gramLine = sp = eofSy = 0
   }                             (. if (Tab.ddt[2]) then
 				     Node.PrintGraph()
 				   end
-                                   Tab.gramSy = Sym.FindSym(gramName)
+                                   Tab.gramSy = Sym.Find(gramName)
                                    if (Tab.gramSy==Sym::NoSym) then
 				       SemErr(11)
                                    else
@@ -286,12 +276,12 @@ TokenDecl <int typ>             (. s = pos = g = nil
 				   sp = 0
 				 .)
 =
-  Symbol <^name, ^kind>         (. if (Sym.FindSym(name) != Sym::NoSym) then
+  Symbol <^name, ^kind>         (. if (Sym.Find(name) != Sym::NoSym) then
 				     SemErr(7)
 				     sp = 0
                                    else
                                      sp = Sym.new(typ, name, @token.line)
-                                     sp.graph = Sym::ClassToken
+                                     sp.graph = Sym::ClassToken # TODO: tokenKind
                                    end
 				 .)
   SYNC
@@ -304,7 +294,7 @@ TokenDecl <int typ>             (. s = pos = g = nil
   |                             (. if (kind==@@ident) then
 				     @@genScanner = false
                                    else
-				     MatchLiteral(sp)
+				     DFA.MatchLiteral(sp)
 				   end
 				.)
   )
@@ -372,14 +362,14 @@ Factor <^Graph g>               (. n = s = sym = pos = set = nil
 				 .)
 ( [ "WEAK"                      (. weak = true .)
   ]
-  Symbol <^name, ^kind>         (. sp = Sym.FindSym(name)
+  Symbol <^name, ^kind>         (. sp = Sym.Find(name)
 				   undefined = sp==Sym::NoSym
                                    if (undefined) then
                                        if (kind==@@ident) then
                                            sp = Sym.new(Node::Nt, name, 0) # forward nt
                                        elsif (@@genScanner) then
                                            sp = Sym.new(Node::T, name, @token.line)
-                                           MatchLiteral(sp)
+                                           DFA.MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
 					   sp = nil

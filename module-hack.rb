@@ -17,11 +17,11 @@ class Module
     attrs.each {|attr|
       module_eval(<<-EOS)
         def self.#{attr};
-	  $stderr.puts "WARNING: #{attr} called from \#\{caller[0]}"
+	  $stderr.puts "WARNING: #{attr} called from \#\{caller[0]}" if $DEBUG
 	  @@#{attr};
 	end
         def self.#{attr}=(v);
-	  $stderr.puts "WARNING: #{attr}=(o) called from \#\{caller[0]}"
+	  $stderr.puts "WARNING: #{attr}=(o) called from \#\{caller[0]}" if $DEBUG
 	  @@#{attr} = v; 
 	end
       EOS
