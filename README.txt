@@ -1,26 +1,50 @@
-cocor
+Coco/R(uby)
     http://www.zenspider.com/
     support@zenspider.com
 
 DESCRIPTION:
   
-DOC
+(Stolen from http://www.scifac.ru.ac.za/coco/)
+
+Coco/R combines the functionality of the well-known UNIX tools lex and
+yacc , to form an extremely easy to use compiler generator that
+generates recursive descent parsers, their associated scanners, and
+(in some versions) a driver program, from attributed grammars (written
+using EBNF syntax with attributes and semantic actions) which conform
+to the restrictions imposed by LL(1) parsing (rather than LALR
+parsing, as allowed by yacc ). The user has to add modules for symbol
+table handling, optimization, and code generation in order to get a
+running compiler. Coco/R can also be used to construct other
+syntax-based applications that have less of a "compiler" flavour.
+
+(Not stolen)
+
+Coco/R(uby) is a port of Coco/R to ruby and generates pure ruby
+parsers and scanners. This version of Coco/R is not related to Mark
+Probert's version (http://raa.ruby-lang.org/list.rhtml?name=coco-rb).
+
+This version of Coco/R generates pure ruby. Mark's version generates C
+for ruby extensions. If you find this version too slow, you might want
+to check out Mark's. If however, you need pure ruby or can't deploy
+where there is a C compiler, you finally have an LL solution.
 
 FEATURES/PROBLEMS:
   
-+ DOC
++ Happy neato ruby parsers and lexers.
+- Not clean. Design needs massive cleanup.
+- Needs actual documentation (unless you've used coco/r before).
 
 SYNOPSYS:
 
-  DOC
+  None yet...
 
 REQUIREMENTS:
 
-+ DOC
++ Ruby
 
 INSTALL:
 
-+ DOC
++ None
 
 LICENSE:
 
