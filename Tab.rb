@@ -471,14 +471,12 @@ end
 
 class CharClass
 
-  MaxClasses   =  150	# max. no. of character classes
-
-  @@maxC = -1					# index of last character class
   @@classes = []
   @@dummyName = ?A				# for unnamed character classes
 
+  # TODO: CharSetSize = 256 # must be a multiple of 16
+
   # TODO: get rid of these
-  cls_attr_accessor_warn :maxC
   cls_attr_accessor_warn :classes
 
   attr_accessor :n			# class number
@@ -489,7 +487,6 @@ class CharClass
     @name = ""
     @set = 0
 
-    @@maxC += 1
     if (name == "#") then
       name = "#" + @@dummyName.chr
       @@dummyName += 1
@@ -501,11 +498,6 @@ class CharClass
 
     @@classes << self
   end
-
-  def ==(o)
-    raise "Not implemented yet"
-  end
-  
 
   # ---------------------------------------------------------------------
   #   Character class management
@@ -529,6 +521,9 @@ class CharClass
   def self.Set(s)
     return @@classes[s].set
   end
+
+  # TODO: def self.Ch(ch)
+  # TODO: def self.WriteCharSet(w, s)
 
   def self.WriteClasses
     @@classes.each do |c|
@@ -559,15 +554,12 @@ class CNode				# node of list for finding circular productions
     attr_accessor :right
     attr_accessor :deleted
 
-  def initialize
-    @left = @right = nil
+  def initialize(l, r)
+    @left = l
+    @right = r
     @deleted = false
   end
 
-  def ==(o)
-    raise "Not implemented yet"
-  end
-  
 end
 
 class Tab
@@ -965,15 +957,21 @@ class Tab
       # get nts such that i-->j
       Sym.each_nonterminal do |sym2|
 	if (singles.get(sym2.n)) then
-	  x = CNode.new
-	  x.left = sym1.n
-	  x.right = sym2.n
-	  x.deleted = false
+	  x = CNode.new(sym1.n, sym2.n)
 	  list[len] = x # FIX: just push damnit
 	  len += 1 # FIX: nuke
 	end
       end
     end
+
+    # TODO:
+    # Sym.each_nonterminal do |sym| 
+    #   singles = []
+    #   GetSingles(sym.graph, singles); // get nonterminals s such that sym-->s
+    #   singles.each do |s|
+    #     list.Add(CNode.new(sym, s));
+    #   end
+    # end
 
     begin
       changed = false
