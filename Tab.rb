@@ -225,18 +225,18 @@ class Tab
   NoSym = -1
 
   # --- variables ---
-  @@maxSet = nil				# index of last set
-  @@maxT = nil					# terminals stored from 0 to maxT
-  @@maxP = nil					# pragmas stored from maxT+1 to maxP
-  @@firstNt = nil				# index of first nt: available after CompSymbolSets
-  @@lastNt = nil				# index of last nt: available after CompSymbolSets
-  @@maxC = nil					# index of last character class
+  @@maxSet = 0					# index of last set
+  @@maxT = 0						# terminals stored from 0 to maxT
+  @@maxP = 0						# pragmas stored from maxT+1 to maxP
+  @@firstNt = 0					# index of first nt: available after CompSymbolSets
+  @@lastNt = 0					# index of last nt: available after CompSymbolSets
+  @@maxC = 0						# index of last character class
 ## TODO: convert usage to @@
   @@semDeclPos = nil				# position of global semantic declarations
   @@importPos = nil				# position of imported identifiers
   @@ignored = nil				# characters ignored by the scanner
   @@ddt = Array.new(10, false)			# debug and test switches
-  @@nNodes = nil				# index of last graph node
+  @@nNodes = 0				# index of last graph node
   @@gramSy = 0					# root nonterminal filled by ATG
 
   @@sy = Array.new(MaxSymbols, :Sym)		# symbol table
@@ -253,7 +253,7 @@ class Tab
   @@visited = nil # BitSet
   @@termNt = nil # BitSet			# mark lists for graph traversals
   @@curSy = 0					# current symbol in computation of sets
-  @@nTyp = [ "    ", "T   ", "Pr  ", "Nt  ", "Clas", "Chr ", "Wt  ",
+  @@nTyp = [ " ", "T   ", "Pr  ", "Nt  ", "Clas", "Chr ", "Wt  ",
              "Any ", "Eps ", "Sync", "Sem ", "Alt ", "Iter", "Opt " ]
 
   # HACK HACK HACK... this is weird that I need to copy this code in.
