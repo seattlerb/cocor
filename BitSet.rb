@@ -26,9 +26,6 @@ class BitSet < Array
   end 
   # Sets the bit specified by the index to false .
 
-#  def get(i)
-#    self[i]
-#  end 
   alias :get :[]
   # Returns the value of the bit with the specified index. 
 

@@ -52,33 +52,17 @@ class Sym
   ClassLitToken = 2
   MaxSymbols    = 512		# max. no. of t, nt, and pragmas
 
-  # FIX: nuke me... use iterators for real
-  @@maxP = MaxSymbols			# pragmas stored from maxT+1 to maxP
-  @@maxT = -1				# terminals stored from 0 to maxT
-  @@firstNt = MaxSymbols		# idx of first nt:available after CompSymbolSets
-  @@lastNt = @@maxP - 1		# index of last nt: available after CompSymbolSets
-
-  # 0       .. maxT		== terminals
-  # firstNt .. lastNt		== non-terminals
-  # maxP    .. MaxSymbols-1	== pragmas
   @@terminals = []
   @@pragmas = []
   @@nonterminals = []
 
-  @@stupidhack=true # HACK HACK HACK
-  def self.MovePragmas
-    if @@stupidhack then
-      @@maxP = index = self.terminal_count - 1
-      self.each_pragma do |sym|
-	@@maxP += 1
-	sym.n = @@maxP
-      end
-      @@stupidhack=false
+  def self.RenumberPragmas
+    n = self.terminal_count
+    self.each_pragma do |sym|
+      sym.n = n
+      n += 1
     end
   end
-
-  # TODO: get rid of these
-  cls_attr_accessor :firstNt
 
   attr_accessor :n			# symbol number
   attr_accessor :typ			# t, nt, pr, unknown
@@ -108,26 +92,18 @@ class Sym
     @deletable = @attrPos = @semPos = nil
     @retType = @retVar = nil	# strings
 
-    assert(@@maxT+1 < @@firstNt, 6)
-
     case typ 
     when Node::T
-      @@maxT += 1
-      @n = @@maxT
+      @n = @@terminals.size
       @@terminals.push self
     when Node::Pr
-      @@maxP -= 1
-      @@firstNt -= 1
-      @@lastNt -= 1
-      @n = @@maxP
+      @n = @@pragmas.size
       @@pragmas.unshift self
     when Node::Nt
-      @@firstNt -= 1
-      @n = @@firstNt
+      @n = @@nonterminals.size
       @@nonterminals.unshift self
     end
 
-    assert(@@maxT+1 < @@firstNt, 6)
   end
 
   def ==(o)
@@ -164,6 +140,7 @@ class Sym
     return @@terminals.size + @@nonterminals.size + @@pragmas.size
   end
 
+  # not actually used, but required for enumerable
   def self.each(&b)
     each_terminal(&b)
     each_pragma(&b)
@@ -188,7 +165,6 @@ class Sym
   end
 
   def self.FindSym(name)
-
     return @@terminals.detect { |s| s.name == name } || @@nonterminals.detect { |s| s.name == name } || NoSym
 
   end
@@ -240,13 +216,22 @@ class Node
   attr_accessor :val			# chr: ordinal character value
 					# cls: index of character class
   attr_accessor :code			# chr, clas: transition code
-  attr_accessor :set			# any, sync: set represented by node
+#  attr_accessor :set			# any, sync: set represented by node
   attr_accessor :pos			# nt, t, wt: pos of actual attributes
 					# sem:       pos of semantic action in source text
   attr_accessor :retVar			# nt: name of output attribute (or null)
   attr_accessor :line			# source text line number of item in this node
   attr_accessor :state			# DFA state corresponding to this node
 					# (only used in Sgen.ConvertToStates)
+
+  def set
+    @set
+  end
+
+  def set=(o)
+    # raise "no" if o.kind_of? Fixnum
+    @set = o
+  end
 
   def initialize(typ, val, line)
 
@@ -264,7 +249,11 @@ class Node
     when Nt, T, Wt then
       @sym = val
     when Any, Sync then
-      @set = val
+      if val == 0 then # HACK
+	@set = 0
+      else
+	self.set = val
+      end
     when Alt, Iter, Opt then
       @sub = val
     when Chr, Clas then
@@ -385,18 +374,32 @@ class CharClass
   MaxClasses   =  150	# max. no. of character classes
 
   @@maxC = -1					# index of last character class
-  @@chClass = Array.new(MaxClasses)#CharClass[] # character classes
-  @@dummyName = 0				# for unnamed character classes
+  @@classes = []
+  @@dummyName = ?A				# for unnamed character classes
 
   # TODO: get rid of these
-  cls_attr_accessor :maxC, :chClass
+  cls_attr_accessor_warn :maxC
+  cls_attr_accessor :classes
 
+  attr_accessor :n			# class number
   attr_accessor :name			# class name
   attr_accessor :set			# index of set representing the class
 
-  def initialize
+  def initialize(name, s=BitSet.new)
     @name = ""
     @set = 0
+
+    @@maxC += 1
+    if (name == "#") then
+      name = "#" + @@dummyName.chr
+      @@dummyName += 1
+    end
+
+    @n = @@classes.size
+    @name = name
+    @set = s
+
+    @@classes << self
   end
 
   def ==(o)
@@ -408,49 +411,29 @@ class CharClass
   #   Character class management
   # ---------------------------------------------------------------------
 
-  def self.NewClass(name, s)
-    c = nil
-    @@maxC += 1
-    assert(@@maxC < MaxClasses, 7)
-    if (name == "#") then
-      name = "#" + (?A + @@dummyName).chr
-      @@dummyName += 1
+  def self.Find(val)
+    case val
+    when BitSet then
+      @@classes.detect do |c|
+	c.set == val
+      end
+    when String then
+      @@classes.detect do |c|
+	c.name == val
+      end
+    else
+      raise "Bad argument type #{val.class}"
     end
-    c = CharClass.new
-    c.name = name
-    c.set = Tab.NewSet(s)
-    @@chClass[@@maxC] = c
-    return @@maxC
   end
 
-  # TODO: these aren't necessary in ruby
-  def self.ClassWithName(name)
-    i=@@maxC
-    while (i>=0 && name != @@chClass[i].name) do
-      i -= 1
+  def self.Set(s)
+    return @@classes[s].set
+  end
+
+  def self.WriteClasses
+    @@classes.each do |c|
+      Trace.println("#{c.name}: #{c.set}")
     end
-    return i
-  end
-
-  # TODO: these aren't necessary in ruby
-  def self.ClassWithSet(s)
-    i = @@maxC
-
-    while (i>=0 && s != Tab.set[@@chClass[i].set]) do
-      i -= 1
-    end
-
-    return i
-  end
-
-  def self.Class(i)
-    raise "WARNING: Class(#{i})" if ! i.kind_of?(Fixnum) && i.nil?
-    raise "WARNING: Class(#{i}=>nil)" if ! @@chClass[i].set.kind_of?(Fixnum) && @@chClass[i].set.nil?
-    return Tab.set[@@chClass[i].set]
-  end
-
-  def self.ClassName(i)
-    return @@chClass[i].name
   end
 
 end
@@ -608,6 +591,8 @@ end
 
 class Tab
 
+  EofSy = Sym.new(Node::T, "EOF", 0)
+
   # --- constants ---
   MaxTerminals =  256	# max. no. of terminals
   MaxSetNr     =  128	# max. no. of symbol sets
@@ -618,10 +603,11 @@ class Tab
   @@importPos = nil			# position of imported identifiers
   @@ignored = nil			# characters ignored by the scanner
   @@ddt = Array.new(10, false)		# debug and test switches
-  @@gramSy = 0				# root nonterminal filled by ATG # FIX - nil
+  @@gramSy = nil			# root nonterminal filled by ATG
 
   # REFACTOR: NUKE ME
   @@set = Array.new(128)		# set[0] = union of all synchr. sets
+  @@allSyncSets = BitSet.new
 
   @@err = nil				# error messages
   @@visited = nil 
@@ -629,7 +615,7 @@ class Tab
   @@curSy = 0				# current symbol in computation of sets
 
   # TODO: get rid of these
-  cls_attr_accessor :ignored, :semDeclPos, :gramSy, :ddt, :set
+  cls_attr_accessor :ignored, :semDeclPos, :gramSy, :ddt, :allSyncSets
 
   def initialize
     raise "Not implemented yet"
@@ -642,8 +628,9 @@ class Tab
   def self.Init
     @@err = Scanner.err
     @@maxSet = 0
+
     @@set[0] = BitSet.new()
-    @@set[0].set(Sym::EofSy)
+    @@set[0].set(Tab::EofSy.n)
 
     Node.EraseNodes # TODO: remove me... stupid bastards
   end
@@ -672,6 +659,7 @@ class Tab
   end
     
   def self.NewSet(s)
+#    $stderr.puts "WARNING: NewSet called from #{caller[0]}"
     @@maxSet += 1
     assert(@@maxSet <= MaxSetNr, 4)
     @@set[@@maxSet] = s
@@ -679,6 +667,7 @@ class Tab
   end
 
   def self.Set(i)
+#    $stderr.puts "WARNING: Set called from #{caller[0]}"
     return @@set[i]
   end
 
@@ -866,8 +855,8 @@ class Tab
       @@visited.set(p.n)
       if (p.typ==Node::Sync) then
 	s = Expected(p.nxt, @@curSy)
-	s.set(Sym::EofSy)
-	@@set[0].or(s)
+	s.set(Tab::EofSy.n)
+	@@allSyncSets.or(s)
 	p.set = NewSet(s)
       elsif (p.typ==Node::Alt) then
 	CompSync(p.sub)
@@ -880,6 +869,8 @@ class Tab
   end
 
   def self.CompSyncSets
+    @@allSyncSets = BitSet.new(Sym.terminal_count)
+    @@allSyncSets.set(Tab::EofSy.n)
     @@visited = BitSet.new()
 
     Sym.each_nonterminal do |sym|
@@ -913,13 +904,12 @@ class Tab
   def self.CompSymbolSets
     i = Sym.new(Node::T, "???", 0)
 
-    # unknown symbols get code Sym.maxT
-    Sym.MovePragmas()
     CompDeletableSymbols()
     CompFirstSets()
     CompFollowSets()
     CompAnySets()
     CompSyncSets()
+    Sym.RenumberPragmas()
 
     if (@@ddt[1]) then
       Trace.println("First & follow symbols:")
@@ -1031,8 +1021,7 @@ class Tab
   end
 
   def self.LL1Error(cond, ts)
-    print("  LL1 warning in #{@@curSy.name}: ")
-    print("#{ts.name} is ") if (ts.n > 0) # HACK: why zero?
+    print("  LL1 warning in #{@@curSy.name}: #{ts.name} is ")
 
     case cond
     when 1
@@ -1263,8 +1252,6 @@ class Tab
     i = col = 0
     
     return if (Sym.terminal_count <= 0) 
-
-    Sym.MovePragmas()
 
     # search lines where symbol has been referenced
     Node.each do |n|

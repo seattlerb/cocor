@@ -164,12 +164,12 @@ class Parser
 		if (@t.kind==1 || @t.kind==2) then
 			name, kind = self.Symbol()
 			if (kind==@@ident) then
-                                     c = CharClass.ClassWithName(name)
-                                     if (c < 0) then
+                                     c = CharClass.Find(name)
+                                     if c.nil? then
                                        SemErr(15)
-                                       c = CharClass.NewClass(name, BitSet.new())
+                                       c = CharClass.new(name)
                                      end
-                                     g.l = Node.new(Node::Clas, c, 0)
+                                     g.l = Node.new(Node::Clas, c.n, 0)
                                      g.r = g.l
                                    else # string
 				     g = Graph.StrToGraph(name)
@@ -398,11 +398,11 @@ end
 		s = BitSet.new(128) 
 		if (@t.kind==1) then
 			Get()
-			c = CharClass.ClassWithName(@token.val)
-                                   if (c < 0) then
+			c = CharClass.Find(@token.val)
+                                   if c.nil? then
 				     SemErr(15)
 				   else
-				     s.or(CharClass.Class(c))
+				     s.or(c.set)
 				   end
 				
 		elsif (@t.kind==2) then
@@ -515,14 +515,12 @@ end
 				
 		Expect(1)
 		name = @token.val
-                                   c = CharClass.ClassWithName(name)
-                                   if (c > 0) then
-				     SemErr(7)
-				   end
+                                   c = CharClass.Find(name)
+                                   SemErr(7) unless c.nil?
 				
 		Expect(7)
 		s = self.Set()
-		c = CharClass.NewClass(name, s) 
+		c = CharClass.new(name, s) 
 		Expect(8)
 	end
 

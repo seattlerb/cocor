@@ -97,7 +97,7 @@ class State				# state of finite automaton
       if (a.typ==Node::Chr && ch==a.sym) then
 	return a
       elsif (a.typ==Node::Clas) then
-	s = CharClass.Class(a.sym)
+	s = CharClass.Set(a.sym)
 	return a if s.get(ch)
       end
       a=a.nxt
@@ -186,7 +186,7 @@ class Action			# action of finite automaton
     s = nil
 
     if (@typ==Node::Clas) then
-      s = CharClass.Class(@sym).clone()
+      s = CharClass.Set(@sym).clone()
     else
       s = BitSet.new()
       s.set(@sym)
@@ -203,18 +203,13 @@ class Action			# action of finite automaton
       @sym = Sets.First(s)
     else
 
-      i = CharClass.maxC
-      while (i>=0) do
-	x = Tab.set()[CharClass.chClass[i].set]
-	i -= 1
+      c = CharClass.Find(s)
+      if c.nil? then
+	c = CharClass.new("#", s)
       end
 
-      i = CharClass.ClassWithSet(s)
-      if (i < 0) then # class with dummy name
-	i = CharClass.NewClass("#", s)
-      end
       @typ = Node::Clas
-      @sym = i
+      @sym = c.n
     end
   end
 
@@ -781,16 +776,16 @@ class DFA
       if (b.typ==Node::Chr) then
 	result = a.sym==b.sym
       else
-	setb = CharClass.Class(b.sym)
+	setb = CharClass.Set(b.sym)
 	result = setb.get(a.sym)
       end
     else
-      seta = CharClass.Class(a.sym)
+      seta = CharClass.Set(a.sym)
       if (b.typ==Node::Chr) then
 	result = seta.get(b.sym)
       else
-	setb = CharClass.Class(b.sym)
-	result = ! Sets.Different(seta, setb)
+	setb = CharClass.Set(b.sym)
+	result = ! Sets.Different(seta, setb) # TODO: c#=intersect
       end
     end
     return result
@@ -922,7 +917,7 @@ class DFA
 	  Trace.print("          ")
 	end
 	if (action.typ==Node::Clas) then
-	  Trace.print(CharClass.ClassName(action.sym))
+	  Trace.print(CharClass.classes[action.sym].name)
 	else
 	  Trace.print(Ch(action.sym))
 	end
@@ -942,12 +937,7 @@ class DFA
       state=state.nxt
     end
     Trace.println("\n---------- character classes ----------")
-    i = 0
-    while (i<=CharClass.maxC) do
-      set = CharClass.Class(i)
-      Trace.println("#{CharClass.ClassName(i)}: #{set}")
-      i += 1
-    end
+    CharClass.WriteClasses
   end
 
   def self.GenComBody(com)
@@ -1097,7 +1087,7 @@ class DFA
       if (action.typ==Node::Chr)
 	@@gen.print(ChCond(action.sym)) # FIX: action.sym might be a char?
       else
-	PutRange(CharClass.Class(action.sym))
+	PutRange(CharClass.Set(action.sym))
       end
       @@gen.println(") then")
       if (action.target.state != state) then
@@ -1157,7 +1147,7 @@ class DFA
       if (action.typ==Node::Chr) then
 	startTab[action.sym] = targetState
       else
-	s = CharClass.Class(action.sym)
+	s = CharClass.Set(action.sym)
 	max = s.size()
 	for i in 0..max do
 	  startTab[i] = targetState if (s.get(i))

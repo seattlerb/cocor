@@ -187,7 +187,7 @@ class ParserGen
     first = true
     @@gen.print("when ")
 
-    # TODO: this could probably be a 2 liner w/ join(", ")
+    # TODO: this should be a 2 liner w/ join(", ")
     for i in 0..max do
       if (s.get(i)) then
 	if (!first) then
@@ -222,13 +222,13 @@ class ParserGen
 	if (checked.get(p.sym.n)) then
 	  @@gen.println("Get()");
 	else
-	  @@gen.println("Expect(" + p.sym.to_s + ")");
+	  @@gen.println("Expect(#{p.sym})");
 	end
       when Node::Wt then
 	Indent(indent);
-	s1 = Tab.Expected(p.nxt, @@curSy);
-	s1.or(Tab.Set(0));
-	@@gen.println("ExpectWeak(" + p.sym.to_s + ", " + NewCondSet(s1).to_s + ")");
+	s1 = Tab.Expected(p.nxt, @@curSy)
+	s1.or(Tab.allSyncSets)
+	@@gen.println("ExpectWeak(#{p.sym}, #{NewCondSet(s1)})");
       when Node::Any then
 	Indent(indent);
 	@@gen.println("Get()");

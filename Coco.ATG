@@ -242,12 +242,10 @@ SetDecl                         (. c = 0
 				.)
 =
   ident                         (. name = @token.val
-                                   c = CharClass.ClassWithName(name)
-                                   if (c > 0) then
-				     SemErr(7)
-				   end
+                                   c = CharClass.Find(name)
+                                   SemErr(7) unless c.nil?
 				.)
-  "=" Set <^s>                  (. c = CharClass.NewClass(name, s) .)
+  "=" Set <^s>                  (. c = CharClass.new(name, s) .)
   ".".
 /*------------------------------------------------------------------------------------*/
 Set <^BitSet s>                 (. s2 = nil .)
@@ -262,11 +260,11 @@ SimSet <^BitSet s>              (. name = ""
 				.)
 =
                                 (. s = BitSet.new(128) .)
-( ident                         (. c = CharClass.ClassWithName(@token.val)
-                                   if (c < 0) then
+( ident                         (. c = CharClass.Find(@token.val)
+                                   if c.nil? then
 				     SemErr(15)
 				   else
-				     s.or(CharClass.Class(c))
+				     s.or(c.set)
 				   end
 				.)
 | string                        (. name = @token.val
@@ -470,12 +468,12 @@ TokenFactor <^Graph g>          (. name = s = nil
 =
                                 (. g = Graph.new .)
 ( Symbol <^name, ^kind>         (. if (kind==@@ident) then
-                                     c = CharClass.ClassWithName(name)
-                                     if (c < 0) then
+                                     c = CharClass.Find(name)
+                                     if c.nil? then
                                        SemErr(15)
-                                       c = CharClass.NewClass(name, BitSet.new())
+                                       c = CharClass.new(name)
                                      end
-                                     g.l = Node.new(Node::Clas, c, 0)
+                                     g.l = Node.new(Node::Clas, c.n, 0)
                                      g.r = g.l
                                    else # string
 				     g = Graph.StrToGraph(name)

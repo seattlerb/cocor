@@ -23,6 +23,11 @@ bootstrap: all
 	cp build/Parser.rb build/Scanner.rb build/ErrorStream.rb .
 	$(MAKE) all
 
+diff-bootstrap:
+	-diff Parser.rb Parser.rb.prev
+	-diff Scanner.rb Scanner.rb.prev
+	-diff ErrorStream.rb ErrorStream.rb.prev
+
 rollback:
 	mv Parser.rb.prev Parser.rb
 	mv Scanner.rb.prev Scanner.rb

@@ -4,7 +4,7 @@ class Trace
     begin
       @@out = File.new(File.join(dir, "listing"), "w");
     rescue
-      Scanner.err.Exception("-- could not open trace file");
+      raise "-- could not open trace file"
       @@out=$stdout
     end
   end

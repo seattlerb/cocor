@@ -4,6 +4,7 @@ require 'BitSet'
 class Sets
 
   def Sets.Empty(s)
+    return true if s == 0
     s.each do |x| 
       return false if (x) 
     end
@@ -12,11 +13,6 @@ class Sets
 	
   def Sets.Different(s1, s2)
     return s1 != s2
-#    max = s1.size
-#    for i in 0..(max-1)
-#      return false if (s1[i] == s2[i])
-#    end
-#    return true
   end
   
   def Sets.Includes(s1, s2)
