@@ -283,7 +283,26 @@ class ParserGen {
 	    // if (sym.retType==null) gen.print("void "); else gen.print(sym.retType + " ");
 	    gen.print("def self.");
 	    gen.print(sym.name + "(");
-	    CopySourcePart(sym.attrPos, 0); // HACK: need to only copy the varname
+
+	    // HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK 
+	    if (sym.attrPos != null) {
+		String args = GetString(sym.attrPos.beg, sym.attrPos.beg + sym.attrPos.len);
+		StringTokenizer st = new StringTokenizer(args, ",");
+		while (st.hasMoreTokens()) {
+		    String arg = st.nextToken();
+		    StringTokenizer st2 = new StringTokenizer(arg);
+		    String type = st2.nextToken();
+		    String name = st2.nextToken();
+		    if (name != null) {
+			gen.print(name);
+			if (st.hasMoreTokens()) {
+			    gen.print(", ");
+			}
+		    }
+		} 
+	    }
+
+	    // HACK CopySourcePart(sym.attrPos, 0); // HACK: need to only copy the varname
 	    gen.println(")");
 	    // if (sym.retVar!=null) gen.println("\t\t" + sym.retType + " " + sym.retVar);
 	    CopySourcePart(sym.semPos, 2);

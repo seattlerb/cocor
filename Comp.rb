@@ -23,7 +23,7 @@ require 'Trace'
 class Errors < ErrorStream
     
   def SemErr (n, line, col)
-    super.SemErr(n, line, col)
+    super(n, line, col)
     case (n)
     when 3
       s = "a literal must not have attributes"

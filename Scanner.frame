@@ -58,7 +58,9 @@ class Scanner
   @@oldEols=0			# >0: no. of EOL in a comment
   @@ignore=BitSet.new(128)	# set of characters to be ignored by the scanner
 
-  def self.err()		# HACK: added because @@err was accessed from Parser.rb
+  public 
+
+  def self.err			# HACK: added because @@err was accessed from Parser.rb
     @@err
   end
 

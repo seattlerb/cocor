@@ -57,6 +57,10 @@ class GraphNode
   attr_accessor :line			# source text line number of item in this node
   attr_accessor :state			# DFA state corresponding to this node
 					# (only used in Sgen.ConvertToStates)
+
+  def initialize
+    @typ = @next = @p1 = @p2 = @line = 0
+  end
 end
 
 class FirstSet
@@ -75,8 +79,12 @@ class CharClass
 end
 
 class Graph
-    attr_accessor :l			# left end of graph = head
-    attr_accessor :r			# right end of graph = list of nodes to be linked to successor graph
+  attr_accessor :l			# left end of graph = head
+  attr_accessor :r			# right end of graph = list of nodes to be linked to successor graph
+
+  def initialize
+    @l = @r = 0
+  end
 end
 
 class XNode				# node of cross reference list
@@ -220,14 +228,14 @@ class Tab
   def self.FindSym(name)
     i = 0
     while (i <= @@maxT)
-      if (name.equals(@@sy[i].name)) 
+      if (name == @@sy[i].name) then
 	return i
       end
       i += 1
     end
     i = @@firstNt
     while (i < MaxSymbols)
-      if (name.equals(@@sy[i].name)) then
+      if (name == @@sy[i].name) then
 	return i
       end
       i += 1
@@ -241,14 +249,14 @@ class Tab
 
   def self.NewNode(typ, p1, line)
     n = nil
-    nNodes += 1
-    self.Assert(nNodes <= MaxNodes, 3)
+    @@nNodes += 1
+    self.Assert(@@nNodes <= MaxNodes, 3)
     n = GraphNode.new
     n.typ = typ
     n.p1 = p1
     n.line = line
-    @@gn[nNodes] = n
-    return nNodes
+    @@gn[@@nNodes] = n
+    return @@nNodes
   end
 
   def self.Node(i)
@@ -256,7 +264,6 @@ class Tab
   end
 
   def self.CompleteGraph(p)
-    q = 0
     while (p != 0) do
       q = @@gn[p].next
       @@gn[p].next = 0
@@ -265,6 +272,7 @@ class Tab
   end
 
   def self.Alternative(g1, g2)
+    $stderr.puts "g1 = #{g1}, g1.l = #{g1.l}"
     p = 0
     g2.l = NewNode(Alt, g2.l, 0)
     p = g1.l
@@ -325,7 +333,7 @@ class Tab
     g = Graph.new
     i = 1
     while (i<len) do
-      @@gn[g.r].next = NewNode(chr, s[i], 0)
+      @@gn[g.r].next = NewNode(Chr, s[i], 0)
       g.r = @@gn[g.r].next
       i += 1
     end
@@ -363,7 +371,7 @@ class Tab
      n = nil
     Trace.println("Graph:")
     Trace.println("  nr typ  next   p1   p2 line")
-    (1..nNodes).each do |i|
+    (1..@@nNodes).each do |i|
       n = Node(i)
       Trace.println(Int(i,4) + " " + nTyp[n.typ] + Int(n.next,5) +Int(n.p1,5) + Int(n.p2,5) + Int(n.line,5))
     end
@@ -540,10 +548,7 @@ class Tab
     raise "Um. no"
   end
 
-  def self.ddt
-#    $stderr.puts "ddt"
-    return @@ddt
-  end
+  cls_attr_accessor :ddt
 
 end
 
@@ -591,12 +596,12 @@ class Tab {
 		      for (curSy=@@firstNt;
 			   curSy<=@@lastNt;
 			   curSy++) {
-			  s = new FollowSet();
-			  s.ts = new BitSet();
-			  s.nts = new BitSet();
+			  s = FollowSet.new();
+			  s.ts = BitSet.new();
+			  s.nts = BitSet.new();
 			  follow[curSy-@@firstNt] = s;
 			}
-			visited = new BitSet();
+			visited = BitSet.new();
 			for (curSy=@@firstNt;
 			     curSy<=@@lastNt;
 			     curSy++) # get direct successors of nonterminals
@@ -606,7 +611,7 @@ class Tab {
 			  for (curSy=0;
 			       curSy<=@@lastNt-@@firstNt;
 			       curSy++) { # add indirect successors to follow.ts
-			      visited = new BitSet();
+			      visited = BitSet.new();
 			      Complete(curSy);
 			    }
 			  }
@@ -639,7 +644,7 @@ class Tab {
 						    Sets.Differ(set[a.p1], s1);
 						  }
 						} else if (n.typ==alt) {
-						    s1 = new BitSet();
+						    s1 = BitSet.new();
 						    q = p;
 						    while (q != 0) {
 							nod = Node(q);
@@ -693,7 +698,7 @@ class Tab {
 								     }
 
 							      static private void CompSyncSets() {
-								visited = new BitSet();
+								visited = BitSet.new();
 								for (curSy=@@firstNt;
 								     curSy<=@@lastNt;
 								     curSy++)
@@ -803,14 +808,14 @@ class Tab {
 		for (i=@@firstNt;
 i<=@@lastNt;
 i++) {
-			singles = new BitSet();
+			singles = BitSet.new();
 			GetSingles(sy[i].struct, singles);
 # get nts such that i-->j
 			for (j=@@firstNt;
 j<=@@lastNt;
 j++) {
 				if (singles.get(j)) {
-					x = new CNode();
+					x = CNode.new();
 x.left = i;
 x.right = j;
 x.deleted = false;
@@ -886,7 +891,7 @@ overlap = true;}
 			n = Node(p);
 			if (n.typ==alt) {
 				q = p;
-s1 = new BitSet();
+s1 = BitSet.new();
 				while (q != 0) { # for all alternatives
 					a = Node(q);
 s2 = Expected(a.p1, curSy);
@@ -952,7 +957,7 @@ i++) {
 	static boolean AllNtReached() {
 		GraphNode n;
 		boolean ok = true;
-		visited = new BitSet();
+		visited = BitSet.new();
 		visited.set(gramSy);
 		MarkReachedNts(Sym(gramSy).struct);
 		for (int i=@@firstNt;
@@ -980,7 +985,7 @@ i++) {
 	static boolean AllNtToTerm() {
 		boolean changed, ok = true;
 		int i;
-		termNt = new BitSet();
+		termNt = BitSet.new();
 		do {
 			changed = false;
 			for (i=@@firstNt;
@@ -1012,7 +1017,7 @@ i++)
 		for (;
 i<len;
 i++) a[i] = ' ';
-		return new String(a, 0, len);
+		return String.new(a, 0, len);
 	}
 
 	static private String Int(int n, int len) {
@@ -1024,7 +1029,7 @@ i++;}
 		while (i < len) {a[i] = s.charAt(j);
 i++;
 j++;}
-		return new String(a, 0, len);
+		return String.new(a, 0, len);
 	}
 
 	static void PrintSymbolTable() {
@@ -1056,12 +1061,12 @@ else i++;
 		if (@@maxT <= 0) return;
 		MovePragmas();
 		# search lines where symbol has been referenced
-		for (i=nNodes;
+		for (i=@@nNodes;
 i>=1;
 i--) {
 			n = Node(i);
 			if (n.typ==t || n.typ==wt || n.typ==nt) {
-				p = new XNode();
+				p = XNode.new();
 p.line = n.line;
 				p.next = list[n.p1];
 list[n.p1] = p;
@@ -1075,7 +1080,7 @@ p = list[i];
 q = null;
 			while (p != null && sym.line > p.line) {q = p;
 p = p.next;}
-			x = new XNode();
+			x = XNode.new();
 x.line = -sym.line;
 x.next = p;
 			if (q==null) list[i] = x;
