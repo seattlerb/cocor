@@ -4,7 +4,7 @@ FRAMES=Parser.frame Scanner.frame
 
 .FORCE: all
 all:
-	rm -rf build
+	rm -rf build build2
 	mkdir build
 	cp $(RUBY) $(FRAMES) Coco.ATG build
 	ruby -w Comp.rb build/Coco.ATG &> build/output
@@ -15,6 +15,18 @@ all:
 	mv build/build2 .
 	diff build/output build2/output
 
+bootstrap: all
+	mv Parser.rb Parser.rb.prev
+	mv Scanner.rb Scanner.rb.prev
+	mv ErrorStream.rb ErrorStream.rb.prev
+	cp build/Parser.rb build/Scanner.rb build/ErrorStream.rb .
+	$(MAKE) all
+
+rollback:
+	mv Parser.rb.prev Parser.rb
+	mv Scanner.rb.prev Scanner.rb
+	mv ErrorStream.rb.prev ErrorStream.rb
+
 clean:
-	rm -rf build build[1-9] *~
+	rm -rf build build2 *~
 
