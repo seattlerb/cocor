@@ -96,12 +96,12 @@ class State						# state of finite automaton
 	s = Tab.Class(a.sym)
 	if (s.get(ch)) then
 	  return a
-	else
-	  return nil
 	end
       end
       a=a.next
     end
+
+    return nil
   end
 
   def MeltWith(s) # copy actions of s to state
