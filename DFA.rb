@@ -1014,12 +1014,12 @@ class DFA
 	if (ch==startCh) then
 	  i = 0
 	  begin
-	    return if (i==high) # stop[0..i] found
+	    return if (i==high) # stop[0...i] found
 	    ch = (@@fram.read(1))[0]
 	    i += 1
 	  end while (ch==stop[i])
-	  # stop[0..i-1] found; continue with last read character
-	  @@gen.print(stop[0..i])
+	  # stop[0...i] found; continue with last read character
+	  @@gen.print(stop[0...i])
 	elsif (ch==CR) then
 	  @@gen.println()
 	  ch = (@@fram.read(1))[0]
