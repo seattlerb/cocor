@@ -140,7 +140,7 @@ class Scanner
 
   def self.Scan
     buf=""
-    self.NextCh while @@ignore.get(@@ch)
+    self.NextCh while @@ignore[@@ch] # .get(@@ch)
 -->scan1
     @@t = Token.new
     @@t.pos = @@pos

@@ -4,7 +4,13 @@
 ############################################################
 
 class Module
-  private
+
+  def warn_usage
+    c = module_eval("self.name")
+    m = /\`([^\']+)\'/.match(caller(1).first)[1]
+    $stderr.puts "WARNING: #{c}.#{m} called from #{caller[2]}"
+  end
+
   def cls_attr_accessor (*attrs)
     attrs.each {|attr|
       module_eval(<<-EOS)
@@ -13,6 +19,7 @@ class Module
       EOS
     }
   end
+
   def cls_attr_accessor_warn (*attrs)
     attrs.each {|attr|
       module_eval(<<-EOS)
@@ -27,6 +34,7 @@ class Module
       EOS
     }
   end
+
   def attr_accessor_warn (*attrs)
     attrs.each {|attr|
       module_eval(<<-EOS)
@@ -41,6 +49,7 @@ class Module
       EOS
     }
   end
+
   def move_class_methods (cls, *attrs)
     attrs.each {|attr|
       module_eval(<<-EOS)
@@ -57,10 +66,6 @@ class Fixnum
   def n
     $stderr.puts "WARNING: Fixnum#n called from " + caller[0]
     self
-  end
-  def nil?
-    $stderr.puts "WARNING: Fixnum#nil? called from " + caller[0]
-    return self == 0
   end
 end
 

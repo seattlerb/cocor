@@ -564,47 +564,36 @@ end
 
 class Tab
 
-  EofSy = Sym.new(Node::T, "EOF", 0)
+  EofSy = Sym.new(Node::T, "EOF", 0)				# TODO: move to Sym
+  MaxTerminals =  256	# max. no. of terminals			# TODO: nuke
+  MaxSetNr     =  128	# max. no. of symbol sets		# TODO: nuke
 
-  # --- constants ---
-  MaxTerminals =  256	# max. no. of terminals
-  MaxSetNr     =  128	# max. no. of symbol sets
-
-  # --- variables ---
-  @@maxSet = nil			# index of last set
   @@semDeclPos = nil			# position of global semantic declarations
-  @@importPos = nil			# position of imported identifiers
   @@ignored = nil			# characters ignored by the scanner
   @@ddt = Array.new(10, false)		# debug and test switches
   @@gramSy = nil			# root nonterminal filled by ATG
+  # TODO: trace = some output stream
+  @@allSyncSets = BitSet.new
+  @@visited = nil 
+  @@curSy = 0				# current symbol in computation of sets # TODO: = nil
 
   # REFACTOR: NUKE ME
+  @@importPos = nil			# position of imported identifiers	# TODO: nuke
+  @@maxSet = nil			# index of last set	# TODO: nuke
   @@set = Array.new(128)		# set[0] = union of all synchr. sets
-  @@allSyncSets = BitSet.new
-
   @@err = nil				# error messages
-  @@visited = nil 
   @@termNt = nil 			# mark lists for graph traversals
-  @@curSy = 0				# current symbol in computation of sets
 
   # TODO: get rid of these
   cls_attr_accessor_warn :ignored, :semDeclPos, :gramSy, :ddt, :allSyncSets
 
-  def initialize
-    raise "Not implemented yet"
-  end
+#  def initialize
+#    raise "Not implemented yet"
+#  end
 
-  def ==(o)
-    raise "Not implemented yet"
-  end
-
-  def self.Init
-    @@err = Scanner.err
-    @@maxSet = 0
-
-    @@set[0] = BitSet.new()
-    @@set[0].set(Tab::EofSy.n)
-  end
+#  def ==(o)
+#    raise "Not implemented yet"
+#  end
 
   class << self
     include Enumerable
@@ -620,35 +609,18 @@ class Tab
   #   Symbol set computations
   # ---------------------------------------------------------------------
 
-  def self.PrintSet(s, indent)
-    i = len = 0
-    col = indent
-
-    Sym.each_terminal do |sym|
-      if (s.get(sym.n)) then
-	len = sym.name.length
-	Trace.print(sym.name + "  ")
-	col += len + 1
-      end
-    end
-
-    if (col==indent) then
-      Trace.print("-- empty set --")
-    end
-
-    Trace.println()
-  end
-    
+  # TODO: nuke
   def self.NewSet(s)
-#    $stderr.puts "WARNING: NewSet called from #{caller[0]}"
+    warn_usage if $DEBUG
     @@maxSet += 1
     assert(@@maxSet <= MaxSetNr, 4)
     @@set[@@maxSet] = s
     return @@maxSet
   end
 
+  # TODO: nuke
   def self.Set(i)
-#    $stderr.puts "WARNING: Set called from #{caller[0]}"
+    warn_usage if $DEBUG
     return @@set[i]
   end
 
@@ -669,27 +641,25 @@ class Tab
       when Node::T, Node::Wt then
 	fs.set(p.sym.n)
       when Node::Any then
-	fs.or(@@set[p.set])
+	fs.or(@@set[p.set]) # TODO: (SET) fs.or(p.set)
       when Node::Alt, Node::Iter, Node::Opt then
 	fs.or(self.First0(p.sub, mark))
 	if (p.typ==Node::Alt) then
 	  fs.or(self.First0(p.down, mark))
 	end
       end
-      if (!Node.DelNode(p)) then
-	break
-      end
+      break unless Node.DelNode(p)
       p = p.nxt
     end
     return fs
   end
   
   def self.First(p)
-    fs = First0(p, BitSet.new(Node.NodeCount+1))
+    fs = First0(p, BitSet.new(Node.NodeCount))
     if (@@ddt[3]) then
       Trace.println()
-      Trace.println("First: gp = #{p}")
-      PrintSet(fs, 0)
+      Trace.println("First: gp = #{p}") unless p.nil?
+      BitSet.PrintSet(fs)
     end
     return fs
   end
@@ -710,15 +680,16 @@ class Tab
     s = nil
     while (!p.nil? && !@@visited.get(p.n)) do
       @@visited.set(p.n)
-      if (p.typ==Node::Nt) then
+      # TODO: change to switch statement
+      if p.typ==Node::Nt then
 	s = First(p.nxt)
 	p.sym.follow.or(s)
-	if (Node.DelGraph(p.nxt)) then
+	if Node.DelGraph(p.nxt) then
 	  p.sym.nts.set(@@curSy.n)
 	end
       elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
 	CompFollow(p.sub)
-      elsif (p.typ==Node::Alt) then
+      elsif p.typ==Node::Alt then
 	CompFollow(p.sub)
 	CompFollow(p.down)
       end
@@ -726,56 +697,52 @@ class Tab
     end
   end
 
-  def self.Complete(i)
-    if (!@@visited.get(i.n)) then
-      @@visited.set(i.n)
-      Sym.each_nonterminal do | r |
-	if (i.nts.get(r.n)) then
-	  Complete(r)
-	  i.follow.or(r.follow)
-	  i.nts.clear(r.n) if i == @@curSy
+  def self.Complete(sym)
+    unless @@visited.get(sym.n) then
+      @@visited.set(sym.n)
+      Sym.each_nonterminal do | s |
+	if sym.nts.get(s.n) then
+	  Complete(s)
+	  sym.follow.or(s.follow)
+	  sym.nts.clear(s.n) if sym == @@curSy
 	end
       end
     end
   end
 
   def self.CompFollowSets
-    s = nil
+
     Sym.each_nonterminal do |sym|
-      @@curSy = sym # FIX: bad use of globals
       sym.resetFollowSet
     end
 
     @@visited = BitSet.new()
 
-    Sym.each_nonterminal do |sym|
+    Sym.each_nonterminal do |sym|	# get direct successors of nonterminals
       @@curSy = sym # FIX: this is a bad use of globals!
       CompFollow(sym.graph)
     end
 
-    @@curSy = 0
-    Sym.each_nonterminal do |sym|
-      @@curSy = sym
+    Sym.each_nonterminal do |sym|	# add indirect successors to followers
       @@visited = BitSet.new()
-      Complete(@@curSy) # FIX
+      @@curSy = sym # FIX: bad use of globals
+      Complete(sym)
     end
   end
 
   def self.LeadingAny(p)
-    a = nil
 
     return nil if p.nil?
 
-    if (p.typ==Node::Any) then
+    a = nil
+    if p.typ==Node::Any then
       a = p
-    elsif (p.typ==Node::Alt) then
+    elsif p.typ==Node::Alt then
       a = LeadingAny(p.sub)
-      if (a.nil?) then
-	a = LeadingAny(p.down)
-      end
+      a = LeadingAny(p.down) if a.nil?
     elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
       a = LeadingAny(p.sub)
-    elsif (Node.DelNode(p)) then
+    elsif (Node.DelNode(p)) then # TODO: && ! p.up
       a = LeadingAny(p.nxt)
     end
 
@@ -783,17 +750,15 @@ class Tab
   end
 
   def self.FindAS(p)
-    nod = a = s1 = s2 = nil
-    q = nil
+    a = nil
+#    nod = s1 = s2 = nil
+#    q = nil
 
-    until (p.nil?) do
+    until p.nil? do
       if (p.typ==Node::Opt || p.typ==Node::Iter) then
 	FindAS(p.sub)
 	a = LeadingAny(p.sub)
-	unless (a.nil?) then
-	  s1 = First(p.nxt)
-	  Sets.Differ(@@set[a.set], s1)
-	end
+	Sets.Differ(@@set[a.set], First(p.nxt)) unless a.nil? # TODO: a.set
       elsif (p.typ==Node::Alt) then
 	s1 = BitSet.new()
 	q = p
@@ -804,6 +769,7 @@ class Tab
 	    s2 = First(q.down)
 	    s2.or(s1)
 	    Sets.Differ(@@set[a.set], s2)
+# HACK	    Sets.Differ(@@set[a.set], First(q.down).or(s1)) # TODO: a.set
 	  else
 	    s1.or(First(q.sub))
 	  end
@@ -817,15 +783,15 @@ class Tab
 
   def self.CompAnySets()
     Sym.each_nonterminal do |sym|
-      @@curSy = sym # FIX : bad use of globals
+      @@curSy = sym # FIX : bad use of globals - C# doesn't do this
       FindAS(sym.graph)
     end
   end
 
-  def self.Expected(p, sp)
+  def self.Expected(p, curSy)
     s = First(p)
     if (Node.DelGraph(p)) then
-      s.or(sp.follow)
+      s.or(curSy.follow)
     end
     return s
   end
@@ -834,11 +800,13 @@ class Tab
     s = nil
     while (!p.nil? && !@@visited.get(p.n)) do
       @@visited.set(p.n)
+
+      # TODO: switch to case
       if (p.typ==Node::Sync) then
 	s = Expected(p.nxt, @@curSy)
 	s.set(Tab::EofSy.n)
 	@@allSyncSets.or(s)
-	p.set = NewSet(s)
+	p.set = NewSet(s) # TODO: p.set = s from C#
       elsif (p.typ==Node::Alt) then
 	CompSync(p.sub)
 	CompSync(p.down)
@@ -860,37 +828,40 @@ class Tab
     end
   end
 
+  # TODO: def self.SetupAnys - called from Coco.atg in "ANY" section
+
   def self.CompDeletableSymbols
-    i = 0
-    changed = true
+
     begin
       changed = false
 
       Sym.each_nonterminal do |sym|
-	if (!sym.deletable && Node.DelGraph(sym.graph)) then
+	if (!sym.deletable && Node.DelGraph(sym.graph)) then # TODO: deletable && !sym.graph.nil?
 	  sym.deletable = true
 	  changed = true
 	end
       end
-    end while (changed)
+    end while changed
 
     Sym.each_nonterminal do |sym|
-      if (sym.deletable) then
+      if sym.deletable then
 	puts("  #{sym.name} deletable")
 	$stdout.flush
       end
     end
   end
 
+  # TODO: RenumberPragmas goes here
+
   def self.CompSymbolSets
-    i = Sym.new(Node::T, "???", 0)
+    i = Sym.new(Node::T, "???", 0) # TODO: WTF is this for? Does Sym.new do add to some array?
 
     CompDeletableSymbols()
     CompFirstSets()
     CompFollowSets()
     CompAnySets()
     CompSyncSets()
-    Sym.RenumberPragmas()
+    Sym.RenumberPragmas() # TODO: nuke
 
     if (@@ddt[1]) then
       Trace.println("First & follow symbols:")
@@ -898,21 +869,20 @@ class Tab
       Sym.each_nonterminal do |sym|
 	Trace.println(sym.name)
 	Trace.print("first:   ")
-	PrintSet(sym.first, 10)
+	BitSet.PrintSet(sym.first, 10)
 	Trace.print("follow:  ")
-	PrintSet(sym.follow, 10)
+	BitSet.PrintSet(sym.follow, 10)
 	Trace.println()
       end
 
-      if (@@maxSet >= 0) then
+      if @@ddt[4] then
 	Trace.println()
 	Trace.println()
 	Trace.println("List of sets (ANY, SYNC): ")
-	i = 0
-	while (i<=@@maxSet) do
-	  Trace.print("     set[#{i}] = ")
-	  PrintSet(@@set[i], 16)
-	  i += 1
+	Node.each do |p|
+	  Trace.print("#{p.n} #{p.node_type}: ")
+	  BitSet.PrintSet(@@set[p.set], 16) unless p.set.nil? # TODO: p.set
+	  Trace.println
 	end
 	Trace.println()
 	Trace.println()
@@ -924,15 +894,17 @@ class Tab
   #   Grammar checks
   # ---------------------------------------------------------------------
 
+  # TODO: def self.GrammarOk
+
   def self.GetSingles(p, singles) # (int p, BitSet singles)
     return if p.nil? # end of graph
 
     if (p.typ==Node::Nt) then
-      if (Node.DelGraph(p.nxt)) then
-	singles.set(p.sym.n)
+      if (Node.DelGraph(p.nxt)) then # TODO: if p.up || ...
+	singles.set(p.sym.n) # TODO: C# version has singles as an array, so: singles << p.sym
       end
     elsif (p.typ==Node::Alt || p.typ==Node::Iter || p.typ==Node::Opt) then
-      if (Node.DelGraph(p.nxt)) then
+      if (Node.DelGraph(p.nxt)) then # TODO: if p.up || ...
 	GetSingles(p.sub, singles)
 	if (p.typ==Node::Alt) then
 	  GetSingles(p.down, singles)
@@ -940,7 +912,7 @@ class Tab
       end
     end
 
-    if (Node.DelNode(p)) then
+    if (Node.DelNode(p)) then # TODO: if !p.up
       GetSingles(p.nxt, singles)
     end
   end
@@ -1034,7 +1006,7 @@ class Tab
     return overlap
   end
 
-  def self.AltOverlap(p)
+  def self.AltOverlap(p) # REFACTOR: rename to CheckAlts
     overlap = false
     s1 = s2 = nil
     q = nil
@@ -1069,7 +1041,7 @@ class Tab
     return overlap
   end
 
-  def self.LL1()
+  def self.LL1() # REFACTOR: rename CheckLL1
     ll1 = true
     
     Sym.each_nonterminal do |sym|
@@ -1286,4 +1258,13 @@ class Tab
     Trace.println();
 
   end
-end
+
+  def self.Init
+    @@err = Scanner.err
+    @@maxSet = 0
+
+    @@set[0] = BitSet.new()
+    @@set[0].set(Tab::EofSy.n)
+  end
+
+end # class Tab

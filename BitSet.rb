@@ -1,3 +1,6 @@
+
+require "module-hack"
+
 class BitSet < Array
 
   attr_reader :trueCount
@@ -26,7 +29,10 @@ class BitSet < Array
   end 
   # Sets the bit specified by the index to false .
 
-  alias :get :[]
+  def get(i)
+    self.class.warn_usage if $DEBUG
+    self[i]
+  end
   # Returns the value of the bit with the specified index. 
 
   def set(i)
@@ -64,4 +70,23 @@ class BitSet < Array
   end 
   # Returns the "logical size" of this BitSet : the index of  the highest set bit in the BitSet plus one. 
 
+  def self.PrintSet(s, indent=0)
+    i = len = 0
+    col = indent
+
+    Sym.each_terminal do |sym|
+      if s[sym.n] then
+	len = sym.name.length
+	Trace.print(sym.name + "  ")
+	col += len + 1
+      end
+    end
+
+    if (col==indent) then
+      Trace.print("-- empty set --")
+    end
+
+    Trace.println()
+  end
+    
 end

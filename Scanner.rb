@@ -222,7 +222,7 @@ end
 
   def self.Scan
     buf=""
-    self.NextCh while @@ignore.get(@@ch)
+    self.NextCh while @@ignore[@@ch] # .get(@@ch)
 		if (@@ch==?/ && Comment0() ) then ; return Scan(); end
     @@t = Token.new
     @@t.pos = @@pos
