@@ -138,7 +138,8 @@ class ParserGen
 
   def self.GenErrorMsg(errTyp, errSym)
     @@errorNr += 1
-    name = Sym.Sym(errSym).name.gsub('"', '\'')
+    raise "bad value #{errSym}" if errSym.kind_of? Fixnum
+    name = errSym.name.gsub('"', '\'')
     @@err.append("\t\t\twhen #{@@errorNr}; s = \"")
 
     case errTyp
@@ -167,9 +168,9 @@ class ParserGen
     if (n==0) then
       @@gen.print("false") # should never happen
     elsif (n <= MaxTerm) then
-      for i in 0..Sym.maxT do
-	if (s.get(i)) then
-	  @@gen.print("@t.kind==" + i.to_s)
+      Sym.each_terminal do |sym|
+	if (s.get(sym.n)) then
+	  @@gen.print("@t.kind==#{sym.n}")
 	  n -= 1
 	  if (n > 0) then
 	    @@gen.print(" || ")
@@ -209,7 +210,7 @@ class ParserGen
       case (p.typ)
       when Node::Nt then
 	Indent(indent);
-	sym = Sym.Sym(p.sym);
+	sym = p.sym;
 	if (p.retVar != nil && p.retVar != "") then
 	  @@gen.print(p.retVar + " = ");
 	end
@@ -218,7 +219,7 @@ class ParserGen
 	@@gen.println(")");
       when Node::T then
 	Indent(indent);
-	if (checked.get(p.sym)) then
+	if (checked.get(p.sym.n)) then
 	  @@gen.println("Get()");
 	else
 	  @@gen.println("Expect(" + p.sym.to_s + ")");
@@ -342,20 +343,18 @@ class ParserGen
   end
 
   def self.GenCodePragmas
-    for i in Sym.maxT+1..Sym.maxP do
-      @@gen.println("\t\tif (@t.kind==" + i.to_s + ") then")
-      CopySourcePart(Sym.Sym(i).semPos, 3)
+    Sym.each_pragma do |sym|
+      @@gen.println("\t\tif (@t.kind==#{sym.n}) then")
+      CopySourcePart(sym.semPos, 3)
       @@gen.println("\t\tend")
     end
   end
 
   def self.GenProductions
     sym = nil
-    for @@curSy in Sym.firstNt..Sym.lastNt do
-      sym = Sym.Sym(@@curSy)
+    Sym.each_nonterminal do |sym|
+      @@curSy = sym
       @@gen.print("\tprivate; ")
-      # if (sym.retType==nil) @@gen.print("void ")
-      # else @@gen.print(sym.retType + " ")
       @@gen.print("def self.")
       @@gen.print(sym.name + "(")
 
@@ -392,7 +391,8 @@ class ParserGen
     for i in 0..@@maxSS do
       @@gen.print("\t[")
       s = @@symSet[i]
-      for j in 0..Sym.maxT do
+      Sym.each_terminal do |sym|
+	j = sym.n
 	if (s.get(j)) then
 	  @@gen.print("T,")
 	else
@@ -422,7 +422,7 @@ class ParserGen
 
   def self.WriteParser()
     s = nil
-    root = Sym.Sym(Tab.gramSy)
+    root = Tab.gramSy
 
     begin
       @@fram = File.new(@@srcDir + "/Parser.frame")
@@ -438,15 +438,15 @@ class ParserGen
 
     @@err = ""
 
-    for i in 0..Sym.maxT do
-      GenErrorMsg(TErr, i);
+    Sym.each_terminal do |sym|
+      GenErrorMsg(TErr, sym);
     end
 
     @@gen.println("# This file is generated. DO NOT MODIFY!");
     @@gen.println();
     CopyFramePart("-->constants");
-    @@gen.println("\tprivate; MaxT = " + Sym.maxT.to_s); # TODO: const case them
-    @@gen.println("\tprivate; MaxP = " + Sym.maxP.to_s);
+    @@gen.println("\tprivate; MaxT = #{Sym.terminal_count-1}");
+# HACK    @@gen.println("\tprivate; MaxP = " + Sym.maxP.to_s);
     CopyFramePart("-->declarations");
     CopySourcePart(Tab.semDeclPos, 0);
     CopyFramePart("-->pragmas");
@@ -454,7 +454,7 @@ class ParserGen
     CopyFramePart("-->productions");
     GenProductions();
     CopyFramePart("-->parseRoot");
-    @@gen.println("\t\t" + Sym.Sym(Tab.gramSy).name + "()");
+    @@gen.println("\t\t" + Tab.gramSy.name + "()");
     CopyFramePart("-->initialization");
     InitSets();
     CopyFramePart("-->ErrorStream");
@@ -474,8 +474,8 @@ class ParserGen
   end
 
   def self.WriteStatistics
-    Trace.println("#{Sym.maxT+1} terminals");
-    Trace.println("#{Sym::MaxSymbols - Sym.firstNt + Sym.maxT + 1} symbols")
+    Trace.println("#{Sym.terminal_count} terminals");
+    Trace.println("#{Sym.symbol_count} symbols")
     Trace.println("#{Node.NodeCount} nodes");
     Trace.println("#{@@maxSS} sets");
   end

@@ -245,7 +245,7 @@ class Action			# action of finite automaton
     states.ctx = false
     states.correct = true
 
-    t=target
+    t=@target
 
     while (t!=nil) do
       stateNr = t.state.nr
@@ -923,7 +923,7 @@ class DFA
       if (state.endOf == Tab::NoSym) then
 	Trace.print("     ")
       else
-	Trace.print("E(#{sprintf('%2d', state.endOf)[0..1]})")
+	Trace.print("E(#{sprintf('%2d', state.endOf.n)[0..1]})")
       end
 
       Trace.print(sprintf("%3d:", state.nr))
@@ -1064,8 +1064,7 @@ class DFA
     # sort literal list (don't consider eofSy)
     k = 0
 
-    for i in 1..Sym.maxT do
-      sym = Sym.Sym(i)
+    Sym.each_terminal do |sym|
       if (sym.struct==Tab::LitToken) then
 	j = k-1
 	while (j>=0 && ((sym.name <=> key[j]) < 0)) do
@@ -1074,7 +1073,7 @@ class DFA
 	  j -= 1
 	end
 	key[j+1] = sym.name
-	knr[j+1] = i
+	knr[j+1] = sym.n # HACK was i... not sure if this is good or not
 	k += 1
       end
     end
@@ -1102,10 +1101,6 @@ class DFA
     action = sym = nil
     ctxEnd = false
     endOf = state.endOf
-
-    if (endOf > Sym.maxT) then
-      endOf = Sym.maxT + Sym::MaxSymbols - endOf # pragmas have been moved
-    end
 
     @@gen.println("\t\t\t\twhen #{state.nr}")
     ctxEnd = state.ctx
@@ -1146,7 +1141,7 @@ class DFA
       else
 	@@gen.print("")
       end
-      sym = Sym.Sym(endOf)
+      sym = endOf
       if (ctxEnd) then # final context state: cut appendix
 	@@gen.println()
 	@@gen.println("\t\t\t\t\t\tpos = pos - apx - 1; Buffer.Set(pos+1); i = buf.length()")
@@ -1196,7 +1191,7 @@ class DFA
     startTab = Array.new(128, 0)
     ok = true
     s = com = nil
-    root = Sym.Sym(Tab.gramSy)
+    root = Tab.gramSy
 
     begin
       @@fram = File.new(@@srcDir + "/Scanner.frame")
@@ -1217,7 +1212,7 @@ class DFA
     @@gen.println()
     @@gen.println("# TODO namespace/module starts here: package #{root.name};")
     CopyFramePart("-->declarations")
-    @@gen.println("\tprivate; @@noSym = #{Sym.maxT}; # FIX: make this a constant")
+    @@gen.println("\tprivate; @@noSym = #{Sym.terminal_count-1}; # FIX: make this a constant")
     @@gen.println("\tprivate; @@start = [")
     for i in 0...8 do
       for j in 0...16 do

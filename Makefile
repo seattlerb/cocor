@@ -14,6 +14,7 @@ all:
 	(cd build; ruby -w Comp.rb build2/Coco.ATG)
 	mv build/build2 .
 	diff build/listing build2/listing
+	diff -r build build2
 
 bootstrap: all
 	mv Parser.rb Parser.rb.prev
@@ -31,7 +32,7 @@ profile:
 	ruby -w -rprofile Comp.rb build/Coco.ATG
 
 occur:
-	$(MAKE) 2>&1 | occur
+	ruby -w Comp.rb build/Coco.ATG 2>&1 | occur
 
 clean:
 	rm -rf build build2 *.prev *~

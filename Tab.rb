@@ -57,17 +57,27 @@ end
 # RENAMED from Symbol
 class Sym
 
+  class << self
+    include Enumerable
+  end
+
   MaxSymbols   =  512	# max. no. of t, nt, and pragmas
 
   # FIX: nuke me... use iterators for real
-  @@firstNt = MaxSymbols		# idx of first nt:available after CompSymbolSets
   @@maxP = MaxSymbols			# pragmas stored from maxT+1 to maxP
   @@maxT = -1				# terminals stored from 0 to maxT
-  @@sy = Array.new(MaxSymbols, :Sym)	# symbol table
+  @@firstNt = MaxSymbols		# idx of first nt:available after CompSymbolSets
   @@lastNt = @@maxP - 1		# index of last nt: available after CompSymbolSets
 
+  # 0       .. maxT		== terminals
+  # firstNt .. lastNt		== non-terminals
+  # maxP    .. MaxSymbols-1	== pragmas
+  @@pragmas = []
+  @@nonterminals = []
+  @@terminals = []
+
   # TODO: get rid of me
-  cls_attr_accessor :maxT
+#  cls_attr_accessor :maxT
   cls_attr_accessor :maxP
   cls_attr_accessor :firstNt
   cls_attr_accessor :lastNt
@@ -83,88 +93,85 @@ class Sym
   attr_accessor :semPos			# pr: pos of semantic action in source text (or null)
 					# nt: pos of local declarations in source text (or null)
   attr_accessor :line			# source text line number of item in this node
+  attr_accessor :n			# index in the array, currently @sy, but soon to be the actual array it is stored in
 
   def initialize(typ=0, name="", line=0)
     @typ  = typ
     @name = name
     @line = line
+    @n = -1
     @struct = nil
     @deletable = @attrPos = @semPos = nil
     @retType = @retVar = nil	# strings
-  end
-
-  def ==(o)
-    raise "Not implemented yet"
-  end
-
-  # REFACTOR: fold into initialize
-  def self.NewSym(typ, name, line)
-    i = 0
 
     assert(@@maxT+1 < @@firstNt, 6)
 
     case typ 
     when Node::T
       @@maxT += 1
-      i = @@maxT
+      @n = @@maxT
+      @@terminals.push self
     when Node::Pr
       @@maxP -= 1
       @@firstNt -= 1
       @@lastNt -= 1
-      i = @@maxP
+      @n = @@maxP
+      @@pragmas.unshift self
     when Node::Nt
       @@firstNt -= 1
-      i = @@firstNt
+      @n = @@firstNt
+      @@nonterminals.unshift self
     end
 
     assert(@@maxT+1 < @@firstNt, 6)
-
-    @@sy[i] = Sym.new(typ, name, line)
-
-    return i
   end
 
-  # TODO: this is totally unnecessary in ruby
+  def ==(o)
+    if o.kind_of?(Fixnum) then
+      $stderr.puts "WARNING: Sym#== called with int from #{caller[0]}"
+      return self.n == o
+    else
+      return false if o.nil?
+      return true if self.id == o.id
+      
+      return @typ == o.typ && @name == o.name && @line == o.line && @n == o.n && @struct == o.struct && @deletable == o.deletable && @attrPos == o.attrPos && @semPos == o.semPos && @retType = o.retType && @retVar == o.retVar
+    end
+  end
+
+  def self.terminal_count
+    return @@terminals.size
+  end
+  
+  def self.symbol_count
+    return @@terminals.size + @@nonterminals.size + @@pragmas.size
+  end
+
+  def self.each(&b)
+    each_terminal(&b)
+    each_pragma(&b)
+    each_nonterminal(&b)
+  end
+
+  def self.each_terminal(&b)
+    @@terminals.each(&b)
+  end
+
+  def self.each_nonterminal(&b)
+    @@nonterminals.each(&b)
+  end
+
+  def self.each_pragma(&b)
+    @@pragmas.each(&b)
+  end
+
   def self.FindSym(name)
 
-    # TODO: make clean like this
-    # foreach (Symbol s in terminals)
-    # if (s.name == name) return s;
-    # foreach (Symbol s in nonterminals)
-    # if (s.name == name) return s;
-    # return null;
-    
-    # TODO: if @@maxT and Sym.firstNt are always side-by-side, this can become one each_with_index
-    # @@sy.each_with_index do |sym, i|
-    #   return i if name == sym.name
-    # end
-    i = 0
-    while (i <= @@maxT)
-      if (name == @@sy[i].name) then
-	return i
-      end
-      i += 1
-    end
-    i = Sym.firstNt
-    while (i < MaxSymbols)
-      if (name == @@sy[i].name) then
-	return i
-      end
-      i += 1
-    end
-    return Tab::NoSym
-  end
+    return @@terminals.detect { |s| s.name == name } || @@nonterminals.detect { |s| s.name == name } || Tab::NoSym
 
-  def self.Sym(i)
-    return @@sy[i]
-  end
-
-  def self.SetSym(index, val)
-    @@sy[index] = val
   end
 
   def to_s
-    "<Symbol: name=#{@name}/retType=#{@retType.inspect}/retVar=#{@retVar.inspect}/attrPos:#{attrPos.inspect}>"
+    self.n.to_s
   end
   
 end
@@ -257,13 +264,6 @@ class Node
     @nxt = o
   end
 
-  # TODO: NUKE THESE!
-  def p1; raise "Node#p1 should not be used anymore"; end
-  def p1=(o); raise "Node#p1= should not be used anymore"; end
-  def p2; raise "Node#p2 should not be used anymore"; end
-  def p2=(o); raise "Node#p2= should not be used anymore"; end
-  def abs; raise "WARNING: Node#abs"; end
-
   def ==(o)
 
     raise "Node.== called with Fixnum" if o.kind_of? Fixnum
@@ -311,7 +311,7 @@ class Node
 
   def self.DelNode(n)
     if (n.typ==Node::Nt) then
-      return Sym.Sym(n.sym).deletable
+      return n.sym.deletable
     elsif (n.typ==Node::Alt) then
       return DelAlt(n.sub) || !n.down.nil? && DelAlt(n.down)
     else
@@ -322,7 +322,7 @@ class Node
   def to_s
     v1 = case @typ
 	 when Nt, T, Wt then
-	   @sym
+	   @sym.n
 	 when Any, Sync then
 	   @set
 	 when Alt, Iter, Opt then
@@ -630,7 +630,7 @@ class Tab
   ContextTrans = 1
 
   EofSy = 0
-  NoSym = -1
+  NoSym = nil
 
   # --- variables ---
   @@maxSet = nil			# index of last set
@@ -677,10 +677,11 @@ class Tab
   def self.PrintSet(s, indent)
     i = len = 0
     col = indent
-    for i in 0..Sym.maxT do
-      if (s.get(i)) then
-	len = Sym.Sym(i).name.length
-	Trace.print(Sym.Sym(i).name + "  ")
+
+    Sym.each_terminal do |sym|
+      if (s.get(sym.n)) then
+	len = sym.name.length
+	Trace.print(sym.name + "  ")
 	col += len + 1
       end
     end
@@ -712,13 +713,13 @@ class Tab
 		 
       case (p.typ)
       when Node::Nt then
-	if (@@first[p.sym-Sym.firstNt].ready) then
-	  fs.or(@@first[p.sym-Sym.firstNt].ts)
+	if (@@first[p.sym.n-Sym.firstNt].ready) then
+	  fs.or(@@first[p.sym.n-Sym.firstNt].ts)
 	else 
-	  fs.or(self.First0(Sym.Sym(p.sym).struct, mark))
+	  fs.or(self.First0(p.sym.struct, mark))
 	end
       when Node::T, Node::Wt then
-	fs.set(p.sym)
+	fs.set(p.sym.n)
       when Node::Any then
 	fs.or(@@set[p.set])
       when Node::Alt, Node::Iter, Node::Opt then
@@ -746,21 +747,19 @@ class Tab
   end
 
   def self.CompFirstSets
-    s = nil
-    i = Sym.firstNt
-    while (i<=Sym.lastNt) do
-      s = FirstSet.new()
+
+    # FIX: this whole thing seems stupid... why are we iterating twice?
+
+    Sym.each_nonterminal do |sym|
+      s = FirstSet.new() # FIX: use a constructor for real damnit
       s.ts = BitSet.new()
       s.ready = false
-      @@first[i-Sym.firstNt] = s
-      i += 1
+      @@first[sym.n-Sym.firstNt] = s
     end
 
-    i = Sym.firstNt
-    while (i <= Sym.lastNt) do
-      @@first[i-Sym.firstNt].ts = self.First(Sym.Sym(i).struct)
-      @@first[i-Sym.firstNt].ready = true
-      i += 1
+    Sym.each_nonterminal do |sym|
+      @@first[sym.n-Sym.firstNt].ts = self.First(sym.struct)
+      @@first[sym.n-Sym.firstNt].ready = true
     end
   end
   
@@ -770,9 +769,9 @@ class Tab
       @@visited.set(p.n)
       if (p.typ==Node::Nt) then
 	s = First(p.nxt)
-	@@follow[p.sym-Sym.firstNt].ts.or(s)
+	@@follow[p.sym.n-Sym.firstNt].ts.or(s)
 	if (Node.DelGraph(p.nxt)) then
-	  @@follow[p.sym-Sym.firstNt].nts.set(@@curSy-Sym.firstNt)
+	  @@follow[p.sym.n-Sym.firstNt].nts.set(@@curSy.n-Sym.firstNt)
 	end
       elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
 	CompFollow(p.sub)
@@ -814,12 +813,12 @@ class Tab
 
     @@visited = BitSet.new()
 
-    @@curSy = Sym.firstNt
-    while (@@curSy<=Sym.lastNt) do # get direct successors of nonterminals
-      CompFollow(Sym.Sym(@@curSy).struct)
-      @@curSy += 1
+    Sym.each_nonterminal do |sym|
+      @@curSy = sym # FIX: this is a bad use of globals!
+      CompFollow(sym.struct)
     end
 
+    # FIX: this makes no sense
     @@curSy = 0
     while (@@curSy<=Sym.lastNt-Sym.firstNt) do # add indirect successors to follow.ts
       @@visited = BitSet.new()
@@ -883,17 +882,16 @@ class Tab
   end
 
   def self.CompAnySets()
-    @@curSy = Sym.firstNt
-    while (@@curSy<=Sym.lastNt) do
-      FindAS(Sym.Sym(@@curSy).struct)
-      @@curSy += 1
+    Sym.each_nonterminal do |sym|
+      @@curSy = sym # FIX : bad use of globals
+      FindAS(sym.struct)
     end
   end
 
   def self.Expected(p, sp)
     s = First(p)
     if (Node.DelGraph(p)) then
-      s.or(@@follow[sp-Sym.firstNt].ts)
+      s.or(@@follow[sp.n-Sym.firstNt].ts)
     end
     return s
   end
@@ -919,10 +917,10 @@ class Tab
 
   def self.CompSyncSets
     @@visited = BitSet.new()
-    @@curSy = Sym.firstNt
-    while (@@curSy <= Sym.lastNt) do
-      CompSync(Sym.Sym(@@curSy).struct)
-      @@curSy += 1
+
+    Sym.each_nonterminal do |sym|
+      @@curSy = sym # FIX: bad use of global
+      CompSync(sym.struct)
     end
   end
 
@@ -932,40 +930,36 @@ class Tab
     begin
       changed = false
 
-      i = Sym.firstNt
-      while (i<=Sym.lastNt) do
-	if (!Sym.Sym(i).deletable && Node.DelGraph(Sym.Sym(i).struct)) then
-	  Sym.Sym(i).deletable = true
+      Sym.each_nonterminal do |sym|
+	if (!sym.deletable && Node.DelGraph(sym.struct)) then
+	  sym.deletable = true
 	  changed = true
 	end
-	i += 1
       end
     end while (changed)
 
-    for i in Sym.firstNt..Sym.lastNt do
-      if (Sym.Sym(i).deletable) then
-	puts("  #{Sym.Sym(i).name} deletable")
+    Sym.each_nonterminal do |sym|
+      if (sym.deletable) then
+	puts("  #{sym.name} deletable")
 	$stdout.flush
       end
-      i += 1
     end
   end
 
+  @@stupidhack=true # HACK HACK HACK
   def self.MovePragmas
-    if (Sym.maxP > Sym.firstNt) then
-      Sym.maxP = Sym.maxT
-      i = Sym::MaxSymbols - 1
-      while (i > Sym.lastNt) do
+    if @@stupidhack then
+      Sym.maxP = index = Sym.terminal_count - 1
+      Sym.each_pragma do |sym|
 	Sym.maxP += 1
-	assert(Sym.maxP < Sym.firstNt, 6)
-	Sym.SetSym(Sym.maxP, Sym.Sym(i))
-	i -= 1
+	sym.n = Sym.maxP
       end
+      @@stupidhack=false
     end
   end
 
   def self.CompSymbolSets
-    i = Sym.NewSym(Node::T, "???", 0)
+    i = Sym.new(Node::T, "???", 0)
     # unknown symbols get code Sym.maxT
     MovePragmas()
     CompDeletableSymbols()
@@ -980,15 +974,13 @@ class Tab
     if (@@ddt[1]) then
       Trace.println("First & follow symbols:")
 
-      i = Sym.firstNt
-      while (i<=Sym.lastNt) do
-	Trace.println(Sym.Sym(i).name)
+      Sym.each_nonterminal do |sym|
+	Trace.println(sym.name)
 	Trace.print("first:   ")
-	PrintSet(@@first[i-Sym.firstNt].ts, 10)
+	PrintSet(@@first[sym.n-Sym.firstNt].ts, 10)
 	Trace.print("follow:  ")
-	PrintSet(@@follow[i-Sym.firstNt].ts, 10)
+	PrintSet(@@follow[sym.n-Sym.firstNt].ts, 10)
 	Trace.println()
-	i += 1
       end
 
       if (@@maxSet >= 0) then
@@ -1016,7 +1008,7 @@ class Tab
 
     if (p.typ==Node::Nt) then
       if (Node.DelGraph(p.nxt)) then
-	singles.set(p.sym)
+	singles.set(p.sym.n)
       end
     elsif (p.typ==Node::Alt || p.typ==Node::Iter || p.typ==Node::Opt) then
       if (Node.DelGraph(p.nxt)) then
@@ -1038,25 +1030,25 @@ class Tab
     x = singles = sym = nil
     i = j = len = 0
 
-    for i in Sym.firstNt..Sym.lastNt do
+    Sym.each_nonterminal do |sym1|
       singles = BitSet.new()
-      GetSingles(Sym.Sym(i).struct, singles)
+      GetSingles(sym1.struct, singles)
       # get nts such that i-->j
-      for j in Sym.firstNt..Sym.lastNt do
-	if (singles.get(j)) then
+      Sym.each_nonterminal do |sym2|
+	if (singles.get(sym2.n)) then
 	  x = CNode.new
-	  x.left = i
-	  x.right = j
+	  x.left = sym1.n
+	  x.right = sym2.n
 	  x.deleted = false
-	  list[len] = x
-	  len += 1
+	  list[len] = x # FIX: just push damnit
+	  len += 1 # FIX: nuke
 	end
       end
     end
 
     begin
       changed = false
-      for i in 0...len do
+      for i in 0...len do # FIX: enumerate
 	if (!list[i].deleted) then
 	  onLeftSide = false
 	  onRightSide = false
@@ -1081,7 +1073,7 @@ class Tab
     for i in 0...len do
       if (!list[i].deleted) then
 	ok = false
-	puts("  "+Sym.Sym(list[i].left).name+" --> "+Sym.Sym(list[i].right).name)
+	puts("  #{list[i].left.name} --> #{list[i].right.name}")
       end
     end
 
@@ -1089,8 +1081,8 @@ class Tab
   end
 
   def self.LL1Error(cond, ts)
-    print("  LL1 warning in " + Sym.Sym(@@curSy).name + ": ")
-    print(Sym.Sym(ts).name + " is ") if (ts > 0)
+    print("  LL1 warning in #{@@curSy.name}: ")
+    print("#{ts.name} is ") if (ts.n > 0) # HACK: why zero?
 
     case cond
     when 1
@@ -1106,9 +1098,9 @@ class Tab
   def self.Overlap(s1, s2, cond)
     overlap = false
 
-    for i in 0..Sym.maxT do
-      if (s1.get(i) && s2.get(i)) then
-	LL1Error(cond, i)
+    Sym.each_terminal do |sym|
+      if (s1.get(sym.n) && s2.get(sym.n)) then
+	LL1Error(cond, sym)
 	overlap = true
       end
     end
@@ -1153,19 +1145,22 @@ class Tab
 
   def self.LL1()
     ll1 = true
-    for @@curSy in Sym.firstNt..Sym.lastNt do
-      ll1 = false if (AltOverlap(Sym.Sym(@@curSy).struct)) 
+    
+    Sym.each_nonterminal do |sym|
+      @@curSy = sym # FIX: bad use of globals
+      ll1 = false if AltOverlap(sym.struct)
     end
+
     return ll1
   end
 
   def self.NtsComplete
     complete = true
     
-    for i in Sym.firstNt..Sym.lastNt do
-      if (Sym.Sym(i).struct.nil?) then
+    Sym.each_nonterminal do |sym|
+      if (sym.struct.nil?) then
 	complete = false
-	puts("  No production for " + Sym.Sym(i).name)
+	puts("  No production for #{sym.name}")
       end
     end
 
@@ -1175,9 +1170,9 @@ class Tab
   def self.MarkReachedNts(p)
     until (p.nil?) do
       if (p.typ==Node::Nt) then
-	if (!@@visited.get(p.sym)) then # new nt reached
-	  @@visited.set(p.sym)
-	  MarkReachedNts(Sym.Sym(p.sym).struct)
+	if (!@@visited.get(p.sym.n)) then # new nt reached
+	  @@visited.set(p.sym.n)
+	  MarkReachedNts(p.sym.struct)
 	end
       elsif (p.typ==Node::Alt || p.typ==Node::Iter || p.typ==Node::Opt) then
 	MarkReachedNts(p.sub)
@@ -1192,14 +1187,14 @@ class Tab
     n = nil
     ok = true
     @@visited = BitSet.new()
-    @@visited.set(@@gramSy)
+    @@visited.set(@@gramSy.n)
 
-    MarkReachedNts(Sym.Sym(@@gramSy).struct)
+    MarkReachedNts(@@gramSy.struct)
 
-    for i in Sym.firstNt..Sym.lastNt do
-      if (!@@visited.get(i)) then
+    Sym.each_nonterminal do |sym|
+      if (!@@visited.get(sym.n)) then
 	ok = false
-	puts("  " + Sym.Sym(i).name + " cannot be reached")
+	puts("  #{sym.name} cannot be reached")
       end
     end
     return ok
@@ -1209,7 +1204,7 @@ class Tab
     n = nil
 
     until (p.nil?) do
-      return false if (p.typ==Node::Nt  && !@@termNt.get(p.sym))
+      return false if (p.typ==Node::Nt  && !@@termNt.get(p.sym.n))
       return false if (p.typ==Node::Alt && !Term(p.sub) && (p.down.nil? || !Term(p.down)))
       break if p.up
       p = p.nxt
@@ -1226,18 +1221,18 @@ class Tab
 
     begin
       changed = false
-      for i in Sym.firstNt..Sym.lastNt do
-	if (!@@termNt.get(i) && Term(Sym.Sym(i).struct)) then
-	  @@termNt.set(i)
+      Sym.each_nonterminal do |sym|
+	if (!@@termNt.get(sym.n) && Term(sym.struct)) then
+	  @@termNt.set(sym.n)
 	  changed = true
 	end
       end
     end while changed
 
-    for i in Sym.firstNt..Sym.lastNt do
-      if (!@@termNt.get(i)) then
+    Sym.each_nonterminal do |sym|
+      if (!@@termNt.get(sym.n)) then
 	ok = false
-	puts "  " + Sym.Sym(i).name + "cannot be derived to terminals"
+	puts "  #{sym.name} cannot be derived to terminals"
       end
     end
 
@@ -1248,21 +1243,15 @@ class Tab
 #   Utility functions
 # ---------------------------------------------------------------------
 
-  def self.PrintSymbolTable
-
-    Trace.println("Symbol Table:")
-    Trace.println(" nr name       typ  hasAt struct del   line")
-    Trace.println()
-    i = 0
-    while (i < Sym::MaxSymbols) do
-      Trace.print(sprintf("%3d %-10.10s %s", i, Sym.Sym(i).name, Node.nTyp[Sym.Sym(i).typ]))
-      if (Sym.Sym(i).attrPos==nil) then
+  def self.PrintSym(sym)
+      Trace.print(sprintf("%3d %-10.10s %s", sym.n, sym.name, Node.nTyp[sym.typ]))
+      if (sym.attrPos==nil) then
 	Trace.print(" false ")
       else
 	Trace.print(" true  ")
       end
 
-      struct = Sym.Sym(i).struct
+      struct = sym.struct
       case struct
       when NilClass
 	struct = 0
@@ -1274,21 +1263,47 @@ class Tab
       end
 
       Trace.print(sprintf("%5d", struct))
-      if (Sym.Sym(i).deletable) then
+      if (sym.deletable) then
 	Trace.print(" true  ")
       else
 	Trace.print(" false ")
       end
 
-      Trace.println(sprintf("%5d", Sym.Sym(i).line))
+      Trace.println(sprintf("%5d", sym.line))
+  end
 
-      if (i==Sym.maxT) then
-	i = Sym.firstNt
-      else
-	i += 1
-      end
-    end
+  def self.PrintSymbolTable
+
+    Trace.println("Symbol Table:")
+    Trace.println(" nr name       typ  hasAt struct del   line")
     Trace.println()
+
+    Sym.each_terminal    { |sym| PrintSym(sym) }
+    Sym.each_pragma      { |sym| PrintSym(sym) }
+    Sym.each_nonterminal { |sym| PrintSym(sym) }
+
+    Trace.println()
+  end
+
+  def self.PrintXRef(list, sym)
+    Trace.print(sprintf("%3d %s  ", sym.n, sym.name))
+    p = list[sym.n];
+    col = 25;
+    while (p != nil) do
+      if (col + 5 > 80) then
+	Trace.println();
+	Trace.print(" " * 24);
+	col = 25
+      end
+      if (p.line==0)
+	Trace.print("undef  ");
+      else
+	Trace.print("#{p.line}  ");
+      end
+      col = col + 5;
+      p = p.nxt;
+    end
+    Trace.println();
   end
 
   def self.XRef
@@ -1297,7 +1312,7 @@ class Tab
     list = Array.new(Sym.lastNt + 1) # XNode[] list = new XNode[Sym.lastNt+1]
     i = col = 0
     
-    return if (Sym.maxT <= 0) 
+    return if (Sym.terminal_count <= 0) 
 
     MovePragmas()
 
@@ -1306,16 +1321,15 @@ class Tab
       if (n.typ==Node::T || n.typ==Node::Wt || n.typ==Node::Nt) then
 	p = XNode.new();
 	p.line = n.line;
-	p.nxt = list[n.sym];
-	list[n.sym] = p;
+	p.nxt = list[n.sym.n];
+	list[n.sym.n] = p;
       end
     end
 
     # search lines where symbol has been defined and insert in order
     i = 1;
-    while (i <= Sym.lastNt) do
-      sym = Sym.Sym(i);
-      p = list[i];
+    Sym.each do |sym|
+      p = list[sym.n];
       q = nil;
       while (p != nil && sym.line > p.line) do
 	q = p;
@@ -1325,14 +1339,9 @@ class Tab
       x.line = -sym.line;
       x.nxt = p;
       if (q==nil) then
-	list[i] = x;
+	list[sym.n] = x;
       else 
 	q.nxt = x;
-      end
-      if (i==Sym.maxP) then
-	i = Sym.firstNt;
-      else 
-	i += 1
       end
     end
 
@@ -1342,39 +1351,13 @@ class Tab
     Trace.println();
     Trace.println("Terminals:");
     Trace.println("  0 EOF");
-    i = 1;
-
-    while (i <= Sym.lastNt) do
-      Trace.print(sprintf("%3d %s  ", i, Sym.Sym(i).name))
-      p = list[i];
-      col = 25;
-      while (p != nil) do
-	if (col + 5 > 80) then
-	  Trace.println();
-	  Trace.print(" " * 24);
-	  col = 25
-	end
-	if (p.line==0)
-	  Trace.print("undef  ");
-	else
-	  Trace.print("#{p.line}  ");
-	end
-	col = col + 5;
-	p = p.nxt;
-      end
-      Trace.println();
-      if (i==Sym.maxT) then
-	Trace.println();
-	Trace.println("Pragmas:");
-      end
-      if (i==Sym.maxP) then
-	Trace.println();
-	Trace.println("Nonterminals:");
-	i = Sym.firstNt;
-      else
-	i += 1
-      end
-    end
+    Sym.each_terminal    { |sym| PrintXRef(list, sym) }
+    Trace.println();
+    Trace.println("Pragmas:");
+    Sym.each_pragma      { |sym| PrintXRef(list, sym) }
+    Trace.println();
+    Trace.println("Nonterminals:");
+    Sym.each_nonterminal { |sym| PrintXRef(list, sym) }
     Trace.println();
     Trace.println();
 

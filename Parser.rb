@@ -6,7 +6,6 @@ require 'module-hack'
 
 class Parser
 	private; MaxT = 40
-	private; MaxP = 41
 
 	private; T = true
 	private; X = false
@@ -22,14 +21,12 @@ class Parser
 		Scanner.err.SemErr(n, @t.line, @t.col)
 	end
 	
-	private; def Parser.MatchLiteral(sp) # store string either as token or as literal
-		sym = Sym.Sym(sp)
-		matchedSp = DFA.MatchedDFA(sym.name, sp)
-		if (matchedSp==Tab::NoSym)
+	private; def Parser.MatchLiteral(sym) # store string either as token or as literal
+		sym2 = DFA.MatchedDFA(sym.name, sym)
+		if (sym2.nil?)
 		  sym.struct = Tab::ClassToken
 		else 
-		  sym1 = Sym.Sym(matchedSp)
-		  sym1.struct = Tab::ClassLitToken
+		  sym2.struct = Tab::ClassLitToken
 		  sym.struct = Tab::LitToken
 		end
 	end
@@ -299,16 +296,16 @@ end
 				   undefined = sp==Tab::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
-                                           sp = Sym.NewSym(Node::Nt, s.name, 0) # forward nt
+                                           sp = Sym.new(Node::Nt, s.name, 0) # forward nt
                                        elsif (@@genScanner) then
-                                           sp = Sym.NewSym(Node::T, s.name, @token.line)
+                                           sp = Sym.new(Node::T, s.name, @token.line)
                                            MatchLiteral(sp)
                                        else # undefined string in production
                                            SemErr(6) 
-					   sp = 0
+					   sp = nil
                                        end
                                    end
-                                   sym = Sym.Sym(sp)
+				   sym = sp # FIX
 				   typ = sym.typ
                                    if (typ!=Node::T && typ!=Node::Nt) then
 				     SemErr(4)
@@ -504,8 +501,8 @@ end
 				     SemErr(7)
 				     sp = 0
                                    else
-                                     sp = Sym.NewSym(typ, s.name, @token.line)
-                                     Sym.Sym(sp).struct = Tab::ClassToken
+                                     sp = Sym.new(typ, s.name, @token.line)
+                                     sp.struct = Tab::ClassToken
                                    end
 				 
 		while (!(StartOf(10))); Error(51); Get(); end
@@ -533,7 +530,7 @@ end
 			if (typ==Node::T) then
 				     SemErr(14)
 				   end
-                                   Sym.Sym(sp).semPos = pos
+                                   sp.semPos = pos
 				 
 		end
 	end
@@ -735,7 +732,7 @@ end
 				
 		Expect(5)
 		gramLine = @token.line
-                                   eofSy = Sym.NewSym(Node::T, "EOF", 0)
+                                   eofSy = Sym.new(Node::T, "EOF", 0)
                                    @@genScanner = true
                                    ok = true
                                    Tab.ignored = BitSet.new()
@@ -762,13 +759,11 @@ end
 				
 		while (@t.kind==1)
 			Get()
-			sp = Sym.FindSym(@token.val)
-                                   undefined = sp == Tab::NoSym
+			sym = Sym.FindSym(@token.val)
+                                   undefined = sym == Tab::NoSym
                                    if (undefined) then
-                                       sp = Sym.NewSym(Node::Nt, @token.val, @token.line)
-                                       sym = Sym.Sym(sp)
+                                       sym = Sym.new(Node::Nt, @token.val, @token.line)
                                    else 
-                                       sym = Sym.Sym(sp)
                                        if (sym.typ==Node::Nt) then
 					    if !sym.struct.nil? then
 						SemErr(7)
@@ -812,7 +807,7 @@ end
                                    if (Tab.gramSy==Tab::NoSym) then
 				       SemErr(11)
                                    else
-                                       sym = Sym.Sym(Tab.gramSy)
+                                       sym = Tab.gramSy
                                        unless (sym.attrPos.nil?) then
 				         SemErr(12)
 				       end
