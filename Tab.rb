@@ -61,7 +61,12 @@ class Sym
     include Enumerable
   end
 
-  MaxSymbols   =  512	# max. no. of t, nt, and pragmas
+  EofSy = 0
+  NoSym = nil
+  ClassToken    = 0		# token kinds
+  LitToken      = 1
+  ClassLitToken = 2
+  MaxSymbols    = 512		# max. no. of t, nt, and pragmas
 
   # FIX: nuke me... use iterators for real
   @@maxP = MaxSymbols			# pragmas stored from maxT+1 to maxP
@@ -72,19 +77,29 @@ class Sym
   # 0       .. maxT		== terminals
   # firstNt .. lastNt		== non-terminals
   # maxP    .. MaxSymbols-1	== pragmas
+  @@terminals = []
   @@pragmas = []
   @@nonterminals = []
-  @@terminals = []
 
-  # TODO: get rid of me
-#  cls_attr_accessor :maxT
-  cls_attr_accessor :maxP
+  @@stupidhack=true # HACK HACK HACK
+  def self.MovePragmas
+    if @@stupidhack then
+      @@maxP = index = self.terminal_count - 1
+      self.each_pragma do |sym|
+	@@maxP += 1
+	sym.n = @@maxP
+      end
+      @@stupidhack=false
+    end
+  end
+
+  # TODO: get rid of these
   cls_attr_accessor :firstNt
-  cls_attr_accessor :lastNt
 
+  attr_accessor :n			# symbol number
   attr_accessor :typ			# t, nt, pr, unknown
   attr_accessor :name			# symbol name
-  attr_accessor :struct			# nt: index of first node of syntax graph
+  attr_accessor :graph			# nt: first node of syntax graph
 					# t:  token kind (literal, class, ...)
   attr_accessor :deletable		# nt: true if nonterminal is deletable
   attr_accessor :attrPos		# position of attributes in source text (or null)
@@ -100,7 +115,7 @@ class Sym
     @name = name
     @line = line
     @n = -1
-    @struct = nil
+    @graph = nil
     @deletable = @attrPos = @semPos = nil
     @retType = @retVar = nil	# strings
 
@@ -132,14 +147,18 @@ class Sym
       return self.n == o
     else
       return false if o.nil?
-      return true if self.id == o.id
+      return true if self.object_id == o.object_id
       
-      return @typ == o.typ && @name == o.name && @line == o.line && @n == o.n && @struct == o.struct && @deletable == o.deletable && @attrPos == o.attrPos && @semPos == o.semPos && @retType = o.retType && @retVar == o.retVar
+      return @typ == o.typ && @name == o.name && @line == o.line && @n == o.n && @graph == o.graph && @deletable == o.deletable && @attrPos == o.attrPos && @semPos == o.semPos && @retType = o.retType && @retVar == o.retVar
     end
   end
 
   def self.terminal_count
     return @@terminals.size
+  end
+
+  def self.nonterminal_count
+    return @@nonterminals.size
   end
   
   def self.symbol_count
@@ -150,6 +169,11 @@ class Sym
     each_terminal(&b)
     each_pragma(&b)
     each_nonterminal(&b)
+  end
+
+  def self.each_both_terminals(&b) # REFACTOR: terrible name
+    @@terminals.each(&b)
+    @@nonterminals.each(&b)
   end
 
   def self.each_terminal(&b)
@@ -166,7 +190,7 @@ class Sym
 
   def self.FindSym(name)
 
-    return @@terminals.detect { |s| s.name == name } || @@nonterminals.detect { |s| s.name == name } || Tab::NoSym
+    return @@terminals.detect { |s| s.name == name } || @@nonterminals.detect { |s| s.name == name } || NoSym
 
   end
 
@@ -182,8 +206,10 @@ class Node
     include Enumerable
   end
 
-  MaxNodes = 1500	# max. no. of graph nodes
-  T    = 1				# node kinds
+  NormTrans    = 0		# transition codes
+  ContextTrans = 1
+  MaxNodes = 1500		# max. no. of graph nodes
+  T    = 1			# node kinds
   Pr   = 2
   Nt   = 3
   Clas = 4
@@ -199,10 +225,10 @@ class Node
 
   @@nTyp = [ "    ", "t   ", "pr  ", "nt  ", "clas", "chr ", "wt  ",
              "any ", "eps ", "sync", "sem ", "alt ", "iter", "opt " ]
-  @@dummy = nil
   @@gn = Array.new(0, :Node)		# grammar graph
 
-  cls_attr_accessor :dummy, :nTyp
+  # TODO: get rid of these
+  cls_attr_accessor :nTyp
 
   attr_accessor :n			# node number
   attr_accessor :typ			# t, nt, wt, chr, clas, any, eps, sem, sync, alt, iter, opt
@@ -212,10 +238,8 @@ class Node
   attr_accessor :sub			# alt, iter, opt: first node of substructure
   attr_accessor :up			# successor in enclosing structure
   attr_accessor :sym			# nt, t, wt: symbol of this node
-  # FIX: this is probably our current val accourding to C# version
   attr_accessor :val			# chr: ordinal character value
 					# cls: index of character class
-  # FIX: this should be code according to C# version
   attr_accessor :code			# chr, clas: transition code
   attr_accessor :set			# any, sync: set represented by node
   attr_accessor :pos			# nt, t, wt: pos of actual attributes
@@ -267,7 +291,7 @@ class Node
   def ==(o)
 
     raise "Node.== called with Fixnum" if o.kind_of? Fixnum
-    return true if self.id == o.id
+    return true if self.object_id == o.object_id
     return false unless @typ == o.typ
 
     r = false
@@ -295,7 +319,6 @@ class Node
 
   def self.EraseNodes
     @@gn = Array.new(0, :Node)		# grammar graph
-    @@dummy = Node.new(Node::Eps, nil, 0) # HACK/DOC: (no longer) fills slot zero
     @@gn.pop
   end
 
@@ -397,6 +420,7 @@ class CharClass
   @@chClass = Array.new(MaxClasses)#CharClass[] # character classes
   @@dummyName = 0				# for unnamed character classes
 
+  # TODO: get rid of these
   cls_attr_accessor :maxC, :chClass
 
   attr_accessor :name			# class name
@@ -492,7 +516,6 @@ class Graph
   end
   
   def self.FirstAlt(g)
-#    $stderr.puts "g.l = #{g.l}"
     g.l = Node.new(Node::Alt, g.l, 0)
     g.l.nxt = g.r
     g.r = g.l
@@ -500,7 +523,6 @@ class Graph
   end
 
   def self.Alternative(g1, g2)
-    p = 0
     g2.l = Node.new(Node::Alt, g2.l, 0)
     p = g1.l
     until (p.down.nil?) do
@@ -564,9 +586,9 @@ class Graph
 
   def self.StrToGraph(s)
     g = Graph.new
-    g.r = Node.dummy
+    temp = Node.new(Node::Eps, nil, 0)
+    g.r = temp
 
-    raise "Node.dummy is messed up" if Node.dummy.nil?
     raise "g.r is messed up" if g.r.nil?
     raise "s is messed up" if s.length <= 2
 
@@ -576,8 +598,8 @@ class Graph
       g.r = p
     end
     
-    g.l = Node.dummy.nxt
-    Node.dummy.nxt = nil
+    g.l = temp.nxt
+    temp.nxt = nil
 
     return g
   end
@@ -622,23 +644,13 @@ class Tab
   MaxTerminals =  256	# max. no. of terminals
   MaxSetNr     =  128	# max. no. of symbol sets
 
-  ClassToken    = 0		# token kinds
-  LitToken      = 1
-  ClassLitToken = 2
-
-  NormTrans    = 0		# transition codes
-  ContextTrans = 1
-
-  EofSy = 0
-  NoSym = nil
-
   # --- variables ---
   @@maxSet = nil			# index of last set
   @@semDeclPos = nil			# position of global semantic declarations
   @@importPos = nil			# position of imported identifiers
   @@ignored = nil			# characters ignored by the scanner
   @@ddt = Array.new(10, false)		# debug and test switches
-  @@gramSy = 0				# root nonterminal filled by ATG
+  @@gramSy = 0				# root nonterminal filled by ATG # FIX - nil
   @@first = nil				# first[i] = start symbols of sy[i+Sym.firstNt]
   @@follow = nil	 		# follow[i] = followers of sy[i+Sym.firstNt]
 
@@ -665,7 +677,7 @@ class Tab
     @@err = Scanner.err
     @@maxSet = 0
     @@set[0] = BitSet.new()
-    @@set[0].set(EofSy)
+    @@set[0].set(Sym::EofSy)
 
     Node.EraseNodes # TODO: remove me... stupid bastards
   end
@@ -716,7 +728,7 @@ class Tab
 	if (@@first[p.sym.n-Sym.firstNt].ready) then
 	  fs.or(@@first[p.sym.n-Sym.firstNt].ts)
 	else 
-	  fs.or(self.First0(p.sym.struct, mark))
+	  fs.or(self.First0(p.sym.graph, mark))
 	end
       when Node::T, Node::Wt then
 	fs.set(p.sym.n)
@@ -758,7 +770,7 @@ class Tab
     end
 
     Sym.each_nonterminal do |sym|
-      @@first[sym.n-Sym.firstNt].ts = self.First(sym.struct)
+      @@first[sym.n-Sym.firstNt].ts = self.First(sym.graph)
       @@first[sym.n-Sym.firstNt].ready = true
     end
   end
@@ -787,7 +799,8 @@ class Tab
     if (!@@visited.get(i)) then
       @@visited.set(i)
       j = 0
-      while (j<=Sym.lastNt-Sym.firstNt) do # for all nonterminals
+      max = Sym.nonterminal_count - 1
+      while (j <= max) do # for all nonterminals
 	if (@@follow[i].nts.get(j)) then
 	  Complete(j)
 	  @@follow[i].ts.or(@@follow[j].ts)
@@ -802,27 +815,26 @@ class Tab
 
   def self.CompFollowSets
     s = nil
-    @@curSy = Sym.firstNt
-    while (@@curSy<=Sym.lastNt) do
+    Sym.each_nonterminal do |sym|
+      @@curSy = sym # FIX: bad use of globals
       s = FollowSet.new()
       s.ts = BitSet.new()
       s.nts = BitSet.new()
-      @@follow[@@curSy-Sym.firstNt] = s
-      @@curSy += 1
+      @@follow[@@curSy.n-Sym.firstNt] = s
     end
 
     @@visited = BitSet.new()
 
     Sym.each_nonterminal do |sym|
       @@curSy = sym # FIX: this is a bad use of globals!
-      CompFollow(sym.struct)
+      CompFollow(sym.graph)
     end
 
-    # FIX: this makes no sense
     @@curSy = 0
-    while (@@curSy<=Sym.lastNt-Sym.firstNt) do # add indirect successors to follow.ts
+    max = Sym.nonterminal_count - 1 # FIX: this is still terrible
+    while (@@curSy<=max) do # add indirect successors to follow.ts
       @@visited = BitSet.new()
-      Complete(@@curSy)
+      Complete(@@curSy) # FIX
       @@curSy += 1
     end
   end
@@ -884,7 +896,7 @@ class Tab
   def self.CompAnySets()
     Sym.each_nonterminal do |sym|
       @@curSy = sym # FIX : bad use of globals
-      FindAS(sym.struct)
+      FindAS(sym.graph)
     end
   end
 
@@ -902,7 +914,7 @@ class Tab
       @@visited.set(p.n)
       if (p.typ==Node::Sync) then
 	s = Expected(p.nxt, @@curSy)
-	s.set(EofSy)
+	s.set(Sym::EofSy)
 	@@set[0].or(s)
 	p.set = NewSet(s)
       elsif (p.typ==Node::Alt) then
@@ -920,7 +932,7 @@ class Tab
 
     Sym.each_nonterminal do |sym|
       @@curSy = sym # FIX: bad use of global
-      CompSync(sym.struct)
+      CompSync(sym.graph)
     end
   end
 
@@ -931,7 +943,7 @@ class Tab
       changed = false
 
       Sym.each_nonterminal do |sym|
-	if (!sym.deletable && Node.DelGraph(sym.struct)) then
+	if (!sym.deletable && Node.DelGraph(sym.graph)) then
 	  sym.deletable = true
 	  changed = true
 	end
@@ -946,26 +958,14 @@ class Tab
     end
   end
 
-  @@stupidhack=true # HACK HACK HACK
-  def self.MovePragmas
-    if @@stupidhack then
-      Sym.maxP = index = Sym.terminal_count - 1
-      Sym.each_pragma do |sym|
-	Sym.maxP += 1
-	sym.n = Sym.maxP
-      end
-      @@stupidhack=false
-    end
-  end
-
   def self.CompSymbolSets
     i = Sym.new(Node::T, "???", 0)
     # unknown symbols get code Sym.maxT
-    MovePragmas()
+    Sym.MovePragmas()
     CompDeletableSymbols()
 
-    @@first = Array.new(Sym.lastNt-Sym.firstNt+1)
-    @@follow = Array.new(Sym.lastNt-Sym.firstNt+1)
+    @@first  = Array.new(Sym.nonterminal_count)
+    @@follow = Array.new(Sym.nonterminal_count)
 
     CompFirstSets()
     CompFollowSets()
@@ -1032,7 +1032,7 @@ class Tab
 
     Sym.each_nonterminal do |sym1|
       singles = BitSet.new()
-      GetSingles(sym1.struct, singles)
+      GetSingles(sym1.graph, singles)
       # get nts such that i-->j
       Sym.each_nonterminal do |sym2|
 	if (singles.get(sym2.n)) then
@@ -1148,7 +1148,7 @@ class Tab
     
     Sym.each_nonterminal do |sym|
       @@curSy = sym # FIX: bad use of globals
-      ll1 = false if AltOverlap(sym.struct)
+      ll1 = false if AltOverlap(sym.graph)
     end
 
     return ll1
@@ -1158,7 +1158,7 @@ class Tab
     complete = true
     
     Sym.each_nonterminal do |sym|
-      if (sym.struct.nil?) then
+      if (sym.graph.nil?) then
 	complete = false
 	puts("  No production for #{sym.name}")
       end
@@ -1172,7 +1172,7 @@ class Tab
       if (p.typ==Node::Nt) then
 	if (!@@visited.get(p.sym.n)) then # new nt reached
 	  @@visited.set(p.sym.n)
-	  MarkReachedNts(p.sym.struct)
+	  MarkReachedNts(p.sym.graph)
 	end
       elsif (p.typ==Node::Alt || p.typ==Node::Iter || p.typ==Node::Opt) then
 	MarkReachedNts(p.sub)
@@ -1189,7 +1189,7 @@ class Tab
     @@visited = BitSet.new()
     @@visited.set(@@gramSy.n)
 
-    MarkReachedNts(@@gramSy.struct)
+    MarkReachedNts(@@gramSy.graph)
 
     Sym.each_nonterminal do |sym|
       if (!@@visited.get(sym.n)) then
@@ -1222,7 +1222,7 @@ class Tab
     begin
       changed = false
       Sym.each_nonterminal do |sym|
-	if (!@@termNt.get(sym.n) && Term(sym.struct)) then
+	if (!@@termNt.get(sym.n) && Term(sym.graph)) then
 	  @@termNt.set(sym.n)
 	  changed = true
 	end
@@ -1251,18 +1251,18 @@ class Tab
 	Trace.print(" true  ")
       end
 
-      struct = sym.struct
-      case struct
+      graph = sym.graph
+      case graph
       when NilClass
-	struct = 0
+	graph = 0
       when Fixnum
       when Node
-	struct = struct.n
+	graph = graph.n
       else
 	raise "struct broken!!!"
       end
 
-      Trace.print(sprintf("%5d", struct))
+      Trace.print(sprintf("%5d", graph))
       if (sym.deletable) then
 	Trace.print(" true  ")
       else
@@ -1309,12 +1309,12 @@ class Tab
   def self.XRef
 
     sym = n = p = q = x = nil
-    list = Array.new(Sym.lastNt + 1) # XNode[] list = new XNode[Sym.lastNt+1]
+    list = []
     i = col = 0
     
     return if (Sym.terminal_count <= 0) 
 
-    MovePragmas()
+    Sym.MovePragmas()
 
     # search lines where symbol has been referenced
     Node.each do |n|

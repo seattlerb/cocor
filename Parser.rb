@@ -24,10 +24,10 @@ class Parser
 	private; def Parser.MatchLiteral(sym) # store string either as token or as literal
 		sym2 = DFA.MatchedDFA(sym.name, sym)
 		if (sym2.nil?)
-		  sym.struct = Tab::ClassToken
+		  sym.graph = Sym::ClassToken
 		else 
-		  sym2.struct = Tab::ClassLitToken
-		  sym.struct = Tab::LitToken
+		  sym2.graph = Sym::ClassLitToken
+		  sym.graph = Sym::LitToken
 		end
 	end
 	
@@ -35,7 +35,7 @@ class Parser
 		until (p.nil?)
 			# TODO: make a case statement or refactor better
 			if (p.typ==Node::Chr || p.typ==Node::Clas) then
-				p.code = Tab::ContextTrans
+				p.code = Node::ContextTrans
 			elsif (p.typ==Node::Opt || p.typ==Node::Iter) then
 				SetCtx(p.sub)
 			elsif (p.typ==Node::Alt) then
@@ -293,7 +293,7 @@ end
 			end
 			s = self.Symbol()
 			sp = Sym.FindSym(s.name)
-				   undefined = sp==Tab::NoSym
+				   undefined = sp==Sym::NoSym
                                    if (undefined) then
                                        if (s.kind==@@ident) then
                                            sp = Sym.new(Node::Nt, s.name, 0) # forward nt
@@ -369,7 +369,7 @@ end
 
 			Get()
 			set = Sets.FullSet(Tab::MaxTerminals)
-                                   set.clear(Tab::EofSy)
+                                   set.clear(Sym::EofSy)
                                    g.l = Node.new(Node::Any, Tab.NewSet(set), 0)
                                    g.r = g.l
 				 
@@ -497,12 +497,12 @@ end
 				   sp = 0
 				 
 		s = self.Symbol()
-		if (Sym.FindSym(s.name) != Tab::NoSym) then
+		if (Sym.FindSym(s.name) != Sym::NoSym) then
 				     SemErr(7)
 				     sp = 0
                                    else
                                      sp = Sym.new(typ, s.name, @token.line)
-                                     sp.struct = Tab::ClassToken
+                                     sp.graph = Sym::ClassToken
                                    end
 				 
 		while (!(StartOf(10))); Error(51); Get(); end
@@ -760,12 +760,12 @@ end
 		while (@t.kind==1)
 			Get()
 			sym = Sym.FindSym(@token.val)
-                                   undefined = sym == Tab::NoSym
+                                   undefined = sym == Sym::NoSym
                                    if (undefined) then
                                        sym = Sym.new(Node::Nt, @token.val, @token.line)
                                    else 
                                        if (sym.typ==Node::Nt) then
-					    if !sym.struct.nil? then
+					    if !sym.graph.nil? then
 						SemErr(7)
 					   end
                                        else
@@ -795,7 +795,7 @@ end
 			end
 			ExpectWeak(7, 19)
 			g = self.Expression()
-			sym.struct = g.l
+			sym.graph = g.l
                                    Graph.CompleteGraph(g.r)
 				
 			ExpectWeak(8, 20)
@@ -804,7 +804,7 @@ end
 				     Node.PrintGraph()
 				   end
                                    Tab.gramSy = Sym.FindSym(gramName)
-                                   if (Tab.gramSy==Tab::NoSym) then
+                                   if (Tab.gramSy==Sym::NoSym) then
 				       SemErr(11)
                                    else
                                        sym = Tab.gramSy

@@ -56,7 +56,7 @@ class State				# state of finite automaton
   def initialize
     self.class.lastNr += 1
     @nr = self.class.lastNr
-    @endOf = Tab::NoSym
+    @endOf = Sym::NoSym
     @ctx = false
     @firstAction = @nxt = nil
   end
@@ -196,8 +196,8 @@ class Action			# action of finite automaton
       p=p.nxt
     end
 
-    if (a.tc==Tab::ContextTrans) then
-      @tc = Tab::ContextTrans
+    if (a.tc==Node::ContextTrans) then
+      @tc = Node::ContextTrans
     end
   end
 
@@ -241,7 +241,7 @@ class Action			# action of finite automaton
     stateNr=0
     states = StateSet.new
     states.set = BitSet.new		# FIX: violation of encapsulation
-    states.endOf = Tab::NoSym
+    states.endOf = Sym::NoSym
     states.ctx = false
     states.correct = true
 
@@ -254,8 +254,8 @@ class Action			# action of finite automaton
       else
 	states.set.or(Melted.Set(stateNr))
       end
-      if (t.state.endOf!=Tab::NoSym) then
-	if (states.endOf==Tab::NoSym || states.endOf==t.state.endOf) then
+      if (t.state.endOf!=Sym::NoSym) then
+	if (states.endOf==Sym::NoSym || states.endOf==t.state.endOf) then
 	  states.endOf = t.state.endOf
 	else
 	  $stderr.puts("Tokens #{states.endOf} and #{t.state.endOf} cannot be distinguished")
@@ -269,7 +269,7 @@ class Action			# action of finite automaton
 	# s1 = "a" "b" "c".
 	# s2 = "a" CONTEXT("b").
 	# But this is ok.
-	# if (t.state.endOf!=Tab::NoSym) {
+	# if (t.state.endOf!=Sym::NoSym) {
 	# $stderr.puts("Ambiguous context clause")
 	# states.correct = false
       end
@@ -573,7 +573,7 @@ class DFA
     # combine equal final states
     s1=@@firstState.nxt
     until (s1.nil?) do # firstState cannot be final
-      if (used.get(s1.nr) && s1.endOf != Tab::NoSym && s1.firstAction.nil? && !s1.ctx) then
+      if (used.get(s1.nr) && s1.endOf != Sym::NoSym && s1.firstAction.nil? && !s1.ctx) then
 	s2=s1.nxt
 	until (s2.nil?) do
 	  if (used.get(s2.nr) && s1.endOf == s2.endOf && s2.firstAction.nil? && !s2.ctx) then
@@ -745,13 +745,13 @@ class DFA
 
     while (i<len) do # make new DFA for s[i..len-1]
       to = NewState()
-      NewTransition(state, to, Node::Chr, s[i], Tab::NormTrans)
+      NewTransition(state, to, Node::Chr, s[i], Node::NormTrans)
       state = to
       i += 1
     end
 
     matchedSp = state.endOf
-    if (state.endOf==Tab::NoSym) then
+    if (state.endOf==Sym::NoSym) then
       state.endOf = sp
     end
 
@@ -870,7 +870,7 @@ class DFA
     until (state.nil?) do
       a = state.firstAction
       until (a.nil?) do
-	if a.tc == Tab::ContextTrans then
+	if a.tc == Node::ContextTrans then
 	  a.target.state.ctx = true
 	end
 	a=a.nxt
@@ -920,7 +920,7 @@ class DFA
     while (state!=nil) do
       first = true
 
-      if (state.endOf == Tab::NoSym) then
+      if (state.endOf == Sym::NoSym) then
 	Trace.print("     ")
       else
 	Trace.print("E(#{sprintf('%2d', state.endOf.n)[0..1]})")
@@ -949,7 +949,7 @@ class DFA
 	targ=action.target
 	while (targ!=nil) do
 	  Trace.print(" #{targ.state.nr}")
-	  if (action.tc==Tab::ContextTrans) then
+	  if (action.tc==Node::ContextTrans) then
 	    Trace.println(" context")
 	  else
 	    Trace.println()
@@ -1065,7 +1065,7 @@ class DFA
     k = 0
 
     Sym.each_terminal do |sym|
-      if (sym.struct==Tab::LitToken) then
+      if (sym.graph==Sym::LitToken) then
 	j = k-1
 	while (j>=0 && ((sym.name <=> key[j]) < 0)) do
 	  key[j+1] = key[j]
@@ -1122,7 +1122,7 @@ class DFA
       if (action.target.state != state) then
 	@@gen.println("state = #{action.target.state.nr}")
       end
-      if (action.tc == Tab::ContextTrans) then
+      if (action.tc == Node::ContextTrans) then
 	@@gen.println("apx += 1")
 	ctxEnd = false
       elsif (state.ctx) then
@@ -1133,7 +1133,7 @@ class DFA
 
     @@gen.println("\t\t\t\t\telse") unless state.firstAction.nil?
 
-    if (endOf==Tab::NoSym) then
+    if (endOf==Sym::NoSym) then
       @@gen.println("@@t.kind = @@noSym; break; end")
     else # final state
       if (state.firstAction.nil?) then
@@ -1155,7 +1155,7 @@ class DFA
 	@@gen.print(  "\t\t\t\t\t\t")
       end
       @@gen.println("@@t.kind = #{endOf}")
-      if (sym.struct==Tab::ClassLitToken) then
+      if (sym.graph==Sym::ClassLitToken) then
 	@@gen.println("@@t.val = buf.to_s; CheckLiteral()")
       end
       @@gen.println("break")

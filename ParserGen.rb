@@ -376,7 +376,7 @@ class ParserGen
       @@gen.println(")")
 
       CopySourcePart(sym.semPos, 2)
-      GenCode(sym.struct, 2, BitSet.new)
+      GenCode(sym.graph, 2, BitSet.new)
 
       @@gen.println("\t\treturn " + sym.retVar) if (sym.retVar!=nil)
       @@gen.println("\tend")
@@ -446,7 +446,6 @@ class ParserGen
     @@gen.println();
     CopyFramePart("-->constants");
     @@gen.println("\tprivate; MaxT = #{Sym.terminal_count-1}");
-# HACK    @@gen.println("\tprivate; MaxP = " + Sym.maxP.to_s);
     CopyFramePart("-->declarations");
     CopySourcePart(Tab.semDeclPos, 0);
     CopyFramePart("-->pragmas");
