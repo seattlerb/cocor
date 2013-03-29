@@ -36,7 +36,7 @@ FEATURES/PROBLEMS:
 - Needs actual tests.
 - Probably lots of other bad things... I'd love feedback.
 
-SYNOPSYS:
+SYNOPSIS:
 
   None yet...
 
